@@ -9,8 +9,8 @@ import scala.collection.JavaConversions._
 import scala.util.Try
 
 trait UPnPSettings {
-  val upnpGatewayTimeout: Option[Int]
-  val upnpDiscoverTimeout: Option[Int]
+  val upnpGatewayTimeoutOpt: Option[Int]
+  val upnpDiscoverTimeoutOpt: Option[Int]
 }
 
 class UPnP(settings:UPnPSettings) extends Logging {
@@ -22,10 +22,10 @@ class UPnP(settings:UPnPSettings) extends Logging {
 
   Try {
     log.info("Looking for UPnP gateway device...")
-    val defaultHttpReadTimeout = settings.upnpGatewayTimeout.getOrElse(GatewayDevice.getHttpReadTimeout)
+    val defaultHttpReadTimeout = settings.upnpGatewayTimeoutOpt.getOrElse(GatewayDevice.getHttpReadTimeout)
     GatewayDevice.setHttpReadTimeout(defaultHttpReadTimeout)
     val discover = new GatewayDiscover()
-    val defaultDiscoverTimeout = settings.upnpDiscoverTimeout.getOrElse(discover.getTimeout)
+    val defaultDiscoverTimeout = settings.upnpDiscoverTimeoutOpt.getOrElse(discover.getTimeout)
     discover.setTimeout(defaultDiscoverTimeout)
 
     val gatewayMap = Option(discover.discover).map(_.toMap).getOrElse(Map())

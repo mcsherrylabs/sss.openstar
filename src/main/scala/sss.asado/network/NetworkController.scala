@@ -1,50 +1,49 @@
 package sss.asado.network
 
-import java.net.{InetAddress, InetSocketAddress, NetworkInterface, URI}
+import java.net.{InetAddress, InetSocketAddress}
 
 import akka.actor._
+import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
-import akka.util.Timeout
 import sss.ancillary.Logging
 
-import scala.collection.JavaConversions._
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Random, Try}
 
 /**
   * Control all network interaction
   * must be singleton
   */
 trait BindControllerSettings {
-  implicit val timeout : Timeout
+
   val applicationName: String
-  val nodeNonce: Int
   val bindAddress: String = "0.0.0.0"
   val port: Int = 8084
-  val declaredAddress: Option[String]
+  val declaredAddressOpt: Option[String]
   val connectionTimeout: Int = 60
-  val localOnly = false
-  val appVersion: ApplicationVersion
+  val localOnly: Boolean = false
+  val appVersion: String
 }
 
-class NetworkController(messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP] = None) extends Actor with Logging {
+class NetworkController(messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with Logging {
 
   import NetworkController._
   import context.system
 
+  val nodeNonce: Int = Random.nextInt()
   val handshakeTemplate = Handshake(settings.applicationName,
-    settings.appVersion,
+    ApplicationVersion(settings.appVersion),
     ownSocketAddress.getAddress.toString,
     ownSocketAddress.getPort,
-    settings.nodeNonce,
+    nodeNonce,
     0
   )
 
   //check own declared address for validity
-  require(NetworkUtil.isAddressValid(settings.declaredAddress), upnp)
+  require(NetworkUtil.isAddressValid(settings.declaredAddressOpt), upnp)
 
-  lazy val externalSocketAddress = settings.declaredAddress
+  lazy val externalSocketAddress = settings.declaredAddressOpt
     .flatMap(s => Try(InetAddress.getByName(s)).toOption)
     .orElse {
       if (upnp.isDefined) upnp.get.externalAddress else None
@@ -60,7 +59,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
   IO(Tcp) ! Bind(self, localAddress)
 
-  private def manageNetwork(connected: Set[ConnectedPeer]): Receive = {
+  private def manageNetwork: Receive = {
 
     case b@Bound(localAddr) =>
       log.info("Successfully bound to the port " + settings.port)
@@ -70,11 +69,14 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
       context stop self
 
     case ConnectTo(remote) =>
-      IO(Tcp) ! Connect(remote, localAddress = None, timeout = connTimeout, pullMode = true)
+      peerList().find(_.address == remote) match {
+      case None => IO(Tcp) ! Connect(remote, localAddress = None, timeout = connTimeout, pullMode = true)
+      case Some(p) => log.debug(s"already connected to $p")
+    }
 
     case c@Connected(remote, local) =>
       val connection = sender()
-      val handler = createConnectionHandler(connection, remote, settings.nodeNonce)
+      val handler = createConnectionHandler(connection, remote, nodeNonce)
       context watch handler
       connection ! Register(handler, keepOpenOnPeerClosed = false, useResumeWriting = true)
       handler ! handshakeTemplate.copy(time = System.currentTimeMillis() / 1000)
@@ -82,17 +84,13 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
     case Terminated(ref) =>
       log.debug(s"We are disconnected from  $ref")
-      connected.find(_.handlerRef == ref).map { cp =>
-        messageRouter ! LostConnection(cp.address)
-        context.become(manageNetwork(connected - cp))
-      }
+      peerList.send(_.filterNot(_.handlerRef == ref))
 
 
-    case p@ConnectedPeer(addr, hndlr) => {
+    case p@ConnectedPeer(addr, hndlr) =>
       log.debug(s"We are connected to  $p")
-      messageRouter ! NewConnection(addr)
-      context.become(manageNetwork(connected + p))
-    }
+      peerList.send(_ + p)
+
 
     case ShutdownNetwork =>
       log.info("Going to shutdown all connections & unbind port")
@@ -105,13 +103,13 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
     case CommandFailed(cmd: Tcp.Command) =>
       log.info(s"Failed to execute command : $cmd")
 
-    case SendToNetwork(nm, strategy) => strategy(connected) foreach(cp => cp.handlerRef ! nm)
+    case SendToNetwork(nm, strategy) => strategy(peerList()) foreach(cp => cp.handlerRef ! nm)
 
-    case e @ NetworkMessage(msgCode, bytes) => {
+    case e @ NetworkMessage(msgCode, bytes) =>
       // allow receiver to reply directly to connection
       // but route through here to avoid coupling message router with connection handler
       messageRouter forward e
-    }
+
 
     case nonsense: Any =>
       log.warn(s"NetworkController: got something strange $nonsense")
@@ -121,7 +119,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
     context.actorOf(Props(classOf[ConnectionHandler], connection, remoteAddress, nodeNonce.toLong))
   }
 
-  override def receive: Receive = manageNetwork(Set.empty)
+  override def receive: Receive = manageNetwork
 }
 
 object NetworkController {
@@ -132,35 +130,4 @@ object NetworkController {
 
 }
 
-object NetworkUtil extends Logging {
-
-  def isAddressValid(declaredAddress: Option[String], upnpOpt: Option[UPnP] = None): Boolean = {
-    //check own declared address for validity
-
-    declaredAddress.map { myAddress =>
-      Try {
-        val uri = new URI("http://" + myAddress)
-        val myHost = uri.getHost
-        val myAddrs = InetAddress.getAllByName(myHost)
-
-        NetworkInterface.getNetworkInterfaces.exists { intf =>
-          intf.getInterfaceAddresses.exists { intfAddr =>
-            val extAddr = intfAddr.getAddress
-            myAddrs.contains(extAddr)
-          }
-        } match {
-          case true => true
-          case false => upnpOpt.map { upnp =>
-              val extAddr = upnp.externalAddress
-              myAddrs.contains(extAddr)
-            }.getOrElse(false)
-        }
-      }.recover { case t: Throwable =>
-        log.error("Declared address validation failed: ", t)
-        false
-      }.getOrElse(false)
-    }.getOrElse(true).ensuring(_ == true, "Declared address isn't valid")
-  }
-
-}
 

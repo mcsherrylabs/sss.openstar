@@ -11,6 +11,12 @@ case class ApplicationVersion(firstDigit: Int, secondDigit: Int, thirdDigit: Int
 object ApplicationVersion {
   val SerializedVersionLength = 4 * 3
 
+  def apply(ver: String): ApplicationVersion = {
+    val digits = ver.split("\\.")
+    require(digits.length == 3, "The Application Version must be of the form x.x.x")
+    ApplicationVersion(digits(0).toInt, digits(1).toInt, digits(2).toInt)
+  }
+
   def parse(bytes: Array[Byte]): Try[ApplicationVersion] = Try {
     require(bytes.length == SerializedVersionLength, "Wrong bytes for application version")
     ApplicationVersion(

@@ -1,5 +1,7 @@
 enablePlugins(JavaAppPackaging)
 
+scalacOptions += "-target:jvm-1.8"
+
 name := "sss.asado"
 
 version := "1.0"

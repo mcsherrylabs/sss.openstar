@@ -1,35 +1,24 @@
 package sss.asado.network
 
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
 
 import akka.actor.{Actor, ActorRef, SupervisorStrategy}
 import akka.io.Tcp
 import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
-import com.google.common.primitives.{Bytes, Ints}
-import sss.asado.hash.FastCryptographicHash._
 import sss.ancillary.Logging
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
-
-case class NewConnection(addr:InetSocketAddress)
-case class LostConnection(addr:InetSocketAddress)
-case class ConnectedPeer(address: InetSocketAddress, handlerRef: ActorRef) {
-
-  import shapeless.Typeable._
-  override def equals(obj: scala.Any): Boolean = obj.cast[ConnectedPeer].exists(_.address == this.address)
-}
-
+case class ConnectedPeer(address: InetSocketAddress, handlerRef: ActorRef)
+case class NetworkMessage(msgCode: Byte, data: Array[Byte])
+case object CloseConnection
 
 //todo: timeout on Ack waiting
 class ConnectionHandler(
                                  connection: ActorRef,
                                  remote: InetSocketAddress,
                                  ownNonce: Long) extends Actor with Buffering with Logging with Protocol {
-
-  import PeerConnectionHandler._
 
   val selfPeer = new ConnectedPeer(remote, self)
 
@@ -43,10 +32,6 @@ class ConnectionHandler(
   private def processErrors: Receive = {
     case CommandFailed(w: Write) =>
       log.warn(s"Write failed :$w $remote")
-      //todo: blacklisting
-      //peerManager.blacklistPeer(remote)
-      //connection ! Close
-
       connection ! ResumeReading
 
     case cc: ConnectionClosed =>
@@ -63,6 +48,9 @@ class ConnectionHandler(
   }
 
 
+  private val sentHandShake, gotHandShake = true
+  private val handShakeNotSent, noHandShakeReceived = false
+
   private def handshake(sentHandShake: Boolean, gotHandShake: Boolean): Receive = {
 
     case h: Handshake =>
@@ -70,8 +58,8 @@ class ConnectionHandler(
       log.info(s"Handshake sent to $remote")
       if(gotHandShake) {
         context.parent ! ConnectedPeer(remote, self)
-        context become(working)
-      } else context become(handshake(true, false))
+        context become working
+      } else context become handshake(sentHandShake, noHandShakeReceived)
 
     case Received(data) =>
       Handshake.parse(data.toArray) match {
@@ -83,8 +71,8 @@ class ConnectionHandler(
 
             if(sentHandShake) {
               context.parent ! ConnectedPeer(remote, self)
-              context become(working)
-            } else context.become(handshake(false, true))
+              context become working
+            } else context.become(handshake(handShakeNotSent, gotHandShake))
 
           } else {
             log.info(s"Got a handshake from myself?!")
@@ -133,68 +121,6 @@ class ConnectionHandler(
         log.warn(s"Strange input for ConnectionHandler: $nonsense")
     }: Receive)
 
-  override def receive: Receive = handshake(false, false)
+  override def receive: Receive = handshake(handShakeNotSent, noHandShakeReceived)
 }
 
-object PeerConnectionHandler {
-
-  private object CommunicationState extends Enumeration {
-    type CommunicationState = Value
-
-    val AwaitingHandshake = Value("AwaitingHandshake")
-    val WorkingCycle = Value("WorkingCycle")
-  }
-
-  case object CloseConnection
-  case object Blacklist
-}
-
-
-case class NetworkMessage(msgCode: Byte, data: Array[Byte])
-
-trait Protocol {
-
-  def toWire(networkMessage: NetworkMessage):ByteString = {
-    toWire(networkMessage.msgCode, networkMessage.data)
-  }
-
-  def toWire(msgCode: Byte, dataBytes:Array[Byte]):ByteString = {
-
-    val dataLength: Int = dataBytes.length
-    val dataWithChecksum = if (dataLength > 0) {
-        val checksum = hash(dataBytes).take(Message.ChecksumLength)
-        Bytes.concat(checksum, dataBytes)
-    } else dataBytes //empty array
-
-    val bytes = Message.MAGIC ++ Array(msgCode) ++ Ints.toByteArray(dataLength) ++ dataWithChecksum
-    ByteString(Ints.toByteArray(bytes.length) ++ bytes)
-  }
-
-  def fromWire(bytes: ByteBuffer): Try[NetworkMessage] = Try {
-    val magic = new Array[Byte](Message.MagicLength)
-    bytes.get(magic)
-
-    assert(magic.sameElements(Message.MAGIC), "Wrong magic bytes" + magic.mkString)
-
-    val msgCode = bytes.get
-
-    val length = bytes.getInt
-    assert(length >= 0, "Data length is negative!")
-
-    val data = new Array[Byte](length)
-    //READ CHECKSUM
-    val checksum = new Array[Byte](Message.ChecksumLength)
-    bytes.get(checksum)
-
-    //READ DATA
-    bytes.get(data)
-
-    //VALIDATE CHECKSUM
-    val digest = hash(data).take(Message.ChecksumLength)
-
-    //CHECK IF CHECKSUM MATCHES
-    assert(checksum.sameElements(digest), s"Invalid data checksum length = $length")
-
-    NetworkMessage(msgCode, data)
-  }
-}
