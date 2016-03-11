@@ -1,7 +1,7 @@
 # sss.asado
 A Scala Based Distributed Ledger
 
-[![Build Status](https://travis-ci.org/mcsherrylabs/sss.asado.svg?branch=master)](https://travis-ci.org/mcsherrylabs/sss.asado)
+[![Build Status](https://travis-ci.org/mcsherrylabs/sss.asado.svg?branch=master)](https://travis-ci.org/mcsherrylabs/sss.asado) https://pbs.twimg.com/media/CdN_t-bWoAAhglp.jpg:large
 
 Building up the compenents of a blockchain in scala.
 
