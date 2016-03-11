@@ -9,7 +9,7 @@ import ledger.{TxIdLen, TxIndex}
   */
 object TxIndexSerializer extends Serializer[TxIndex]{
 
-  override def toBytes(t: TxIndex): Array[Byte] = t.txId.array ++ Ints.toByteArray(t.index)
+  override def toBytes(t: TxIndex): Array[Byte] = t.txId ++ Ints.toByteArray(t.index)
 
   override def fromBytes(b: Array[Byte]): TxIndex = {
     val (id, indexBytes) = b.splitAt(TxIdLen)

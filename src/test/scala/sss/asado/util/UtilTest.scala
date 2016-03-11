@@ -22,9 +22,9 @@ class UtilTest extends FlatSpec with Matchers {
 
     val msg = "Holy guacamole, it's a message from Zod"
     val wrongMsg = "Hly guacamole, it's a message from Zod"
-    val sig = EllipticCurveCrypto.sign(pkPair.privateKey.array, msg.getBytes)
-    assert(EllipticCurveCrypto.verify(sig, msg.getBytes, pkPair.publicKey.array))
-    assert(!EllipticCurveCrypto.verify(sig, wrongMsg.getBytes, pkPair.publicKey.array))
+    val sig = EllipticCurveCrypto.sign(pkPair.privateKey, msg.getBytes)
+    assert(EllipticCurveCrypto.verify(sig, msg.getBytes, pkPair.publicKey))
+    assert(!EllipticCurveCrypto.verify(sig, wrongMsg.getBytes, pkPair.publicKey))
 
   }
 

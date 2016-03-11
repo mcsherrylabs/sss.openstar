@@ -14,11 +14,11 @@ class DBStorage(ledgerDbConfigName: String) extends Storage[TxId, SignedTx] {
     }.toSet
   }
 
-  def get(id: TxId): Option[SignedTx] = ledgerTable.find(Where("txid = ?", id.array)).map(r => r[Array[Byte]]("entry").toSignedTx)
+  def get(id: TxId): Option[SignedTx] = ledgerTable.find(Where("txid = ?", id)).map(r => r[Array[Byte]]("entry").toSignedTx)
 
   def write(le: SignedTx): Unit = {
     val bs = le.toBytes
-    ledgerTable.insert(Map("txid" -> le.tx.txId.array, "entry" -> bs))
+    ledgerTable.insert(Map("txid" -> le.tx.txId, "entry" -> bs))
   }
 
 }

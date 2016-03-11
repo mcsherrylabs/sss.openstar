@@ -1,12 +1,10 @@
 package sss.asado.account
 
-import sss.asado.util.{SeedBytes, EllipticCurveCrypto}
+import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 
-import scala.collection.mutable
-
-case class PrivateKeyAccount(seed: mutable.WrappedArray[Byte],
-                             privateKey: mutable.WrappedArray[Byte],
-                             override val publicKey: mutable.WrappedArray[Byte])
+case class PrivateKeyAccount(seed: Array[Byte],
+                             privateKey: Array[Byte],
+                             override val publicKey: Array[Byte])
   extends PublicKeyAccount(publicKey) {
   override val address = Account.fromPubkey(publicKey)
 }

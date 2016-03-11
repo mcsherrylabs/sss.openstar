@@ -12,7 +12,7 @@ import sss.asado.util.SeedBytes
 class TxInputTest extends FlatSpec with Matchers {
 
   val randomTxId: TxId = SeedBytes(32)
-  val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId.array, randomTxId.length)
+  val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId, randomTxId.length)
   val txIndex = TxIndex(randomTxId, 3456)
   val txInput = TxInput(txIndex, 33, PrivateKeySig)
 

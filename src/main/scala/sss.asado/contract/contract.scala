@@ -1,4 +1,4 @@
-import scala.collection.mutable
+
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -12,9 +12,6 @@ package object contract {
   trait Encumbrance extends Contract {
     def decumber(params: Seq[Array[Byte]], decumberence: Decumbrance): Boolean
   }
-
-  type PublicKey = mutable.WrappedArray[Byte]
-
 
   case object NullDecumbrance extends Decumbrance
   case object NullEncumbrance extends Encumbrance {

@@ -1,7 +1,7 @@
 package sss.asado.util
 
-import scorex.crypto.singing.Curve25519
-import scorex.crypto.singing.SigningFunctions.{MessageToSign, Signature}
+import scorex.crypto.signatures.Curve25519
+import scorex.crypto.signatures.SigningFunctions.{Signature, MessageToSign}
 import sss.asado.account.PrivateKeyAccount
 
 /**
@@ -11,5 +11,5 @@ import sss.asado.account.PrivateKeyAccount
   * big signature size).
   */
 object EllipticCurveCrypto extends Curve25519 {
-  def sign(account: PrivateKeyAccount, message: MessageToSign): Signature = sign(account.privateKey.array, message)
+  def sign(account: PrivateKeyAccount, message: MessageToSign): Signature = sign(account.privateKey, message)
 }

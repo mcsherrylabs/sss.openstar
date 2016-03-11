@@ -77,7 +77,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
       val utos = ledger.utxos
       if (utos.size == 0) println(utos.size)
       utos.foreach { uto =>
-        print(new String(uto.txId.array))
+        print(new String(uto.txId))
         println(s", ${uto.index}")
       }
 
@@ -134,7 +134,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
           val tx = StandardTx(Seq(txInput), Seq(txOutput))
           val sig = tx.sign(pka)
           println(tx)
-          sessionData += "tx" -> SignedTx(tx, Seq(sig.array))
+          sessionData += "tx" -> SignedTx(tx, Seq(sig))
 
         }
         case Some(tx) => println(tx)

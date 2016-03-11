@@ -2,7 +2,6 @@ package sss.asado.account
 
 import scorex.crypto.encode.Base58
 import sss.asado.hash.SecureCryptographicHash._
-import scala.collection.mutable
 
 class Account(val address: String) extends Serializable {
 
@@ -29,8 +28,8 @@ object Account {
   /**
     * Create account from public key. Used in PublicKeyAccount/PrivateKeyAccount.
     */
-  def fromPubkey(publicKey: mutable.WrappedArray[Byte]): String = {
-    val publicKeyHash = hash(publicKey.array).take(HashLength)
+  def fromPubkey(publicKey: Array[Byte]): String = {
+    val publicKeyHash = hash(publicKey).take(HashLength)
     val withoutChecksum = AddressVersion +: publicKeyHash //prepend ADDRESS_VERSION
     Base58.encode(withoutChecksum ++ calcCheckSum(withoutChecksum))
   }

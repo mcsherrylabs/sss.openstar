@@ -33,7 +33,7 @@ class ContractTest extends FlatSpec with Matchers {
     val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
     val tx2 = StandardTx(ins2, outs2)
 
-    val sig = EllipticCurveCrypto.sign(pkPair.privateKey.array, tx2.txId.array)
+    val sig = EllipticCurveCrypto.sign(pkPair.privateKey, tx2.txId)
     ledger(SignedTx(tx2,Seq(sig)))
 
   }
@@ -52,7 +52,7 @@ class ContractTest extends FlatSpec with Matchers {
     val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
     val tx2 = StandardTx(ins2, outs2)
 
-    val sig = EllipticCurveCrypto.sign(pkPair.privateKey.array, SeedBytes(10))
+    val sig = EllipticCurveCrypto.sign(pkPair.privateKey, SeedBytes(10))
     intercept[IllegalArgumentException] {
       ledger(SignedTx(tx2, Seq(sig)))
     }
@@ -74,7 +74,7 @@ class ContractTest extends FlatSpec with Matchers {
   val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
   val tx2 = StandardTx(ins2, outs2)
 
-  val sig = EllipticCurveCrypto.sign(wrongPkPair.privateKey.array, tx2.txId.array)
+  val sig = EllipticCurveCrypto.sign(wrongPkPair.privateKey, tx2.txId)
   intercept[IllegalArgumentException] {
     ledger(SignedTx(tx2, Seq(sig)))
   }

@@ -2,24 +2,33 @@ import contract.{Decumbrance, Encumbrance}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.hash.SecureCryptographicHash
 import sss.asado.ledger.serialize._
-import sss.asado.util.EllipticCurveCrypto
-
-import scala.collection.mutable
+import sss.asado.util.{ByteArrayComparisonOps, EllipticCurveCrypto}
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/3/16.
   */
-package object ledger {
+package object ledger extends ByteArrayComparisonOps {
 
-  type TxId = mutable.WrappedArray[Byte]
+
+  type TxId = Array[Byte]
   val TxIdLen = 32
   val TxIndexLen = TxIdLen + 4
-  case class TxIndex(txId: TxId, index: Int)
+  case class TxIndex(txId: TxId, index: Int) {
+    override def equals(obj: scala.Any): Boolean = obj match {
+      case txIndx: TxIndex => txIndx.index == index && txIndx.txId.isSame(txId)
+      case _ => false
+    }
+  }
   case class TxInput(txIndex: TxIndex, amount: Int, sig: Decumbrance)
   case class TxOutput(amount: Int, encumbrance: Encumbrance)
   case class SignedTx(tx: Tx, params: Seq[Array[Byte]] = Seq.empty) {
     lazy val txId = tx.txId
+
+    override def equals(obj: scala.Any): Boolean = obj match {
+      case stx: SignedTx => stx.tx == tx && (stx.params isSame params)
+      case _ => false
+    }
   }
 
   trait Tx {
@@ -35,7 +44,7 @@ package object ledger {
     }
 
     def sign(pkPair: PrivateKeyAccount) =  {
-      EllipticCurveCrypto.sign(pkPair.privateKey.array, txId.array)
+      EllipticCurveCrypto.sign(pkPair.privateKey, txId)
     }
   }
 

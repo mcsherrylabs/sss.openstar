@@ -8,10 +8,13 @@ import sss.asado.util.SeedBytes
   * Created by alan on 2/15/16.
   */
 
-class TxIndexTest extends FlatSpec with Matchers {
 
+class TxIndexTest extends FlatSpec with Matchers   {
+
+
+  type TxId = Array[Byte]
   val randomTxId: TxId = SeedBytes(32)
-  val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId.array, randomTxId.length)
+  val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId, randomTxId.length)
   val txIndex = TxIndex(randomTxId, 3456)
 
   "A TxIndex" should " be parseable to bytes " in {
@@ -31,7 +34,7 @@ class TxIndexTest extends FlatSpec with Matchers {
   " TxIndex case classes created from same elements " should " be equal " in {
     val a = TxIndex(randomTxId, 342)
     val b = TxIndex(copyRandomTxId, 342)
-    assert(randomTxId === copyRandomTxId)
-    assert(a === b)
+    assert(randomTxId.isSame(copyRandomTxId))
+    assert(a.txId.isSame(b.txId))
   }
 }

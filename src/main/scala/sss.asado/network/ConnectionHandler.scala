@@ -48,7 +48,7 @@ class ConnectionHandler(
   }
 
 
-  private val sentHandShake, gotHandShake = true
+  private val sentHandShakeTrue, gotHandShakeTrue = true
   private val handShakeNotSent, noHandShakeReceived = false
 
   private def handshake(sentHandShake: Boolean, gotHandShake: Boolean): Receive = {
@@ -59,7 +59,7 @@ class ConnectionHandler(
       if(gotHandShake) {
         context.parent ! ConnectedPeer(remote, self)
         context become working
-      } else context become handshake(sentHandShake, noHandShakeReceived)
+      } else context become handshake(sentHandShakeTrue, noHandShakeReceived)
 
     case Received(data) =>
       Handshake.parse(data.toArray) match {
@@ -72,7 +72,7 @@ class ConnectionHandler(
             if(sentHandShake) {
               context.parent ! ConnectedPeer(remote, self)
               context become working
-            } else context.become(handshake(handShakeNotSent, gotHandShake))
+            } else context.become(handshake(handShakeNotSent, gotHandShakeTrue))
 
           } else {
             log.info(s"Got a handshake from myself?!")

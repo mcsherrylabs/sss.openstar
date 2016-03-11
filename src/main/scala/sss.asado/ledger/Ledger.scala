@@ -63,7 +63,7 @@ class Ledger(val storage: Storage[TxId, SignedTx]) extends Logging {
           require(exists(in.txIndex))
           require(isUnspent(in.txIndex))
           log.debug(s"${in.txIndex} is unspent")
-          require(l.tx.outs(in.txIndex.index).encumbrance.decumber(txId.array +: stx.params, in.sig))
+          require(l.tx.outs(in.txIndex.index).encumbrance.decumber(txId +: stx.params, in.sig))
         }
       }
     }
