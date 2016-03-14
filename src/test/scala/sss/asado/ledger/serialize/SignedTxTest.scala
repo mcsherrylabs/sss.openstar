@@ -28,19 +28,8 @@ class SignedTxTest extends FlatSpec with Matchers {
   it should " be parseable from bytes to an equal instance " in {
     val bytes: Array[Byte] = stx.toBytes
     val backAgain = bytes.toSignedTx
-    assert(backAgain.tx === stx.tx)
-
-    var i = 0
-    backAgain.params.map { p =>
-      val o = stx.params(i)
-      i = i + 1
-      var j = 0
-      o.foreach { jj =>
-        assert(jj == p(j))
-        j += 1
-      }
-
-    }
+    assert(backAgain === stx)
+    assert(backAgain.hashCode === stx.hashCode)
 
   }
 

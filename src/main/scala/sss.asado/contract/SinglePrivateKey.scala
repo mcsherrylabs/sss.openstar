@@ -17,6 +17,9 @@ case class SinglePrivateKey(pKey: PublicKey) extends Encumbrance with ByteArrayC
     case _ => false
   }
 
+
+  override def hashCode(): Int = pKey.hash
+
   def decumber(params: Seq[Array[Byte]], decumbrance: Decumbrance): Boolean = {
     decumbrance match {
       case PrivateKeySig => {

@@ -19,6 +19,8 @@ package object ledger extends ByteArrayComparisonOps {
       case txIndx: TxIndex => txIndx.index == index && txIndx.txId.isSame(txId)
       case _ => false
     }
+
+    override def hashCode(): Int = (17 + index) * txId.hash
   }
   case class TxInput(txIndex: TxIndex, amount: Int, sig: Decumbrance)
   case class TxOutput(amount: Int, encumbrance: Encumbrance)
@@ -29,6 +31,7 @@ package object ledger extends ByteArrayComparisonOps {
       case stx: SignedTx => stx.tx == tx && (stx.params isSame params)
       case _ => false
     }
+    override def hashCode(): Int = (17 + params.hash) * txId.hash
   }
 
   trait Tx {
