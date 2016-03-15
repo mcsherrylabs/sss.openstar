@@ -3,6 +3,7 @@ package sss.asado
 import akka.actor.{ActorSystem, Props}
 import akka.agent.Agent
 import sss.ancillary.{Configure, DynConfig}
+
 import sss.asado.console.{ConsoleActor, InfoActor, NoRead}
 import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.Register
@@ -23,7 +24,7 @@ object Node extends Configure {
 
   def main(args: Array[String]) {
 
-    println("Asado node starting up ...")
+    println(s"Asado node starting up ...[${args(0)}]")
 
     val nodeConfig = config(args(0))
     val dbConfig = s"${args(0)}.database"
@@ -35,12 +36,14 @@ object Node extends Configure {
 
     val messageRouter = actorSystem.actorOf(Props(classOf[MessageRouter]))
 
-    val uPnp = if(config.hasPath(s"${args(0)}.upnp")) Option(new UPnP(DynConfig[UPnPSettings](s"${args(0)}.upnp")))
-    else None
+    val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, settings, uPnp, peerList))
 
+    //val bcRef = actorSystem.actorOf(Props(classOf[BlockChain], args(0), Seq(1,2), messageRouter))
+
     val ledger = new Ledger(new DBStorage(dbConfig))
+
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, ledger))
 
     val infoRef = actorSystem.actorOf(Props(classOf[InfoActor], messageRouter, ledger ))

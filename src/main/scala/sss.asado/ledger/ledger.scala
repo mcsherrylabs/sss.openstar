@@ -59,7 +59,7 @@ package object ledger extends ByteArrayComparisonOps {
     require(txId.length == TxIdLen)
   }
 
-  implicit class TxIndexTo(t: TxIndex)  extends ToBytes[TxIndex] {
+  implicit class TxIndexTo(t: TxIndex) extends ToBytes[TxIndex] {
     override def toBytes: Array[Byte] = TxIndexSerializer.toBytes(t)
   }
   implicit class TxIndexFrom(b: Array[Byte]) {

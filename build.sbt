@@ -24,7 +24,7 @@ libraryDependencies += "com.google.guava" % "guava" % "15.+"
 
 libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.4"
+libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.5"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.7"
 
