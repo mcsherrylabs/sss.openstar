@@ -26,7 +26,7 @@ libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.+"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.5"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.7"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.9"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
