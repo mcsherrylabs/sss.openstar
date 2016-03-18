@@ -8,17 +8,21 @@ class DBStorage(ledgerDbConfigName: String) extends Storage[TxId, SignedTx] {
 
   private val ledgerTable = Db(ledgerDbConfigName).table("ledger")
 
-  def entries: Set[SignedTx] = {
+  override def entries: Set[SignedTx] = {
     ledgerTable.map { row =>
       row[Array[Byte]]("entry").toSignedTx
     }.toSet
   }
 
-  def get(id: TxId): Option[SignedTx] = ledgerTable.find(Where("txid = ?", id)).map(r => r[Array[Byte]]("entry").toSignedTx)
+  override def inTransaction(f: => Unit): Unit = ledgerTable.inTransaction[Unit] _
 
-  def write(le: SignedTx): Unit = {
+  override def get(id: TxId): Option[SignedTx] = ledgerTable.find(Where("txid = ?", id)).map(r => r[Array[Byte]]("entry").toSignedTx)
+
+  override def delete(id: TxId): Boolean = ledgerTable.delete(Where("txid = ?", id)) == 1
+
+  override def write(k: TxId, le: SignedTx): Unit = {
     val bs = le.toBytes
-    ledgerTable.insert(Map("txid" -> le.tx.txId, "entry" -> bs))
+    ledgerTable.insert(Map("txid" -> k, "entry" -> bs))
   }
 
 }

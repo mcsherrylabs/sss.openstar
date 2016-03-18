@@ -4,7 +4,7 @@ import contract.{NullDecumbrance, NullEncumbrance}
 import ledger._
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.ledger.Ledger
+import sss.asado.ledger.UTXOLedger
 import sss.asado.storage.MemoryStorage
 import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 
@@ -22,7 +22,7 @@ class ContractTest extends FlatSpec with Matchers {
 
   "A single sig " should " unlock a single key contract " in {
 
-    val ledger = new Ledger(new MemoryStorage(genisis))
+    val ledger = new UTXOLedger(new MemoryStorage(genisis))
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
@@ -41,7 +41,7 @@ class ContractTest extends FlatSpec with Matchers {
 
   "A ledger " should " not accept a contract using a bad txId " in {
 
-    val ledger = new Ledger(new MemoryStorage(genisis))
+    val ledger = new UTXOLedger(new MemoryStorage(genisis))
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
@@ -61,7 +61,7 @@ class ContractTest extends FlatSpec with Matchers {
 
   it should "not accept a contract using a bad key sig" in {
 
-    val ledger = new Ledger(new MemoryStorage(genisis))
+    val ledger = new UTXOLedger(new MemoryStorage(genisis))
 
   val wrongPkPair = PrivateKeyAccount(SeedBytes(20))
 

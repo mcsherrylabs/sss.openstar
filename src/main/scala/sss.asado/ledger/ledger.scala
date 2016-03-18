@@ -24,6 +24,7 @@ package object ledger extends ByteArrayComparisonOps {
   }
   case class TxInput(txIndex: TxIndex, amount: Int, sig: Decumbrance)
   case class TxOutput(amount: Int, encumbrance: Encumbrance)
+
   case class SignedTx(tx: Tx, params: Seq[Array[Byte]] = Seq.empty) {
     lazy val txId = tx.txId
 

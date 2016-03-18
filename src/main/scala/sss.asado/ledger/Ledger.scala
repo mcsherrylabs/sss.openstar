@@ -1,13 +1,16 @@
 package sss.asado.ledger
 
-import ledger.{TxIndex, GenisesTx, TxId, SignedTx}
+import ledger.{GenisesTx, SignedTx, TxId, TxIndex}
 import sss.ancillary.Logging
 import sss.asado.storage.Storage
 
 
 class Ledger(val storage: Storage[TxId, SignedTx]) extends Logging {
 
-  def genesis(genisesTx: GenisesTx) = storage.write(SignedTx(genisesTx))
+    def genesis(genisesTx: GenisesTx) = {
+    val stx = SignedTx(genisesTx)
+    storage.write(stx.txId, stx)
+  }
 
   def exists(txIndex: TxIndex): Boolean = {
     val stxs = storage.entries
@@ -18,7 +21,7 @@ class Ledger(val storage: Storage[TxId, SignedTx]) extends Logging {
     }
   }
 
-  def utxos: Set[TxIndex] = {
+  def uxos: Set[TxIndex] = {
 
     val stxs = storage.entries
     stxs.flatMap { stx =>
@@ -79,7 +82,7 @@ class Ledger(val storage: Storage[TxId, SignedTx]) extends Logging {
     log.debug(s"Tx total out amount = $totalOut")
     require(totalOut <= totalIn, "Total out *must* be less than or equal to total in")
 
-    storage.write(stx)
+    storage.write(stx.txId, stx)
 
   }
 

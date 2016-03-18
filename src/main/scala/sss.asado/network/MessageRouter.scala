@@ -12,9 +12,9 @@ import scala.concurrent.duration._
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-
 object MessageRouter {
 
+  case class RegisterRef(msgCode: Byte, ref: ActorRef)
   case class Register(msgCode: Byte)
   case class UnRegister(msgCode: Byte)
 
@@ -29,12 +29,9 @@ class MessageRouter extends Actor with ActorLogging {
 
   private def manageRegister(registeredParties: Map[Byte, Set[ActorRef]]): Receive = {
 
-    case Register(msgCode) =>
+    case RegisterRef(msgCode, ref) => registerRef(ref, msgCode, registeredParties)
 
-      val newRegistrant = sender()
-      context watch newRegistrant
-      val currentRegistered = registeredParties(msgCode)
-      context.become(manageRegister(registeredParties + (msgCode -> (currentRegistered + newRegistrant))))
+    case Register(msgCode) => registerRef(sender(), msgCode, registeredParties)
 
 
     case UnRegister(msgCode) =>
@@ -57,6 +54,12 @@ class MessageRouter extends Actor with ActorLogging {
       context.become(manageRegister(newRegistrantMap))
 
     case x   => log.warning(s"We got rubbish -> $x")
+  }
+
+  private def registerRef(newRegistrant: ActorRef, msgCode: Byte, registeredParties: Map[Byte, Set[ActorRef]]): Unit = {
+    context watch newRegistrant
+    val currentRegistered = registeredParties(msgCode)
+    context.become(manageRegister(registeredParties + (msgCode -> (currentRegistered + newRegistrant))))
   }
 
   final def receive = manageRegister(Map().withDefaultValue(Set()))

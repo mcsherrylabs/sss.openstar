@@ -1,12 +1,13 @@
 package sss.asado
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
+import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
-
+import sss.asado.block.TxWriter
 import sss.asado.console.{ConsoleActor, InfoActor, NoRead}
 import sss.asado.ledger.Ledger
-import sss.asado.network.MessageRouter.Register
+import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network._
 import sss.asado.storage.DBStorage
 
@@ -39,6 +40,11 @@ object Node extends Configure {
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, settings, uPnp, peerList))
+
+    val txRouter: ActorRef =
+      actorSystem.actorOf(RoundRobinPool(5).props(Props[TxWriter]), "txRouter")
+
+    messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
 
     //val bcRef = actorSystem.actorOf(Props(classOf[BlockChain], args(0), Seq(1,2), messageRouter))
 

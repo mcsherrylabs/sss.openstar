@@ -9,8 +9,8 @@ import ledger._
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.ledger.Ledger
-import sss.asado.network.MessageRouter.{UnRegister, Register}
-import sss.asado.network.NetworkController.{SendToNetwork, ConnectTo}
+import sss.asado.network.MessageRouter.{Register, UnRegister}
+import sss.asado.network.NetworkController.{ConnectTo, SendToNetwork}
 import sss.asado.network.NetworkMessage
 import sss.asado.util.Console
 
@@ -73,7 +73,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
 
     }
 
-    case "unspent" => {
+    /*case "unspent" => {
       val utos = ledger.utxos
       if (utos.size == 0) println(utos.size)
       utos.foreach { uto =>
@@ -81,7 +81,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
         println(s", ${uto.index}")
       }
 
-    }
+    }*/
 
     case "genesis" => {
       ledger.genesis(GenisesTx(outs = Seq(TxOutput(read[Int]("Initial funds? "), NullEncumbrance))))
@@ -105,6 +105,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
           println("Ledgered");
           sessionData -= "tx"
         }
+        case Some(x) => println("Programming error");
       }
     }
 
@@ -116,6 +117,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
         case Some(stx: SignedTx) => {
           nc ! SendToNetwork(NetworkMessage(2, stx.toBytes))
         }
+        case Some(x) => println("Programming error");
       }
     }
 

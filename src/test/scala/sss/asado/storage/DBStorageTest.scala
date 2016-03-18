@@ -14,7 +14,7 @@ class DBStorageTest extends FlatSpec with Matchers {
   lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
   val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
   val dbStorage = new DBStorage("DBStorageTest")
-  dbStorage.write(genisis)
+  dbStorage.write(genisis.txId, genisis)
 
   "DB storage " should " allow gensies ledger entries to be persisted " in {
 
@@ -35,7 +35,7 @@ class DBStorageTest extends FlatSpec with Matchers {
       dbStorage(tx.txId)
     }
 
-    dbStorage.write(stx)
+    dbStorage.write(stx.txId, stx)
     val retrieved = dbStorage(tx.txId)
     assert(retrieved == stx)
   }
