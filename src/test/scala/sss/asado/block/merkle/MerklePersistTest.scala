@@ -3,7 +3,6 @@ package sss.asado.block.merkle
 import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.hash.FastCryptographicHash
 import sss.asado.util.SeedBytes
 import sss.db.Db
 
@@ -14,8 +13,8 @@ import scala.collection.mutable
   */
 class MerklePersistTest extends FlatSpec with Matchers {
 
-  implicit def hash(a:mutable.WrappedArray[Byte], b: mutable.WrappedArray[Byte]): mutable.WrappedArray[Byte] =
-    FastCryptographicHash.hash(a.array) ++ FastCryptographicHash.hash(b.array)
+//  implicit def hash(a:mutable.WrappedArray[Byte], b: mutable.WrappedArray[Byte]): mutable.WrappedArray[Byte] =
+//    FastCryptographicHash.hash(a.array) ++ FastCryptographicHash.hash(b.array)
 
   implicit val db: Db = Db("DBStorageTest")
 
