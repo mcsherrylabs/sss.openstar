@@ -9,7 +9,8 @@ import sss.asado.console.{ConsoleActor, InfoActor, NoRead}
 import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network._
-import sss.asado.storage.DBStorage
+import sss.asado.storage.TxDBStorage
+import sss.db.Db
 
 import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,6 +30,7 @@ object Node extends Configure {
 
     val nodeConfig = config(args(0))
     val dbConfig = s"${args(0)}.database"
+    implicit val db = Db(dbConfig)
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
 
@@ -48,7 +50,7 @@ object Node extends Configure {
 
     //val bcRef = actorSystem.actorOf(Props(classOf[BlockChain], args(0), Seq(1,2), messageRouter))
 
-    val ledger = new Ledger(new DBStorage(dbConfig))
+    val ledger = new Ledger(new TxDBStorage("ledger"))
 
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, ledger))
 

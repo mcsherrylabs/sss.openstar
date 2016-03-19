@@ -7,6 +7,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.SinglePrivateKey
 import sss.asado.util.SeedBytes
+import sss.db.Db
 
 /**
   * Created by alan on 2/15/16.
@@ -17,7 +18,8 @@ class UTXODBStorageTest extends FlatSpec with Matchers {
   val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)),
     TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
 
-  val dbStorage = new UTXODBStorage("DBStorageTest")
+  implicit val db = Db("DBStorageTest")
+  val dbStorage = new UTXODBStorage
 
 
   "UTXO Storage " should " allow outputs to be persisted " in {

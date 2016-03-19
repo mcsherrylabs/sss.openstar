@@ -6,9 +6,9 @@ import ledger._
 import sss.db.{Db, Where}
 
 
-class UTXODBStorage(ledgerDbConfigName: String) extends Storage[TxIndex, TxOutput] {
+class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
 
-  private val utxoLedgerTable = Db(ledgerDbConfigName).table("utxo")
+  private val utxoLedgerTable = db.table("utxo")
 
   def entries: Set[TxOutput] = {
     utxoLedgerTable.map { row =>

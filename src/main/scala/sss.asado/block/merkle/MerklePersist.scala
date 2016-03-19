@@ -1,6 +1,7 @@
 package sss.asado.block.merkle
 
 import sss.ancillary.Logging
+import sss.asado.hash.FastCryptographicHash
 import sss.db.{Db, Where}
 
 import scala.annotation.tailrec
@@ -11,6 +12,9 @@ import scala.collection.mutable
   * mcsherrylabs on 3/16/16.
   */
 object MerklePersist {
+
+  implicit def hash(a:mutable.WrappedArray[Byte], b: mutable.WrappedArray[Byte]): mutable.WrappedArray[Byte] =
+    FastCryptographicHash.hash(a.array) ++ FastCryptographicHash.hash(b.array)
 
   def path(tag: String, leaf: Array[Byte])(implicit db: Db):Option[Seq[Array[Byte]]] = {
 
