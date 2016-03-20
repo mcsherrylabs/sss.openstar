@@ -7,5 +7,7 @@ package sss.asado
 object MessageKeys {
 
   val SignedTx: Byte = 100
+  val SignedTxAck: Byte = 101
+  val SignedTxNack: Byte = 102
 
 }

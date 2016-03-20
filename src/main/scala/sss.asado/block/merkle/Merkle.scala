@@ -41,6 +41,7 @@ object MerkleTree {
       }
     }
 
+    @tailrec
     def build(lastRow: IndexedSeq[MerkleTree[A]]): MerkleTree[A] = {
 
       val nextRow = reduce(lastRow.grouped(2).toIndexedSeq)

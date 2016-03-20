@@ -4,12 +4,10 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
-import sss.asado.block.TxWriter
+import sss.asado.block.{BlockChain, BlockChainActor, BlockChainSettings, TxWriter}
 import sss.asado.console.{ConsoleActor, InfoActor, NoRead}
-import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network._
-import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
 import scala.collection.JavaConversions._
@@ -48,13 +46,16 @@ object Node extends Configure {
 
     messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
 
-    //val bcRef = actorSystem.actorOf(Props(classOf[BlockChain], args(0), Seq(1,2), messageRouter))
+    val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
+    val bc = new BlockChain()
 
-    val ledger = new Ledger(new TxDBStorage("ledger"))
+    val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc ))
 
-    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, ledger))
+    //val ledger = new Ledger(new TxDBStorage("ledger"))
 
-    val infoRef = actorSystem.actorOf(Props(classOf[InfoActor], messageRouter, ledger ))
+    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList))
+
+    val infoRef = actorSystem.actorOf(Props(classOf[InfoActor], messageRouter))
 
     infoRef ! Register(1)
     infoRef ! Register(2)

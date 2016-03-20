@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.storage.{TxDBStorage, TxDBStorageTest}
 import sss.db.Db
 
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 /**
   * Created by alan on 2/15/16.
@@ -39,31 +39,51 @@ class BlockChainTest extends FlatSpec with Matchers {
 
   }
 
+  private def matchFirstBlock(block: BlockHeader): Unit = {
+    assert(block.height === height)
+    assert(block.numTxs === numTxs)
+    assert(block.time === time)
+    assert(block.merkleRoot === merkleRoot)
+    assert(block.hashPrevBlock === prevHash)
+  }
+
+  private def matchSecondBlock(block: BlockHeader, lastBlockHash: Array[Byte]): Unit = {
+    assert(block.height === height + 1)
+    assert(block.numTxs === 1)
+    assert(new Date().getTime - block.time.getTime < 1000)
+    //assert(block.merkleRoot !== merkleRoot)
+    assert(block.hashPrevBlock === lastBlockHash)
+  }
+
   it should " find the correct last block " in {
     bc.lastBlock match {
-      case Success(block) => {
-        assert(block.height === height)
-        assert(block.numTxs === numTxs)
-        assert(block.time === time)
-        assert(block.merkleRoot === merkleRoot)
-        assert(block.hashPrevBlock === prevHash)
-      }
+      case Success(block) => matchFirstBlock(block)
+      case Failure(_) => fail("No last block?!")
     }
   }
 
-  it should " create the next blocks tables " in {
-
-    bc.createBlock(newHeight)
-    assert(db.table(bc.blockTableNamePrefix + newHeight).count == 0)
-
-  }
 
   it should " close a block correctly " in {
 
+    val now = new Date()
+    val lastBlock = bc.lastBlock.get
     val txWriter = new TxDBStorage(bc.blockTableNamePrefix + newHeight)
     val stx = TxDBStorageTest.createSignedTx(TxDBStorageTest.createGenesis)
     txWriter.write(stx.txId, stx)
     bc.closeBlock
+
+    bc.lastBlock match {
+      case Success(block) => matchSecondBlock(block, lastBlock.hash)
+      case Failure(_) => fail("No last block?!")
+    }
+
+  }
+
+  it should " lookup up a block correctly " in {
+
+    val firstBlock = bc.block(height).get
+    matchFirstBlock(firstBlock)
+    matchSecondBlock(bc.block(height + 1).get, firstBlock.hash)
 
   }
 }

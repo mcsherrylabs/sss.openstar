@@ -4,11 +4,9 @@ import java.net.InetSocketAddress
 
 import akka.actor.{Actor, ActorRef}
 import akka.agent.Agent
-import contract.NullEncumbrance
 import ledger._
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
-import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController.{ConnectTo, SendToNetwork}
 import sss.asado.network.NetworkMessage
@@ -29,8 +27,8 @@ case class NoRead(cmd: String)
 
 class ConsoleActor(args: Array[String], msgRouter: ActorRef,
                    nc: ActorRef,
-                   peerList: Agent[List[InetSocketAddress]],
-                   ledger: Ledger) extends Actor with Console with ConsolePattern {
+                   peerList: Agent[List[InetSocketAddress]]
+                   ) extends Actor with Console with ConsolePattern {
 
   var sessionData: Map[String, Any] = Map()
 
@@ -73,25 +71,6 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
 
     }
 
-    /*case "unspent" => {
-      val utos = ledger.utxos
-      if (utos.size == 0) println(utos.size)
-      utos.foreach { uto =>
-        print(new String(uto.txId))
-        println(s", ${uto.index}")
-      }
-
-    }*/
-
-    case "genesis" => {
-      ledger.genesis(GenisesTx(outs = Seq(TxOutput(read[Int]("Initial funds? "), NullEncumbrance))))
-
-    }
-
-    case "show ledger" => {
-      ledger.storage.entries.foreach(e => println(ledger.storage(e.txId)))
-
-    }
 
     case "unload tx" => {
       sessionData -= "tx"
@@ -101,7 +80,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
       sessionData.get("tx") match {
         case None => println("There's none");
         case Some(stx: SignedTx) => {
-          ledger(stx)
+          //ledger(stx)
           println("Ledgered");
           sessionData -= "tx"
         }
@@ -183,7 +162,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
 
 }
 
-class InfoActor(messageRouter: ActorRef, ledger: Ledger) extends Actor {
+class InfoActor(messageRouter: ActorRef) extends Actor {
   override def receive: Actor.Receive = {
     case r @ Register(msg) => messageRouter ! r
     case r @ UnRegister(msg) => messageRouter ! r
@@ -192,7 +171,6 @@ class InfoActor(messageRouter: ActorRef, ledger: Ledger) extends Actor {
       println(s"Got $code, deserialise bytes...")
       val signedTx = txBytes.toSignedTx
       println(s"$signedTx")
-      ledger(signedTx)
     }
   }
 }
