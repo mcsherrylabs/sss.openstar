@@ -33,15 +33,19 @@ class BlockChain(implicit db: Db) extends Logging {
     }
   }
 
+  def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): Unit = {
+    require(blockHeaderTable.count == 0)
+    val genesisHeader = BlockHeader(1, 0, prevHash.substring(0, 32).getBytes, merkleRoot.substring(0,32).getBytes, new Date())
+    val retrieved = blockHeaderTable.insert(genesisHeader.asMap)
+  }
+
   // use id > 0 to satisfy the where clause. No other reason.
   def lastBlock: Try[BlockHeader] = lookupBlock(" id > 0 ORDER BY height DESC LIMIT 1")
 
   def block(height: Long): Try[BlockHeader] = lookupBlock(s"height = $height")
 
-  def closeBlock: Try[BlockHeader] = {
-
-    lastBlock map { prevHeader =>
-
+  def closeBlock(prevHeader: BlockHeader): Try[BlockHeader] = {
+    Try {
       val height = prevHeader.height + 1
       val hashPrevBlock = prevHeader.hash
       lazy val blockTxsTable = db.table(s"$blockTableNamePrefix${height}")
@@ -59,7 +63,6 @@ class BlockChain(implicit db: Db) extends Logging {
         val newRow = blockHeaderTable.insert(newBlock.asMap)
         BlockHeader(newRow)
       }
-
     }
   }
 

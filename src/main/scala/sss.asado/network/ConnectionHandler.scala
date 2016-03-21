@@ -2,11 +2,10 @@ package sss.asado.network
 
 import java.net.InetSocketAddress
 
-import akka.actor.{Actor, ActorRef, SupervisorStrategy}
+import akka.actor.{Actor, ActorLogging, ActorRef, SupervisorStrategy}
 import akka.io.Tcp
 import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
-import sss.ancillary.Logging
 
 import scala.util.{Failure, Success}
 
@@ -18,7 +17,7 @@ case object CloseConnection
 class ConnectionHandler(
                                  connection: ActorRef,
                                  remote: InetSocketAddress,
-                                 ownNonce: Long) extends Actor with Buffering with Logging with Protocol {
+                                 ownNonce: Long) extends Actor with Buffering with ActorLogging with Protocol {
 
   val selfPeer = new ConnectedPeer(remote, self)
 
@@ -31,7 +30,7 @@ class ConnectionHandler(
 
   private def processErrors: Receive = {
     case CommandFailed(w: Write) =>
-      log.warn(s"Write failed :$w $remote")
+      log.warning(s"Write failed :$w $remote")
       connection ! ResumeReading
 
     case cc: ConnectionClosed =>
@@ -118,7 +117,7 @@ class ConnectionHandler(
     handleMessages orElse
       processErrors orElse ({
       case nonsense: Any =>
-        log.warn(s"Strange input for ConnectionHandler: $nonsense")
+        log.warning(s"Strange input for ConnectionHandler: $nonsense")
     }: Receive)
 
   override def receive: Receive = handshake(handShakeNotSent, noHandShakeReceived)

@@ -5,12 +5,13 @@ import akka.agent.Agent
 import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.block.{BlockChain, BlockChainActor, BlockChainSettings, TxWriter}
-import sss.asado.console.{ConsoleActor, InfoActor, NoRead}
-import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.console.ConsoleActor
+import sss.asado.ledger.UTXOLedger
+import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network._
+import sss.asado.storage.UTXODBStorage
 import sss.db.Db
 
-import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
@@ -29,6 +30,10 @@ object Node extends Configure {
     val nodeConfig = config(args(0))
     val dbConfig = s"${args(0)}.database"
     implicit val db = Db(dbConfig)
+
+    sys addShutdownHook( db shutdown)
+
+    db.table("utxo").map { println(_) }
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
 
@@ -49,19 +54,11 @@ object Node extends Configure {
     val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
     val bc = new BlockChain()
 
-    val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc ))
+    val utxoLedger = new UTXOLedger(new UTXODBStorage())
 
-    //val ledger = new Ledger(new TxDBStorage("ledger"))
+    val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, utxoLedger, txRouter, db))
 
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList))
-
-    val infoRef = actorSystem.actorOf(Props(classOf[InfoActor], messageRouter))
-
-    infoRef ! Register(1)
-    infoRef ! Register(2)
-
-    val peers: scala.collection.mutable.Seq[String] = nodeConfig.getStringList("peers")
-    peers.foreach(p => ref ! NoRead(s"connect $p"))
 
     ref ! "init"
   }

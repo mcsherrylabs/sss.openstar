@@ -1,5 +1,7 @@
 package sss.asado.ledger
 
+import javax.xml.bind.DatatypeConverter
+
 import ledger.{GenisesTx, SignedTx, TxIndex, TxOutput}
 import sss.ancillary.Logging
 import sss.asado.storage.Storage
@@ -33,7 +35,8 @@ class UTXOLedger(val storage: Storage[TxIndex, TxOutput]) extends Logging {
           case Some(txOut) => {
             require(txOut.amount >= in.amount)
             totalIn += in.amount
-            log.debug(s"${in.txIndex} is unspent and a valid amount.")
+            val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
+            log.debug(s"${asStr}, ${in.txIndex.index} is unspent and a valid amount (${in.amount}).")
             require(txOut.encumbrance.decumber(txId +: stx.params, in.sig))
             storage.delete(in.txIndex)
           }

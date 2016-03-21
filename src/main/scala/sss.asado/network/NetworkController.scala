@@ -6,7 +6,6 @@ import akka.actor._
 import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
-import sss.ancillary.Logging
 
 import scala.concurrent.duration._
 import scala.util.{Random, Try}
@@ -26,7 +25,7 @@ trait BindControllerSettings {
   val appVersion: String
 }
 
-class NetworkController(messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with Logging {
+class NetworkController(messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with ActorLogging {
 
   import NetworkController._
   import context.system
@@ -112,7 +111,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
 
     case nonsense: Any =>
-      log.warn(s"NetworkController: got something strange $nonsense")
+      log.warning(s"NetworkController: got something strange $nonsense")
   }
 
   def createConnectionHandler(connection: ActorRef, remoteAddress: InetSocketAddress, nodeNonce:Int): ActorRef = {

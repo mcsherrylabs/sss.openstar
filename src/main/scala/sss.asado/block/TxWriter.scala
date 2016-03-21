@@ -1,6 +1,6 @@
 package sss.asado.block
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.google.common.primitives.Longs
 import ledger._
 import sss.asado.MessageKeys
@@ -11,22 +11,32 @@ import scala.util.{Failure, Success}
 /**
   * Created by alan on 3/18/16.
   */
-class TxWriter extends Actor {
-  override def receive: Receive = init
 
-  private def working(blockLedger: Ledger): Receive = {
+class TxWriter extends Actor with ActorLogging {
+  override def receive: Receive = working(None)
+
+  private def working(blockLedgerOpt: Option[Ledger]): Receive = {
+
+    case BlockLedger(coordinator: ActorRef, blockLedger: Ledger) => {
+      context.become(working(Some(blockLedger)))
+      coordinator ! AcknowledgeNewLedger
+
+    }
+
     case NetworkMessage(MessageKeys.SignedTx, bytes) =>
       val signedTx = bytes.toSignedTx
 
-      blockLedger.write(signedTx) match {
-        case Success(height: Long) => sender() !  NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
-        case Failure(e) => sender() !  NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)
+      blockLedgerOpt match {
+        case Some(blockLedger) => blockLedger(signedTx) match {
+          case Success(height) => sender() ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
+          case Failure(e) => sender() ! NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)
+        }
+        case None =>
+          val msg = "No ledger in play, cannnot handle signed tx message"
+          log.error(msg)
+          sender() ! NetworkMessage(MessageKeys.SignedTxNack, msg.getBytes)
       }
 
   }
 
-  private def init: Receive = {
-
-    case blockLedger: Ledger => context.become(working(blockLedger))
-  }
 }

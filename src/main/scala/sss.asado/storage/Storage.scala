@@ -5,7 +5,7 @@ package sss.asado.storage
   * mcsherrylabs on 3/2/16.
   */
 trait Storage[K, V] {
-  def entries: Set[V]
+  private[storage] def entries: Set[V]
   def apply(k: K): V = get(k).get
   def get(k: K): Option[V]
   def write(k: K,v: V)

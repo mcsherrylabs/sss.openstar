@@ -1,16 +1,19 @@
 package sss.asado.console
 
 import java.net.InetSocketAddress
+import javax.xml.bind.DatatypeConverter
 
 import akka.actor.{Actor, ActorRef}
 import akka.agent.Agent
+import com.google.common.primitives.Longs
 import ledger._
+import sss.asado.MessageKeys
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController.{ConnectTo, SendToNetwork}
 import sss.asado.network.NetworkMessage
-import sss.asado.util.Console
+import sss.asado.util.{Console, RootKey}
 
 import scala.util.{Failure, Success, Try}
 
@@ -21,6 +24,7 @@ import scala.util.{Failure, Success, Try}
 
 trait ConsolePattern {
   val connectPeerPattern = """connect (.*):(\d\d\d\d)""".r
+  val peerPattern = """(.*):(\d\d\d\d)""".r
 }
 
 case class NoRead(cmd: String)
@@ -30,7 +34,10 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
                    peerList: Agent[List[InetSocketAddress]]
                    ) extends Actor with Console with ConsolePattern {
 
-  var sessionData: Map[String, Any] = Map()
+  var sessionData: Map[String, Any] = {
+    val newMap = Map[String, PrivateKeyAccount]("root" -> RootKey.account)
+    Map("keys" -> newMap)
+  }
 
   def printHelp(): Unit = {
     println("Shur I dono ta fu ...")
@@ -94,7 +101,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
       sessionData.get("tx") match {
         case None => println("There's none");
         case Some(stx: SignedTx) => {
-          nc ! SendToNetwork(NetworkMessage(2, stx.toBytes))
+          nc ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, stx.toBytes))
         }
         case Some(x) => println("Programming error");
       }
@@ -108,14 +115,17 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
         case None => {
           val keysName = read[String]("Friendly name of keys? ")
           val pka = sessionData("keys").asInstanceOf[Map[String, PrivateKeyAccount]](keysName)
-          val txId = read[String]("txId? ")
-          val txIndex = TxIndex(txId.getBytes, read[Int]("Index? (0) "))
+          //val txIdStr = read[String]("txId? ")
+          val txId = DatatypeConverter.parseHexBinary("47454E495345533147454E495345533147454E495345533147454E4953455331")
+          val txIndex = TxIndex(txId, read[Int]("Index? (0) "))
           val txOutput = TxOutput(read[Int]("Output Amount? "), SinglePrivateKey(pka.publicKey))
           val txInput = TxInput(txIndex, read[Int]("Input amount? (Same as output amount) "), PrivateKeySig)
           val tx = StandardTx(Seq(txInput), Seq(txOutput))
           val sig = tx.sign(pka)
           println(tx)
-          sessionData += "tx" -> SignedTx(tx, Seq(sig))
+          val stx = SignedTx(tx, Seq(sig))
+          println("Decumbred ok? " + stx.tx.outs(0).encumbrance.decumber(stx.txId +: stx.params, txInput.sig))
+          sessionData += ("tx" -> stx)
 
         }
         case Some(tx) => println(tx)
@@ -166,7 +176,8 @@ class InfoActor(messageRouter: ActorRef) extends Actor {
   override def receive: Actor.Receive = {
     case r @ Register(msg) => messageRouter ! r
     case r @ UnRegister(msg) => messageRouter ! r
-    case NetworkMessage(1, testBytes) => println(new String(testBytes))
+    case NetworkMessage(MessageKeys.SignedTxAck, testBytes) => println("In block number " + Longs.fromByteArray(testBytes))
+    case NetworkMessage(MessageKeys.SignedTxNack, testBytes) => println(new String(testBytes))
     case NetworkMessage(code, txBytes) => {
       println(s"Got $code, deserialise bytes...")
       val signedTx = txBytes.toSignedTx
