@@ -23,5 +23,8 @@
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="ERRFILE"/>
     </root>
+    <logger name="com.zaxxer.hikari">
+        <level value="error"/>
+    </logger>
 
 </configuration>

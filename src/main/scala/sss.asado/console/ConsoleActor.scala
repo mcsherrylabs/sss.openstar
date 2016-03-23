@@ -10,10 +10,13 @@ import ledger._
 import sss.asado.MessageKeys
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
+import sss.asado.ledger.UTXOLedger
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController.{ConnectTo, SendToNetwork}
 import sss.asado.network.NetworkMessage
-import sss.asado.util.{Console, RootKey}
+import sss.asado.storage.UTXODBStorage
+import sss.asado.util.{ClientKey, Console}
+import sss.db.{Db, Where}
 
 import scala.util.{Failure, Success, Try}
 
@@ -25,17 +28,23 @@ import scala.util.{Failure, Success, Try}
 trait ConsolePattern {
   val connectPeerPattern = """connect (.*):(\d\d\d\d)""".r
   val peerPattern = """(.*):(\d\d\d\d)""".r
+  val blockHeaders = """blocks ([0-9]+)""".r
+  val repeatTx = """repeat tx (.*) ([0-9]+) ([0-9]+) ([0-9]+)""".r
 }
 
 case class NoRead(cmd: String)
 
 class ConsoleActor(args: Array[String], msgRouter: ActorRef,
                    nc: ActorRef,
-                   peerList: Agent[List[InetSocketAddress]]
-                   ) extends Actor with Console with ConsolePattern {
+                   peerList: Agent[List[InetSocketAddress]],
+                   implicit val db: Db) extends Actor with Console with ConsolePattern {
+
+  lazy val utxos = new UTXOLedger(new UTXODBStorage())
+  lazy val utxosTable = db.table("utxo")
+  lazy val blocks = db.table("blockchain")
 
   var sessionData: Map[String, Any] = {
-    val newMap = Map[String, PrivateKeyAccount]("root" -> RootKey.account)
+    val newMap = Map[String, PrivateKeyAccount]("client" -> ClientKey.account)
     Map("keys" -> newMap)
   }
 
@@ -51,6 +60,24 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
     case "help" => {
       printHelp()
     }
+
+    case blockHeaders(count) => {
+      println(s"Total blocks ${blocks.count}, printing $count")
+      blocks.filter(Where("id > 0 ORDER BY height DESC LIMIT ?", count)).foreach(println)
+    }
+
+    case "utxo" => {
+      println(s"Total utxos ${utxosTable.count}, printing ..")
+      var count = 0
+      utxosTable.filter(Where("indx > -1 LIMIT ?", 100)) map { r =>
+        val tmp = TxIndex(DatatypeConverter.parseHexBinary(r[String]("txid")), r[Int]("indx"))
+        utxos.entry(tmp) match {
+          case None =>
+          case Some(entry) => println(s"$tmp ${entry.amount}")
+        }
+      }
+    }
+
     case "new keys" => {
 
       val keys = PrivateKeyAccount()
@@ -73,9 +100,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
     case connectPeerPattern(ip, port) => nc ! ConnectTo(InetSocketAddress.createUnresolved(ip, port.toInt))
 
     case "list keys" => {
-
       sessionData.getOrElse("keys", println("No keys")).asInstanceOf[Map[String, PrivateKeyAccount]].foreach(println(_))
-
     }
 
 
@@ -108,6 +133,48 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
     }
 
     case "peers" => peerList.foreach(println)
+
+    case repeatTx(txidHex, index, amount, count) =>
+      val pka = ClientKey.account
+      //val txIdStr = read[String]("txId? ")
+        val txId =
+          DatatypeConverter.parseHexBinary(txidHex)
+
+        //CC1B6D52BCD9EB694D6F726EF9A05002256D65BACC879B9CBF9516A05FB5DDD9
+        val txIndex = TxIndex(txId, index.toInt)
+        val newAmount = amount.toInt / 2
+        val txOutput = TxOutput(newAmount, SinglePrivateKey(pka.publicKey))
+        val txOutput2 = TxOutput(newAmount, SinglePrivateKey(pka.publicKey))
+        val txInput = TxInput(txIndex, amount.toInt, PrivateKeySig)
+        val tx = StandardTx(Seq(txInput), Seq(txOutput, txOutput2))
+        val sig = tx.sign(pka)
+        val stx = SignedTx(tx, Seq(sig))
+        println(s"Splitting ${amount} in 2 from ${DatatypeConverter.printHexBinary(txIndex.txId)} to ${DatatypeConverter.printHexBinary(tx.txId)}")
+        sessionData += ("lasttx" -> stx)
+        nc ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, stx.toBytes))
+        val newSend = s"repeat tx ${DatatypeConverter.printHexBinary(tx.txId)} 0 $newAmount ${count.toInt - 1}"
+        if(count.toInt > 0) {
+
+          println(s"Sending $newSend")
+          self ! newSend
+        }
+
+    case "auto tx" => {
+
+      val pka = ClientKey.account
+      //val txIdStr = read[String]("txId? ")
+
+      val txId = DatatypeConverter.parseHexBinary("47454E495345533147454E495345533147454E495345533147454E4953455331")
+      val txIndex = TxIndex(txId, 0)
+      val txOutput = TxOutput(1000, SinglePrivateKey(pka.publicKey))
+      val txInput = TxInput(txIndex, 1000, PrivateKeySig)
+      val tx = StandardTx(Seq(txInput), Seq(txOutput))
+      val sig = tx.sign(pka)
+      println(tx)
+      val stx = SignedTx(tx, Seq(sig))
+      sessionData += ("lasttx" -> stx)
+      nc ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, stx.toBytes))
+    }
 
     case "tx" => {
 

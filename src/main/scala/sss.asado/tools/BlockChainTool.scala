@@ -3,13 +3,13 @@ package sss.asado.tools
 
 import javax.xml.bind.DatatypeConverter
 
+import contract.NullEncumbrance
 import ledger.{GenisesTx, TxOutput}
 import sss.ancillary.Configure
+import sss.asado.account.PrivateKeyAccount
 import sss.asado.block.BlockChain
-import sss.asado.contract.SinglePrivateKey
 import sss.asado.ledger.UTXOLedger
 import sss.asado.storage.UTXODBStorage
-import sss.asado.util.RootKey
 import sss.db.Db
 
 
@@ -30,21 +30,28 @@ object BlockChainTool extends Configure {
     val dbConfig = s"${args(0)}.database"
     db = Db(dbConfig)
 
-    sys addShutdownHook( db shutdown)
-
     args.tail.toList match {
-      case Nil => p("Choose from init, genesis, rootkey...")
+      case Nil => p("Choose from init, genesis, createkey...")
       case "init" :: tail => init(tail)
       case "genesis" :: tail => genesis(tail)
+      case "createkey" :: tail => createKey(tail)
+      case x => p(s"$x not handled")
 
     }
+  }
+
+  def createKey(args: List[String]): Unit = {
+    val acc = PrivateKeyAccount()
+    p(s"Private Key ${acc.privateKey}")
+    p(s"Public Key ${acc.publicKey}")
+    p(s"Address ${acc.address}")
   }
 
   def genesis(args: List[String]): Unit = {
     args match {
       case Nil => p("Give a figure for the initial purse...")
       case amount :: rest => {
-        val gx = GenisesTx(outs = Seq(TxOutput(amount.toInt, SinglePrivateKey(RootKey.pubKey))))
+        val gx = GenisesTx(outs = Seq(TxOutput(amount.toInt, NullEncumbrance)))
         p("TxId Genesis is ... ")
         val str = DatatypeConverter.printHexBinary(gx.txId)
         p(str)

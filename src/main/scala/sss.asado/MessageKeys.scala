@@ -9,5 +9,7 @@ object MessageKeys {
   val SignedTx: Byte = 100
   val SignedTxAck: Byte = 101
   val SignedTxNack: Byte = 102
+  val SeqSignedTx: Byte = 102
+  val MalformedMessage: Byte = 103
 
 }

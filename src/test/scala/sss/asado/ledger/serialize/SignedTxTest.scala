@@ -23,6 +23,7 @@ class SignedTxTest extends FlatSpec with Matchers {
 
   "A Signed Tx" should " be parseable to bytes " in {
     val bytes: Array[Byte] = stx.toBytes
+
   }
 
   it should " be parseable from bytes to an equal instance " in {

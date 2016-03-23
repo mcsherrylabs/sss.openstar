@@ -7,6 +7,7 @@ import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Random, Try}
 
@@ -22,6 +23,7 @@ trait BindControllerSettings {
   val declaredAddressOpt: Option[String]
   val connectionTimeout: Int = 60
   val localOnly: Boolean = false
+  val connectionRetryIntervalSecs: Int
   val appVersion: String
 }
 
@@ -83,8 +85,12 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
     case Terminated(ref) =>
       log.debug(s"We are disconnected from  $ref")
-      peerList.send(_.filterNot(_.handlerRef == ref))
 
+      peerList().find(_.handlerRef == ref) map { found =>
+        peerList.alter(_.filterNot(_ == found)) map { _ =>
+          self ! ConnectTo(found.address)
+        }
+      }
 
     case p@ConnectedPeer(addr, hndlr) =>
       log.debug(s"We are connected to  $p")
@@ -98,6 +104,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
     case CommandFailed(c: Connect) =>
       log.info(s"Failed to connect to : ${c.remoteAddress}")
+      //context.system.scheduler.scheduleOnce(settings.connectionRetryIntervalSecs.seconds, self,  ConnectTo(c.remoteAddress))
 
     case CommandFailed(cmd: Tcp.Command) =>
       log.info(s"Failed to execute command : $cmd")
@@ -119,6 +126,8 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
   }
 
   override def receive: Receive = manageNetwork
+
+  override def postStop = log.warning("Network controller is down!"); super.postStop
 }
 
 object NetworkController {

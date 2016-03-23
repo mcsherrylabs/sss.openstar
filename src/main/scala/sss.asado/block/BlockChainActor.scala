@@ -2,16 +2,15 @@ package sss.asado.block
 
 import java.util.Date
 
-import akka.actor.{Actor, ActorRef, Terminated}
-import akka.routing.{ActorRefRoutee, GetRoutees, Routees}
-import sss.ancillary.Logging
+import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
+import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import sss.asado.ledger.{Ledger, UTXOLedger}
 import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
 import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -33,8 +32,10 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
                       bc: BlockChain,
                       utxoLedger: UTXOLedger,
                       writersRouterRef: ActorRef
-                      )(implicit db: Db) extends Actor with Logging {
+                      )(implicit db: Db) extends Actor with ActorLogging {
 
+
+  override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
   writersRouterRef ! GetRoutees
@@ -59,35 +60,22 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     }
   }
 
-  private def awaitAcks(lastClosedBlock: BlockHeader, routees: IndexedSeq[ActorRefRoutee], action: (BlockHeader) => Unit): Receive = {
+  private def awaitAcks(lastClosedBlock: BlockHeader, routees: IndexedSeq[_], action: (BlockHeader) => Unit): Receive = {
     case AcknowledgeNewLedger => {
-      val unconfirmedRoutees = routees.filterNot(_ == sender())
+      val unconfirmedRoutees = routees.filterNot(_ match {
+        case r: ActorRefRoutee => r.ref == sender()
+        case x => throw new Error(s"Got an unknown routee $x")
+      })
+
       if(unconfirmedRoutees.size == 0) {
+        log.info(s"New ledger ack'd by all.")
         action(lastClosedBlock)
-      } else context.become(handleRouterDeath orElse awaitAcks(lastClosedBlock, unconfirmedRoutees, action))
+      }
+      else context.become(handleRouterDeath orElse awaitAcks(lastClosedBlock, unconfirmedRoutees, action))
     }
     case MaxBlockOpenTimeElapsed => log.error("Max block open time has elapsed without tx writer acknowledgements...")
   }
 
-  /*private def awaitWritersAcks(lastClosedBlock: BlockHeader, routees: IndexedSeq[ActorRefRoutee]): Receive = {
-    case AcknowledgeNewLedger => {
-      val unconfirmedRoutees = routees.filterNot(_ == sender())
-      if(unconfirmedRoutees.size == 0) {
-        // all are writing to new ledger.
-        // close last block
-        bc.closeBlock(lastClosedBlock) match {
-          case Success(newLastBlock) => {
-            log.info(s"Block ${newLastBlock.height} successfully saved.")
-            context.become(handleRouterDeath orElse waiting(newLastBlock))
-            startTimer(secondsToWait(newLastBlock.time))
-          }
-          case Failure(e) => {
-            log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
-          }
-        }
-      } else context.become(handleRouterDeath orElse awaitWritersAcks(lastClosedBlock, unconfirmedRoutees))
-    }
-  }*/
 
   // there must be a last closed block or we cannot start up.
   override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlock.get)
@@ -98,20 +86,11 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     if(nextBlockScheduledClose > 0) (nextBlockScheduledClose / 1000) else 1
   }
 
-  /*private def awaitInitializeRoutees(lastClosedBlock: BlockHeader, routees: IndexedSeq[ActorRefRoutee]): Receive = {
-    case AcknowledgeNewLedger => {
-      val unconfirmedRoutees = routees.filterNot(_ == sender())
-      if(unconfirmedRoutees.size == 0) {
-        // all are writing to correct ledger.
-        context.become(waiting(lastClosedBlock))
-        startTimer(secondsToWait(lastClosedBlock.time))
-      } else context.become(handleRouterDeath orElse awaitInitializeRoutees(lastClosedBlock, unconfirmedRoutees))
-    }
-  }*/
 
   private def closeBlock(lastClosedBlock: BlockHeader): Unit = {
     // all are writing to new ledger.
     // close last block
+    log.info(s"About to close block ${lastClosedBlock.height + 1}")
     bc.closeBlock(lastClosedBlock) match {
       case Success(newLastBlock) => {
         log.info(s"Block ${newLastBlock.height} successfully saved.")
@@ -132,24 +111,30 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
   private def initializeRoutees(lastClosedBlock: BlockHeader): Receive = {
 
-    case Routees(routees: IndexedSeq[ActorRefRoutee]) => {
+    case Routees(routees: IndexedSeq[_]) =>
+      log.info(s"Last known block is ${lastClosedBlock.height}, creating new ledgers...")
       context.become(awaitAcks(lastClosedBlock, routees, startWaiting))
-      routees.foreach {
-        r: ActorRefRoutee => r.send(BlockLedger(self, createLedger(lastClosedBlock)), self)
-      }
-    }
+      writersRouterRef ! Broadcast(BlockLedger(self, createLedger(lastClosedBlock)))
+
   }
 
   private def waiting(lastClosedBlock: BlockHeader): Receive = {
 
-    case Routees(writers: IndexedSeq[ActorRefRoutee]) => {
+    case Routees(writers: IndexedSeq[_]) =>
       context.become(awaitAcks(lastClosedBlock, writers, closeBlock))
-      writers.foreach {
-        r: ActorRefRoutee => r.send(BlockLedger(self, createLedger(lastClosedBlock, 2)), self)
-      }
-    }
+      writersRouterRef ! Broadcast(BlockLedger(self, createLedger(lastClosedBlock, 2)))
+      /*writers.foreach { _ match {
+        case r: ActorRefRoutee => {
+          log.info("Sending new BLedger...")
+          r.ref ! BlockLedger(self, createLedger(lastClosedBlock, 2))
+        }
+        case x => throw new Error(s"Got an unknown routee $x")
+      }*/
+
+
 
     case MaxBlockOpenTimeElapsed => {
+      log.info("Block open time elapsed, begin close process ...")
       writersRouterRef ! GetRoutees
     }
   }

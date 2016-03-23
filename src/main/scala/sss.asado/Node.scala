@@ -31,8 +31,6 @@ object Node extends Configure {
     val dbConfig = s"${args(0)}.database"
     implicit val db = Db(dbConfig)
 
-    sys addShutdownHook( db shutdown)
-
     db.table("utxo").map { println(_) }
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
@@ -58,7 +56,7 @@ object Node extends Configure {
 
     val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, utxoLedger, txRouter, db))
 
-    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList))
+    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, db))
 
     ref ! "init"
   }

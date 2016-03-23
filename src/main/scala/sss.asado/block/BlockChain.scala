@@ -33,10 +33,10 @@ class BlockChain(implicit db: Db) extends Logging {
     }
   }
 
-  def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): Unit = {
+  def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): BlockHeader = {
     require(blockHeaderTable.count == 0)
     val genesisHeader = BlockHeader(1, 0, prevHash.substring(0, 32).getBytes, merkleRoot.substring(0,32).getBytes, new Date())
-    val retrieved = blockHeaderTable.insert(genesisHeader.asMap)
+    BlockHeader(blockHeaderTable.insert(genesisHeader.asMap))
   }
 
   // use id > 0 to satisfy the where clause. No other reason.
@@ -45,21 +45,26 @@ class BlockChain(implicit db: Db) extends Logging {
   def block(height: Long): Try[BlockHeader] = lookupBlock(s"height = $height")
 
   def closeBlock(prevHeader: BlockHeader): Try[BlockHeader] = {
+
     Try {
       val height = prevHeader.height + 1
+      val blockTxsTable = db.table(s"$blockTableNamePrefix${height}")
       val hashPrevBlock = prevHeader.hash
-      lazy val blockTxsTable = db.table(s"$blockTableNamePrefix${height}")
+
+      log.debug(s"Size of tx table is ${blockTxsTable.count}")
 
       blockTxsTable inTransaction {
         val txs = blockTxsTable.map { row =>
           row[Array[Byte]]("entry").toSignedTx
         }.toSet
 
-        val txIds: IndexedSeq[mutable.WrappedArray[Byte]] = txs.map(_.txId: mutable.WrappedArray[Byte]).toIndexedSeq
-        val mt: MerkleTree[mutable.WrappedArray[Byte]] = MerkleTree(txIds)
-        mt.persist(s"$merkleTableNamePrefix$height")
+        val newBlock = if(txs.size > 0) {
+          val txIds: IndexedSeq[mutable.WrappedArray[Byte]] = txs.map(_.txId: mutable.WrappedArray[Byte]).toIndexedSeq
+          val mt: MerkleTree[mutable.WrappedArray[Byte]] = MerkleTree(txIds)
+          mt.persist(s"$merkleTableNamePrefix$height")
+          new BlockHeader(height, txs.size, hashPrevBlock, mt.root.array, new Date())
+        } else new BlockHeader(height, 0, hashPrevBlock, Array(), new Date())
 
-        val newBlock = new BlockHeader(height, txs.size, hashPrevBlock, mt.root.array, new Date())
         val newRow = blockHeaderTable.insert(newBlock.asMap)
         BlockHeader(newRow)
       }

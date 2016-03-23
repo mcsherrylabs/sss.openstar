@@ -1,8 +1,12 @@
+import javax.xml.bind.DatatypeConverter
+
 import contract.{Decumbrance, Encumbrance}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.hash.SecureCryptographicHash
 import sss.asado.ledger.serialize._
 import sss.asado.util.{ByteArrayComparisonOps, EllipticCurveCrypto}
+
+import scala.util.Try
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -21,9 +25,12 @@ package object ledger extends ByteArrayComparisonOps {
     }
 
     override def hashCode(): Int = (17 + index) * txId.hash
+
+    override def toString : String = DatatypeConverter.printHexBinary(txId) + ":" + index
   }
   case class TxInput(txIndex: TxIndex, amount: Int, sig: Decumbrance)
   case class TxOutput(amount: Int, encumbrance: Encumbrance)
+  case class SeqSignedTx(ordered: Seq[SignedTx])
 
   case class SignedTx(tx: Tx, params: Seq[Array[Byte]] = Seq.empty) {
     lazy val txId = tx.txId
@@ -90,6 +97,14 @@ package object ledger extends ByteArrayComparisonOps {
   }
   implicit class SignedTxFrom(b: Array[Byte]) {
     def toSignedTx: SignedTx = SignedTxSerializer.fromBytes(b)
+    def toSignedTxTry: Try[SignedTx] = Try {SignedTxSerializer.fromBytes(b)}
   }
+  implicit class SeqSignedTxTo(t: SeqSignedTx)  extends ToBytes[SeqSignedTx] {
+    override def toBytes: Array[Byte] = SeqSignedTxSerializer.toBytes(t)
+  }
+  implicit class SeqSignedTxFrom(b: Array[Byte]) {
+    def toSeqSignedTx: SeqSignedTx = SeqSignedTxSerializer.fromBytes(b)
+  }
+
 
 }
