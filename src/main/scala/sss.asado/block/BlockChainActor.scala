@@ -49,7 +49,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
   private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): Ledger = {
     val newBlockheight = lastClosedBlock.height + blockHeightIncrement
-    val txStorage = new TxDBStorage(bc.blockTableNamePrefix + newBlockheight)
+    val txStorage = TxDBStorage(newBlockheight)
     new Ledger(newBlockheight, txStorage, utxoLedger)
   }
 
@@ -123,15 +123,6 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     case Routees(writers: IndexedSeq[_]) =>
       context.become(awaitAcks(lastClosedBlock, writers, closeBlock))
       writersRouterRef ! Broadcast(BlockLedger(self, createLedger(lastClosedBlock, 2)))
-      /*writers.foreach { _ match {
-        case r: ActorRefRoutee => {
-          log.info("Sending new BLedger...")
-          r.ref ! BlockLedger(self, createLedger(lastClosedBlock, 2))
-        }
-        case x => throw new Error(s"Got an unknown routee $x")
-      }*/
-
-
 
     case MaxBlockOpenTimeElapsed => {
       log.info("Block open time elapsed, begin close process ...")

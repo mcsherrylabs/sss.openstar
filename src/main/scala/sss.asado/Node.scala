@@ -4,10 +4,11 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
-import sss.asado.block.{BlockChain, BlockChainActor, BlockChainSettings, TxWriter}
+import sss.asado.block._
 import sss.asado.console.ConsoleActor
 import sss.asado.ledger.UTXOLedger
 import sss.asado.network.MessageRouter.RegisterRef
+import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 import sss.asado.storage.UTXODBStorage
 import sss.db.Db
@@ -42,10 +43,12 @@ object Node extends Configure {
 
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
-    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, settings, uPnp, peerList))
+    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], true,  messageRouter, settings, uPnp, peerList))
+
+    val writeConfirmActor = actorSystem.actorOf(Props(classOf[WriteConfirmationActor], peerList, messageRouter, db))
 
     val txRouter: ActorRef =
-      actorSystem.actorOf(RoundRobinPool(5).props(Props[TxWriter]), "txRouter")
+      actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], writeConfirmActor)), "txRouter")
 
     messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
 

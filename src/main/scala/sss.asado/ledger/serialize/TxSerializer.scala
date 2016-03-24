@@ -2,6 +2,7 @@ package sss.asado.ledger.serialize
 
 import com.google.common.primitives.{Bytes, Ints}
 import ledger._
+import sss.asado.util.Serialize.Serializer
 
 import scala.annotation.tailrec
 

@@ -1,10 +1,10 @@
-package sss.asado.ledger
+package sss.asado.util
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/3/16.
   */
-package object serialize {
+object Serialize {
 
   trait Serializer[T] {
 

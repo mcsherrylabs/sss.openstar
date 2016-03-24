@@ -5,6 +5,7 @@ import akka.agent.Agent
 import com.typesafe.config.Config
 import sss.asado.console.{ConsoleActor, InfoActor}
 import sss.asado.network.MessageRouter.Register
+import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 import sss.db.Db
 

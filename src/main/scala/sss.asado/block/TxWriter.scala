@@ -1,6 +1,7 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
+import block.DistributeTx
 import com.google.common.primitives.Longs
 import ledger._
 import sss.asado.MessageKeys
@@ -12,14 +13,17 @@ import scala.util.{Failure, Success}
   * Created by alan on 3/18/16.
   */
 
-class TxWriter extends Actor with ActorLogging {
+class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   override def receive: Receive = working(None)
 
   override def postStop = log.warning(s"Tx Writer ($self) is down."); super.postStop
 
   private def writeStx(blockLedger: Ledger, signedTx: SignedTx): Unit = {
       blockLedger(signedTx) match {
-        case Success(height) => sender() ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
+        case Success(TxDbId(height, id)) =>
+          val sendr = sender()
+          sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
+          writeConfirmActor ! DistributeTx(sendr, signedTx, height, id)
         case Failure(e) => {
           log.error(e, s"Failed to apply tx! ${e.getMessage}")
           sender() ! NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)
@@ -61,15 +65,13 @@ class TxWriter extends Actor with ActorLogging {
     case NetworkMessage(MessageKeys.SignedTx, bytes) =>
       log.info(s"Got a signed tx ... ")
 
-      val signedTx = bytes.toSignedTxTry match {
+      bytes.toSignedTxTry match {
         case Success(stx) => blockLedgerOpt match {
-          case Some(blockLedger) => writeStx(blockLedger, signedTx)
+          case Some(blockLedger) => writeStx(blockLedger, stx)
           case None => errorNoLedger
         }
         case Failure(e) => errorBadMessage
       }
-
-
 
   }
 

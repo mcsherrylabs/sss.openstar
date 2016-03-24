@@ -26,7 +26,7 @@ libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.+"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.6"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.14"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.15"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
@@ -35,6 +35,8 @@ libraryDependencies += "com.typesafe.akka" %% "akka-agent" % "2.4.+"
 libraryDependencies += "org.bitlet" % "weupnp" % "0.1.+"
 
 libraryDependencies += "com.chuusai" % "shapeless_2.11" % "1.2.4"
+
+libraryDependencies += "com.twitter" %% "util-collection" % "6.27.0"
 
 
 mainClass in Compile := Some("sss.asado.Node")

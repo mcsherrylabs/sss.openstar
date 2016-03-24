@@ -16,7 +16,7 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
     }.toSet
   }
 
-  def inTransaction(f: => Unit): Unit = utxoLedgerTable.inTransaction[Unit](f)
+  def inTransaction[T](f: => T): T = utxoLedgerTable.inTransaction[T](f)
 
   def delete(k: TxIndex): Boolean = {
     val hexStr:String = DatatypeConverter.printHexBinary(k.txId)
@@ -29,7 +29,7 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
     utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
   }
 
-  def write(k: TxIndex, le: TxOutput): Unit = {
+  def write(k: TxIndex, le: TxOutput): Long = {
     val bs = le.toBytes
     val hexStr:String = DatatypeConverter.printHexBinary(k.txId)
     utxoLedgerTable.insert(hexStr, k.index, bs)

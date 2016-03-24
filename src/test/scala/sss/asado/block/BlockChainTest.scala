@@ -67,7 +67,7 @@ class BlockChainTest extends FlatSpec with Matchers {
 
     val now = new Date()
     val lastBlock = bc.lastBlock.get
-    val txWriter = new TxDBStorage(bc.blockTableNamePrefix + newHeight)
+    val txWriter = TxDBStorage(newHeight)
     val stx = TxDBStorageTest.createSignedTx(TxDBStorageTest.createGenesis)
     txWriter.write(stx.txId, stx)
     bc.closeBlock(lastBlock)

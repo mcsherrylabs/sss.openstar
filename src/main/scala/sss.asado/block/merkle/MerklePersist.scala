@@ -13,6 +13,9 @@ import scala.collection.mutable
   */
 object MerklePersist {
 
+  private val merkleTableNamePrefix = "merkle_"
+  def tableName(height: Long) = s"$merkleTableNamePrefix$height"
+
   implicit def hash(a:mutable.WrappedArray[Byte], b: mutable.WrappedArray[Byte]): mutable.WrappedArray[Byte] =
     FastCryptographicHash.hash(a.array) ++ FastCryptographicHash.hash(b.array)
 

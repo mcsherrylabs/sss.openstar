@@ -4,7 +4,7 @@ import com.google.common.primitives.Ints
 import contract.Decumbrance
 import ledger.{TxIndexLen, TxInput}
 import sss.asado.contract.ContractSerializer
-
+import sss.asado.util.Serialize.Serializer
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/3/16.

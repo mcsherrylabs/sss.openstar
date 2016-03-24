@@ -6,6 +6,7 @@ import akka.actor._
 import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
+import sss.asado.network.NetworkController.BindControllerSettings
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -15,19 +16,31 @@ import scala.util.{Random, Try}
   * Control all network interaction
   * must be singleton
   */
-trait BindControllerSettings {
 
-  val applicationName: String
-  val bindAddress: String = "0.0.0.0"
-  val port: Int = 8084
-  val declaredAddressOpt: Option[String]
-  val connectionTimeout: Int = 60
-  val localOnly: Boolean = false
-  val connectionRetryIntervalSecs: Int
-  val appVersion: String
+object NetworkController {
+
+  case class SendToNetwork(msg: NetworkMessage, strategy: (Set[ConnectedPeer]) => Set[ConnectedPeer] = (s) => s)
+
+  case object ShutdownNetwork
+
+  case class ConnectTo(address: InetSocketAddress)
+
+
+  trait BindControllerSettings {
+
+    val applicationName: String
+    val bindAddress: String = "0.0.0.0"
+    val port: Int = 8084
+    val declaredAddressOpt: Option[String]
+    val connectionTimeout: Int = 60
+    val localOnly: Boolean = false
+    val connectionRetryIntervalSecs: Int
+    val appVersion: String
+  }
+
 }
 
-class NetworkController(messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with ActorLogging {
+class NetworkController(incoming: Boolean, messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with ActorLogging {
 
   import NetworkController._
   import context.system
@@ -58,7 +71,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
   lazy val localAddress = new InetSocketAddress(InetAddress.getByName(settings.bindAddress), settings.port)
   lazy val connTimeout = Some(new FiniteDuration(settings.connectionTimeout, SECONDS))
 
-  IO(Tcp) ! Bind(self, localAddress)
+  if(incoming) IO(Tcp) ! Bind(self, localAddress)
 
   private def manageNetwork: Receive = {
 
@@ -88,7 +101,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
       peerList().find(_.handlerRef == ref) map { found =>
         peerList.alter(_.filterNot(_ == found)) map { _ =>
-          self ! ConnectTo(found.address)
+          if(!incoming) self ! ConnectTo(found.address)
         }
       }
 
@@ -104,7 +117,7 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
 
     case CommandFailed(c: Connect) =>
       log.info(s"Failed to connect to : ${c.remoteAddress}")
-      //context.system.scheduler.scheduleOnce(settings.connectionRetryIntervalSecs.seconds, self,  ConnectTo(c.remoteAddress))
+      context.system.scheduler.scheduleOnce(settings.connectionRetryIntervalSecs.seconds, self,  ConnectTo(c.remoteAddress))
 
     case CommandFailed(cmd: Tcp.Command) =>
       log.info(s"Failed to execute command : $cmd")
@@ -130,12 +143,5 @@ class NetworkController(messageRouter: ActorRef, settings: BindControllerSetting
   override def postStop = log.warning("Network controller is down!"); super.postStop
 }
 
-object NetworkController {
-
-  case class SendToNetwork(msg: NetworkMessage, strategy: (Set[ConnectedPeer]) => Set[ConnectedPeer] = (s) => s)
-  case object ShutdownNetwork
-  case class ConnectTo(address: InetSocketAddress)
-
-}
 
 

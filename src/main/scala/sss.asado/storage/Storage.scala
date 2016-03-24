@@ -8,7 +8,7 @@ trait Storage[K, V] {
   private[storage] def entries: Set[V]
   def apply(k: K): V = get(k).get
   def get(k: K): Option[V]
-  def write(k: K,v: V)
+  def write(k: K,v: V): Long
   def delete(k: K): Boolean
-  def inTransaction(f: => Unit): Unit
+  def inTransaction[T](f: => T): T
 }

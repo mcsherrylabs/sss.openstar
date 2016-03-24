@@ -1,9 +1,11 @@
+
 import javax.xml.bind.DatatypeConverter
 
 import contract.{Decumbrance, Encumbrance}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.hash.SecureCryptographicHash
 import sss.asado.ledger.serialize._
+import sss.asado.util.Serialize._
 import sss.asado.util.{ByteArrayComparisonOps, EllipticCurveCrypto}
 
 import scala.util.Try
@@ -67,6 +69,8 @@ package object ledger extends ByteArrayComparisonOps {
     require(txId.length == TxIdLen)
   }
 
+  case class TxDbId(height: Long, id: Long)
+
   implicit class TxIndexTo(t: TxIndex) extends ToBytes[TxIndex] {
     override def toBytes: Array[Byte] = TxIndexSerializer.toBytes(t)
   }
@@ -97,13 +101,14 @@ package object ledger extends ByteArrayComparisonOps {
   }
   implicit class SignedTxFrom(b: Array[Byte]) {
     def toSignedTx: SignedTx = SignedTxSerializer.fromBytes(b)
-    def toSignedTxTry: Try[SignedTx] = Try {SignedTxSerializer.fromBytes(b)}
+    def toSignedTxTry = Try(toSignedTx)
   }
   implicit class SeqSignedTxTo(t: SeqSignedTx)  extends ToBytes[SeqSignedTx] {
     override def toBytes: Array[Byte] = SeqSignedTxSerializer.toBytes(t)
   }
   implicit class SeqSignedTxFrom(b: Array[Byte]) {
     def toSeqSignedTx: SeqSignedTx = SeqSignedTxSerializer.fromBytes(b)
+    def toSeqSignedTxTry = Try(toSeqSignedTx)
   }
 
 

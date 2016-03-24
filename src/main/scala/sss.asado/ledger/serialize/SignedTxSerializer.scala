@@ -4,7 +4,7 @@ import com.google.common.primitives.Ints
 import ledger._
 
 import scala.annotation.tailrec
-
+import sss.asado.util.Serialize.Serializer
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/3/16.

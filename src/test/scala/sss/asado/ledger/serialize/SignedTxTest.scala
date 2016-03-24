@@ -10,6 +10,18 @@ import sss.asado.util.SeedBytes
   * Created by alan on 2/15/16.
   */
 
+object SignedTxTest {
+  def createSignedTx = {
+    val randomTxId: TxId = SeedBytes(32)
+    val txIndex = TxIndex(randomTxId, 3456)
+    val pkPair = PrivateKeyAccount()
+    val txOutput = TxOutput(33, SinglePrivateKey(pkPair.publicKey))
+    val txInput = TxInput(txIndex, 34, PrivateKeySig)
+    val tx = StandardTx(Seq(txInput, txInput, txInput), Seq(txOutput, txOutput, txOutput))
+    val sig = tx.sign(pkPair)
+    SignedTx(tx, Seq(sig))
+  }
+}
 class SignedTxTest extends FlatSpec with Matchers {
 
   val randomTxId: TxId = SeedBytes(32)

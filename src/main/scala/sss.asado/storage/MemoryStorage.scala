@@ -6,7 +6,10 @@ class MemoryStorage(gensis: SignedTx) extends Storage[TxIndex, TxOutput] {
 
   def entries: Set[TxOutput] = ledgerImpl.values.toSet
   def get(id: TxIndex): Option[TxOutput] = ledgerImpl.get(id)
-  def write(id: TxIndex, le: TxOutput) = ledgerImpl += id -> le
+  def write(id: TxIndex, le: TxOutput) = {
+    ledgerImpl += id -> le
+    0
+  }
 
   override def delete(k: TxIndex): Boolean = { ledgerImpl -= k; true }
 
@@ -17,5 +20,5 @@ class MemoryStorage(gensis: SignedTx) extends Storage[TxIndex, TxOutput] {
     acc + 1
   }
 
-  override def inTransaction(f: => Unit): Unit = f
+  override def inTransaction[T](f: => T): T = f
 }
