@@ -5,7 +5,7 @@ A Scala Based Distributed Ledger
 
 Building up the compenents of a blockchain in scala.
 
-So far - network messages, peers, ledger .... 
+So far - network messages, peers, ledger and so on .... 
 
 Depends on -> https://github.com/ScorexProject/scrypto
 
