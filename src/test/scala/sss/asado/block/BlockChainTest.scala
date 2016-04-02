@@ -86,4 +86,11 @@ class BlockChainTest extends FlatSpec with Matchers {
     matchSecondBlock(bc.block(height + 1).get, firstBlock.hash)
 
   }
+
+  it should " sign a block correctly " in {
+
+    bc.sign(1, "")
+
+  }
+
 }

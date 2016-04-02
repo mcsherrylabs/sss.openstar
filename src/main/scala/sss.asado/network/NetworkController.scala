@@ -1,16 +1,15 @@
 package sss.asado.network
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetSocketAddress
 
-import akka.actor._
+import akka.actor.{Actor, _}
 import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
-import sss.asado.network.NetworkController.BindControllerSettings
+import sss.asado.network.NetworkController._
+import sss.asado.state.AsadoStateProtocol.{QuorumGained, QuorumLost}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.util.{Random, Try}
 
 /**
   * Control all network interaction
@@ -19,17 +18,13 @@ import scala.util.{Random, Try}
 
 object NetworkController {
 
-  case class SendToNetwork(msg: NetworkMessage, strategy: (Set[ConnectedPeer]) => Set[ConnectedPeer] = (s) => s)
-
-  case object ShutdownNetwork
-
-  case class ConnectTo(address: InetSocketAddress)
-
+  def quorum(numInPeersList : Int): Int = if (numInPeersList == 0) 0 else (numInPeersList / 2)
 
   trait BindControllerSettings {
 
     val applicationName: String
     val bindAddress: String = "0.0.0.0"
+    val nodeId : String
     val port: Int = 8084
     val declaredAddressOpt: Option[String]
     val connectionTimeout: Int = 60
@@ -38,76 +33,99 @@ object NetworkController {
     val appVersion: String
   }
 
+
+  case class SendToNetwork(msg: NetworkMessage, strategy: (Set[Connection]) => Set[Connection] = (s) => s)
+
+  case class ConnectTo(nId: NodeId)
+
+  case class PeerConnectionLost(conn: Connection, updatedSet: Set[Connection])
+
+  case class PeerConnectionGained(conn: Connection, updatedSet: Set[Connection])
+  case class ConnectionGained(conn: Connection)
+  case object ConnectionLost
+  //case class QuorumLost(conn: Connection, updatedSet: Set[Connection])
+  //case class QuorumGained(conn: Connection, updatedSet: Set[Connection])
+
+  case object ShutdownNetwork
+
+  private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
+  def toInetSocketAddress(pattern: String): NodeId = pattern match { case peerPattern(id, ip, port) => NodeId(id, new InetSocketAddress(ip, port.toInt))}
+  def toInetSocketAddresses(patterns: Set[String]): Set[NodeId] = patterns map (toInetSocketAddress)
 }
 
-class NetworkController(incoming: Boolean, messageRouter: ActorRef, settings: BindControllerSettings, upnp: Option[UPnP], peerList: Agent[Set[ConnectedPeer]]) extends Actor with ActorLogging {
+class NetworkController(messageRouter: ActorRef,
+                             netInf: NetworkInterface,
+                             peersList: Set[NodeId],
+                             peers: Agent[Set[Connection]],
+                             stateController: ActorRef) extends Actor with ActorLogging {
 
-  import NetworkController._
+
+  private val quorum: Int = NetworkController.quorum(peersList.size)
+
   import context.system
 
-  val nodeNonce: Int = Random.nextInt()
-  val handshakeTemplate = Handshake(settings.applicationName,
-    ApplicationVersion(settings.appVersion),
-    ownSocketAddress.getAddress.toString,
-    ownSocketAddress.getPort,
-    nodeNonce,
-    0
-  )
+  IO(Tcp) ! Bind(self, netInf.localAddress)
 
-  //check own declared address for validity
-  require(NetworkUtil.isAddressValid(settings.declaredAddressOpt), upnp)
+  peersList foreach (self ! ConnectTo(_))
 
-  lazy val externalSocketAddress = settings.declaredAddressOpt
-    .flatMap(s => Try(InetAddress.getByName(s)).toOption)
-    .orElse {
-      if (upnp.isDefined) upnp.get.externalAddress else None
-    }.map(ia => new InetSocketAddress(ia, settings.port))
-
-  //an address to send to peers
-  lazy val ownSocketAddress = externalSocketAddress.getOrElse(localAddress)
-
-  log.info(s"Declared address: $ownSocketAddress")
-
-  lazy val localAddress = new InetSocketAddress(InetAddress.getByName(settings.bindAddress), settings.port)
-  lazy val connTimeout = Some(new FiniteDuration(settings.connectionTimeout, SECONDS))
-
-  if(incoming) IO(Tcp) ! Bind(self, localAddress)
-
-  private def manageNetwork: Receive = {
+  private def manageNetwork: Actor.Receive = {
 
     case b@Bound(localAddr) =>
-      log.info("Successfully bound to the port " + settings.port)
+      log.info("Successfully bound to " + localAddr)
 
-    case CommandFailed(_: Bind) =>
-      log.error("Network port " + settings.port + " already in use!")
-      context stop self
+    case b@Unbound => log.info("Successfully unbound")
 
-    case ConnectTo(remote) =>
-      peerList().find(_.address == remote) match {
-      case None => IO(Tcp) ! Connect(remote, localAddress = None, timeout = connTimeout, pullMode = true)
-      case Some(p) => log.debug(s"already connected to $p")
-    }
+
+    case CommandFailed(b: Bind) =>
+      log.error(s"Network port ${b.localAddress} already in use!?")
+
+    case SendToNetwork(nm, strategy) =>
+      strategy(peers.get) foreach (cp => cp.handlerRef ! nm)
+
+    case ConnectTo(nodeId) =>
+      peersList.find(_.id == nodeId.id) match {
+        case Some(peer) => peers().find(_.nodeId == nodeId.id) match {
+          case None => IO(Tcp) ! Connect(nodeId.inetSocketAddress, localAddress = None, timeout = Option(netInf.connTimeout), pullMode = true)
+          case Some(p) => log.info(s"Already connected to $p, will not attepmt to connect.")
+        }
+        case None => IO(Tcp) ! Connect(nodeId.inetSocketAddress, localAddress = None, timeout = Option(netInf.connTimeout), pullMode = true)
+      }
+
+
+    case p@Connection(NodeId(nodeId, addr), hndlr) =>
+
+      peersList.find(_.id == nodeId) match {
+        case Some(peer) => peers().find(_.nodeId.id == nodeId) match {
+          case None => peers.alter(_ + p) map (conns => {
+            if (conns.size == quorum) stateController ! QuorumGained
+            else if (conns.size > quorum) stateController ! PeerConnectionGained(p, conns)
+          })
+          case Some(alreadyInPeers) => {
+            log.info(s"Connection $alreadyInPeers exists, closing this one.")
+            sender() ! CloseConnection
+          }
+        }
+        case None => stateController ! ConnectionGained(p)
+      }
+
+    case t@Terminated(ref) =>
+
+      peers().find(_.handlerRef == ref) match {
+        case Some(found) =>
+          peers.alter(_.filterNot(_ == found)) map { conns =>
+            if (conns.size + 1 == quorum) stateController ! QuorumLost
+            else if (conns.size < quorum) stateController ! PeerConnectionLost(found, conns)
+            self ! ConnectTo(found.nodeId)
+          }
+        case None => stateController ! ConnectionLost
+      }
 
     case c@Connected(remote, local) =>
       val connection = sender()
-      val handler = createConnectionHandler(connection, remote, nodeNonce)
+      val handler = createConnectionHandler(connection, remote, netInf.nodeNonce)
       context watch handler
       connection ! Register(handler, keepOpenOnPeerClosed = false, useResumeWriting = true)
-      handler ! handshakeTemplate.copy(time = System.currentTimeMillis() / 1000)
-
-
-    case Terminated(ref) =>
-      log.debug(s"We are disconnected from  $ref")
-
-      peerList().find(_.handlerRef == ref) map { found =>
-        peerList.alter(_.filterNot(_ == found)) map { _ =>
-          if(!incoming) self ! ConnectTo(found.address)
-        }
-      }
-
-    case p@ConnectedPeer(addr, hndlr) =>
-      log.debug(s"We are connected to  $p")
-      peerList.send(_ + p)
+      handler ! netInf.createHandshake
 
 
     case ShutdownNetwork =>
@@ -115,33 +133,26 @@ class NetworkController(incoming: Boolean, messageRouter: ActorRef, settings: Bi
       self ! Unbind
       context stop self
 
-    case CommandFailed(c: Connect) =>
-      log.info(s"Failed to connect to : ${c.remoteAddress}")
-      context.system.scheduler.scheduleOnce(settings.connectionRetryIntervalSecs.seconds, self,  ConnectTo(c.remoteAddress))
+    case cf@CommandFailed(c: Connect) =>
+      peersList.find(_.inetSocketAddress == c.remoteAddress) map { found =>
+        context.system.scheduler.scheduleOnce(netInf.connectionRetryInterval, self, ConnectTo(found))
+      }
 
-    case CommandFailed(cmd: Tcp.Command) =>
-      log.info(s"Failed to execute command : $cmd")
+    case CommandFailed(cmd: Tcp.Command) => log.info(s"Failed to execute command : $cmd")
 
-    case SendToNetwork(nm, strategy) => strategy(peerList()) foreach(cp => cp.handlerRef ! nm)
-
-    case e @ NetworkMessage(msgCode, bytes) =>
+    case e@NetworkMessage(msgCode, bytes) =>
       // allow receiver to reply directly to connection
       // but route through here to avoid coupling message router with connection handler
       messageRouter forward e
 
-
-    case nonsense: Any =>
-      log.warning(s"NetworkController: got something strange $nonsense")
+    case nonsense => log.warning(s"NetworkController: unhandled msg $nonsense")
   }
+
 
   def createConnectionHandler(connection: ActorRef, remoteAddress: InetSocketAddress, nodeNonce:Int): ActorRef = {
     context.actorOf(Props(classOf[ConnectionHandler], connection, remoteAddress, nodeNonce.toLong))
   }
 
-  override def receive: Receive = manageNetwork
-
   override def postStop = log.warning("Network controller is down!"); super.postStop
+  override def receive: Receive = manageNetwork
 }
-
-
-

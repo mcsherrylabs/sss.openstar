@@ -4,13 +4,13 @@ package sss.asado.tools
 import javax.xml.bind.DatatypeConverter
 
 import contract.NullEncumbrance
-import ledger.{GenisesTx, TxOutput}
+import ledger.{GenisesTx, TxIndex, TxOutput}
 import sss.ancillary.Configure
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.block.BlockChain
 import sss.asado.ledger.UTXOLedger
 import sss.asado.storage.UTXODBStorage
-import sss.db.Db
+import sss.db.{Db, Where}
 
 
 /**
@@ -23,6 +23,8 @@ object BlockChainTool extends Configure {
   implicit var db: Db = _
 
   lazy val utxos = new UTXOLedger(new UTXODBStorage())
+  lazy val utxosTable = db.table("utxo")
+  lazy val blockHeaderTable = db.table(BlockChain.tableName)
 
   def main(args: Array[String]) {
 
@@ -35,11 +37,28 @@ object BlockChainTool extends Configure {
       case "init" :: tail => init(tail)
       case "genesis" :: tail => genesis(tail)
       case "createkey" :: tail => createKey(tail)
+      case "dumpdb" :: tail => dumpDb(tail)
       case x => p(s"$x not handled")
 
     }
   }
 
+  def dumpDb(args: List[String]): Unit = {
+    println(s"Total utxos ${utxosTable.count}, printing ..")
+    var count = 0
+    utxosTable.filter(Where("indx > -1 LIMIT ?", 100)) map { r =>
+      val tmp = TxIndex(DatatypeConverter.parseHexBinary(r[String]("txid")), r[Int]("indx"))
+      utxos.entry(tmp) match {
+        case None =>
+        case Some(entry) => println(s"$tmp ${entry.amount}")
+      }
+    }
+    println(s"Total blocks ${blockHeaderTable.count}, printing ..")
+    blockHeaderTable.map( r =>
+    println(r)
+    )
+
+  }
   def createKey(args: List[String]): Unit = {
     val acc = PrivateKeyAccount()
     p(s"Private Key ${acc.privateKey}")

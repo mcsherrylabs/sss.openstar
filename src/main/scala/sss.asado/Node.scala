@@ -10,9 +10,11 @@ import sss.asado.ledger.UTXOLedger
 import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
+import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
 import sss.asado.storage.UTXODBStorage
 import sss.db.Db
 
+import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
@@ -24,44 +26,60 @@ object Node extends Configure {
 
 
 
+  case class InitWithActorRefs(refs : ActorRef *)
+
   def main(args: Array[String]) {
 
     println(s"Asado node starting up ...[${args(0)}]")
 
     val nodeConfig = config(args(0))
-    val dbConfig = s"${args(0)}.database"
+    val dbConfig = nodeConfig.getConfig("database")
     implicit val db = Db(dbConfig)
 
     db.table("utxo").map { println(_) }
 
-    val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
+    val settings: BindControllerSettings = DynConfig[BindControllerSettings](nodeConfig.getConfig("bind"))
 
     implicit val actorSystem = ActorSystem("asado-network-node")
-    val peerList = Agent[Set[ConnectedPeer]](Set.empty[ConnectedPeer])
+    val connectedPeers = Agent[Set[Connection]](Set.empty[Connection])
 
     val messageRouter = actorSystem.actorOf(Props(classOf[MessageRouter]))
 
+    val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
+    val bc = new BlockChain()
+
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
-    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], true,  messageRouter, settings, uPnp, peerList))
+    val peersList = nodeConfig.getStringList("peers").toSet.map(NetworkController.toInetSocketAddress)
+    val quorum = NetworkController.quorum(peersList.size)
 
-    val writeConfirmActor = actorSystem.actorOf(Props(classOf[WriteConfirmationActor], peerList, messageRouter, db))
+    val leaderActorRef = actorSystem.actorOf(Props(classOf[LeaderActor], settings.nodeId, quorum, connectedPeers, messageRouter, bc, db))
+
+    val stateMachine = actorSystem.actorOf(Props(classOf[AsadoStateMachineActor], leaderActorRef, connectedPeers, bc, messageRouter))
+
+    val netInf = new NetworkInterface(settings, uPnp)
+
+    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
+
+    leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
+
+    val writeConfirmActor = actorSystem.actorOf(Props(classOf[WriteConfirmationActor], connectedPeers, messageRouter, db))
 
     val txRouter: ActorRef =
       actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], writeConfirmActor)), "txRouter")
 
     messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
 
-    val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
-    val bc = new BlockChain()
 
     val utxoLedger = new UTXOLedger(new UTXODBStorage())
 
-    val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, utxoLedger, txRouter, db))
+    //val bcRef = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, utxoLedger, txRouter, db))
 
-    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, db))
+
+    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, connectedPeers, db))
 
     ref ! "init"
+
   }
 
 }

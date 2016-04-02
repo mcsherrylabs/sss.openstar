@@ -26,7 +26,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
 
   }
 
-  "An Ack Confirm Tx" should " be corrrectly serialised and deserialized as an ecumbrance " in {
+  "An Ack Confirm Tx" should " be corrrectly serialised and deserialized " in {
     val c = AckConfirmTx(stx.txId, height, id)
     val asBytes = c.toBytes
     val backAgain = asBytes.toAckConfirmTx
@@ -37,4 +37,13 @@ class BlockSerializerTest extends FlatSpec with Matchers {
 
   }
 
+
+  "A Find Leader " should " be corrrectly serialised and deserialized " in {
+    val c = FindLeader(1234, 4, "Holy Karelia!")
+    val asBytes = c.toBytes
+    val backAgain = asBytes.toFindLeader
+    assert(backAgain.height === c.height)
+    assert(backAgain.nodeId === c.nodeId)
+    assert(backAgain === c)
+  }
 }

@@ -12,8 +12,8 @@ import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.ledger.UTXOLedger
 import sss.asado.network.MessageRouter.{Register, UnRegister}
-import sss.asado.network.NetworkController.{ConnectTo, SendToNetwork}
-import sss.asado.network.NetworkMessage
+import sss.asado.network.NetworkController._
+import sss.asado.network.{NetworkMessage, NodeId}
 import sss.asado.storage.UTXODBStorage
 import sss.asado.util.{ClientKey, Console}
 import sss.db.{Db, Where}
@@ -97,7 +97,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
 
     }
 
-    case connectPeerPattern(ip, port) => nc ! ConnectTo(InetSocketAddress.createUnresolved(ip, port.toInt))
+    case connectPeerPattern(ip, port) => nc ! ConnectTo(NodeId("Some place" , InetSocketAddress.createUnresolved(ip, port.toInt)))
 
     case "list keys" => {
       sessionData.getOrElse("keys", println("No keys")).asInstanceOf[Map[String, PrivateKeyAccount]].foreach(println(_))

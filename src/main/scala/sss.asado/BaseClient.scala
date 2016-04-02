@@ -33,7 +33,7 @@ trait BaseClient extends Configure with ConsolePattern {
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
 
     implicit val actorSystem = ActorSystem("asado-network-client")
-    val peerList = Agent[Set[ConnectedPeer]](Set.empty[ConnectedPeer])
+    val peerList = Agent[Set[Connection]](Set.empty[Connection])
 
     val messageRouter = actorSystem.actorOf(Props(classOf[MessageRouter]))
 
@@ -44,7 +44,7 @@ trait BaseClient extends Configure with ConsolePattern {
     val peers: scala.collection.mutable.Seq[String] = nodeConfig.getStringList("peers")
     peers.foreach { case peerPattern(ip, port) =>
       //actorSystem.scheduler.schedule(0 second, 30 seconds, ncRef, ConnectTo(new InetSocketAddress(ip, port.toInt)))
-      ncRef !  ConnectTo(new InetSocketAddress(ip, port.toInt))
+      ncRef !  ConnectTo(NodeId("some place", new InetSocketAddress(ip, port.toInt)))
     }
 
     run(settings, actorSystem, peerList, messageRouter, ncRef, nodeConfig, args)
@@ -52,8 +52,8 @@ trait BaseClient extends Configure with ConsolePattern {
   }
 
   protected def run(settings: BindControllerSettings,
-                  actorSystem: ActorSystem,
-                  peerList :Agent[Set[ConnectedPeer]],
+                    actorSystem: ActorSystem,
+                    peerList :Agent[Set[Connection]],
                     messageRouter: ActorRef,
                     ncRef: ActorRef,
                     nodeConfig: Config,

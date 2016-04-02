@@ -13,5 +13,8 @@ object MessageKeys {
   val MalformedMessage: Byte = 103
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
+  val FindLeader: Byte = 106
+  val Leader: Byte = 107
+  val VoteLeader: Byte = 108
 
 }

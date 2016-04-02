@@ -9,6 +9,7 @@ import scala.util.{Failure, Try}
 case class Handshake(applicationName: String,
                      applicationVersion: ApplicationVersion,
                      fromAddress: String,
+                     nodeId: String,
                      fromPort: Int,
                      fromNonce: Long,
                      time: Long
@@ -17,8 +18,11 @@ case class Handshake(applicationName: String,
   lazy val bytes: Array[Byte] = {
     val anb = applicationName.getBytes
     val fab = fromAddress.getBytes
+    val nodeIdb = nodeId.getBytes
 
     Array(anb.size.toByte) ++ anb ++
+      Ints.toByteArray(nodeId.size) ++
+      nodeIdb ++
       applicationVersion.bytes ++
       Ints.toByteArray(fab.size) ++ fab ++
       Ints.toByteArray(fromPort) ++
@@ -35,6 +39,13 @@ object Handshake extends Logging {
 
     val an = new String(bytes.slice(position, position + appNameSize))
     position += appNameSize
+
+    val nodeIdSize = Ints.fromByteArray(bytes.slice(position, position + 4))
+    position += 4
+
+    val nodeId = new String(bytes.slice(position, position + nodeIdSize))
+
+    position += nodeIdSize
 
     val av = ApplicationVersion.parse(bytes.slice(position, position + ApplicationVersion.SerializedVersionLength)).get
     position += ApplicationVersion.SerializedVersionLength
@@ -53,7 +64,7 @@ object Handshake extends Logging {
 
     val time = Longs.fromByteArray(bytes.slice(position, position + 8))
 
-    Handshake(an, av, fa, port, nonce, time)
+    Handshake(an, av, fa, nodeId, port, nonce, time)
   }.recoverWith { case t: Throwable =>
     log.info("Error during handshake parsing:", t)
     Failure(t)

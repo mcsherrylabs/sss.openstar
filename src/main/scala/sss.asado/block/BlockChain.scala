@@ -5,23 +5,25 @@ import java.util.Date
 import sss.ancillary.Logging
 import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
+import sss.asado.block.signature.BlockSignatures
 import sss.asado.storage.TxDBStorage
 import sss.db.{Db, OrderAsc, Where}
 
 import scala.collection.mutable
 import scala.util.Try
 
-/**
-  * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
-  * mcsherrylabs on 3/15/16.
-  */
+
+object BlockChain {
+  val tableName = "blockchain"
+}
+
 class BlockChain(implicit db: Db) extends Logging {
 
+  import BlockChain._
   import MerklePersist.MerklePersister
   import ledger._
 
-
-  private[block] lazy val blockHeaderTable = db.table("blockchain")
+  private[block] lazy val blockHeaderTable = db.table(tableName)
 
   private def lookupBlock(sql: String): Try[BlockHeader] = {
     Try[BlockHeader] {
@@ -55,6 +57,7 @@ class BlockChain(implicit db: Db) extends Logging {
 
       blockTxsTable inTransaction {
         val txs = blockTxsTable.map( { row =>
+          if(row[Int]("confirms") == 0) throw new RuntimeException("No confirms on some rows. TEMP SANITY check, TODO!! ")
           row[Array[Byte]]("entry").toSignedTx
         }, OrderAsc("id")).toSet
 
@@ -72,4 +75,11 @@ class BlockChain(implicit db: Db) extends Logging {
     }
   }
 
+  def sign(blockHeader: BlockHeader, nodeId: String): Unit = {
+    BlockSignatures(blockHeader.height).add(nodeId)
+  }
+
+  def sign(blockHeight: Long, nodeId: String): Unit = sign(block(blockHeight).get, nodeId)
+
+  def indexOfBlockSignature(height: Long, nodeId: String): Option[Int] = BlockSignatures(height).indexOfBlockSignature(nodeId)
 }

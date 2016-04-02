@@ -9,17 +9,15 @@ import akka.util.{ByteString, CompactByteString}
 
 import scala.util.{Failure, Success}
 
-case class ConnectedPeer(address: InetSocketAddress, handlerRef: ActorRef)
+case class NodeId(id: String, inetSocketAddress: InetSocketAddress)
+case class Connection(nodeId: NodeId, handlerRef: ActorRef)
 case class NetworkMessage(msgCode: Byte, data: Array[Byte])
 case object CloseConnection
 
-//todo: timeout on Ack waiting
 class ConnectionHandler(
                                  connection: ActorRef,
                                  remote: InetSocketAddress,
                                  ownNonce: Long) extends Actor with Buffering with ActorLogging with Protocol {
-
-  val selfPeer = new ConnectedPeer(remote, self)
 
   context watch connection
 
@@ -34,15 +32,15 @@ class ConnectionHandler(
       connection ! ResumeReading
 
     case cc: ConnectionClosed =>
-      log.info(s"Connection closed to : $remote ${cc.getErrorCause}")
+      log.debug(s"Connection closed to : $remote ${cc.getErrorCause}")
       context.stop(self)
 
     case CloseConnection =>
-      log.info(s"Enforced to abort communication with: $remote")
+      log.debug(s"Programmer enforced connection close with: $remote")
       connection ! Close
 
     case CommandFailed(cmd: Tcp.Command) =>
-      log.info(s"Failed to execute command : $cmd ")
+      log.warning(s"Failed to execute command : $cmd ")
       connection ! ResumeReading
   }
 
@@ -54,9 +52,8 @@ class ConnectionHandler(
 
     case h: Handshake =>
       connection ! Write(ByteString(h.bytes))
-      log.info(s"Handshake sent to $remote")
       if(gotHandShake) {
-        context.parent ! ConnectedPeer(remote, self)
+        context.parent ! Connection(NodeId(h.nodeId, remote), self)
         context become working
       } else context become handshake(sentHandShakeTrue, noHandShakeReceived)
 
@@ -65,11 +62,11 @@ class ConnectionHandler(
         case Success(shake) =>
           if (shake.fromNonce != ownNonce) {
             val delay = (System.currentTimeMillis() / 1000) - shake.time
-            log.info(s"Got a Handshake from $remote, delay in s is $delay")
+            log.debug(s"Got a Handshake from $remote, delay in s is $delay")
             connection ! ResumeReading
 
             if(sentHandShake) {
-              context.parent ! ConnectedPeer(remote, self)
+              context.parent ! Connection(NodeId(shake.nodeId, remote), self)
               context become working
             } else context.become(handshake(handShakeNotSent, gotHandShakeTrue))
 
@@ -99,7 +96,6 @@ class ConnectionHandler(
       t._1.find { packet =>
         fromWire(packet.toByteBuffer) match {
           case Success(message) =>
-            log.info(s"received message from $remote")
             context.parent ! message
             false
 

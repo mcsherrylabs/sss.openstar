@@ -4,17 +4,17 @@ import javax.xml.bind.DatatypeConverter
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.agent.Agent
+import block._
 import com.google.common.primitives.Longs
 import com.typesafe.config.Config
-import block._
 import ledger.{SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
 import sss.asado.block.BlockChainMonitorActor
-import sss.asado.{BaseClient, MessageKeys}
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, SendToNetwork}
 import sss.asado.network._
 import sss.asado.util.ClientKey
+import sss.asado.{BaseClient, MessageKeys}
 import sss.db.Db
 
 import scala.language.postfixOps
@@ -28,7 +28,7 @@ object TxBlasterClient extends BaseClient {
 
   override protected def run(settings: BindControllerSettings,
                              actorSystem: ActorSystem,
-                             peerList: Agent[Set[ConnectedPeer]],
+                             peerList: Agent[Set[Connection]],
                              messageRouter: ActorRef,
                              ncRef: ActorRef,
                              nodeConfig: Config,
