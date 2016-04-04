@@ -25,13 +25,8 @@ class BlockChain(implicit db: Db) extends Logging {
 
   private[block] lazy val blockHeaderTable = db.table(tableName)
 
-  private def lookupBlock(sql: String): Try[BlockHeader] = {
-    Try[BlockHeader] {
-      blockHeaderTable.find(Where(sql)) match {
-        case None => throw new Error("No blocks found!")
-        case Some(row) => BlockHeader(row)
-      }
-    }
+  private def lookupBlock(sql: String): Option[BlockHeader] = {
+      blockHeaderTable.find(Where(sql)) map (BlockHeader(_))
   }
 
   def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): BlockHeader = {
@@ -41,9 +36,10 @@ class BlockChain(implicit db: Db) extends Logging {
   }
 
   // use id > 0 to satisfy the where clause. No other reason.
-  def lastBlock: Try[BlockHeader] = lookupBlock(" id > 0 ORDER BY height DESC LIMIT 1")
+  def lastBlock: BlockHeader = lookupBlock(" id > 0 ORDER BY height DESC LIMIT 1").get
 
-  def block(height: Long): Try[BlockHeader] = lookupBlock(s"height = $height")
+  def blockOpt(height: Long): Option[BlockHeader] = lookupBlock(s"height = $height")
+  def block(height: Long): BlockHeader = blockOpt(height).get
 
   def closeBlock(prevHeader: BlockHeader): Try[BlockHeader] = {
 
@@ -79,7 +75,7 @@ class BlockChain(implicit db: Db) extends Logging {
     BlockSignatures(blockHeader.height).add(nodeId)
   }
 
-  def sign(blockHeight: Long, nodeId: String): Unit = sign(block(blockHeight).get, nodeId)
+  def sign(blockHeight: Long, nodeId: String): Unit = sign(block(blockHeight), nodeId)
 
   def indexOfBlockSignature(height: Long, nodeId: String): Option[Int] = BlockSignatures(height).indexOfBlockSignature(nodeId)
 }

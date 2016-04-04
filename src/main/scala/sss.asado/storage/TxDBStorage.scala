@@ -12,10 +12,11 @@ object TxDBStorage extends Logging {
 
   def tableName(height: Long) = s"$blockTableNamePrefix$height"
 
-  def confirm(height: Long, id: Long)(implicit db:Db): Unit = {
+  def confirm(txId: Array[Byte], height: Long, id: Long)(implicit db:Db): Unit = {
     Try {
       val blcokTable = db.table(tableName(height))
-      blcokTable.update(Map("confirm" -> "confirm + 1", "id" -> id))
+      val r = blcokTable.update(Map("confirm" -> "confirm + 1", "id" -> id))
+      require(r[Array[Byte]]("txid").isSame(txId))
     } match {
       case Failure(e) => log.error(s"FAILED to add confirmation!", e)
       case Success(r) => log.info(s"Tx confirmed. $r")
@@ -35,6 +36,13 @@ class TxDBStorage(tableName: String)(implicit db:Db) extends Storage[TxId, Signe
       row[Array[Byte]]("entry").toSignedTx
     }, OrderAsc("id")).toSet
   }
+
+  def page(index: Long, pageSize: Int): Seq[Array[Byte]] = {
+    require(index < Int.MaxValue, "sss.db 'page' only supports Int, fix to support Long!")
+    blockTxTable.page(index.toInt, pageSize) map(r => r[Array[Byte]]("entry"))
+  }
+
+  def count = blockTxTable.count
 
   override def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 

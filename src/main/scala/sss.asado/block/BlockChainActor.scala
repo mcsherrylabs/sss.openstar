@@ -78,7 +78,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
 
   // there must be a last closed block or we cannot start up.
-  override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlock.get)
+  override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlock)
 
   private def secondsToWait(lastClosedBlockTime: Date): Long = {
     val passedTimeSinceLastBlockMs = (new Date().getTime) - lastClosedBlockTime.getTime

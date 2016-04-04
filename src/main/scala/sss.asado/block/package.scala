@@ -10,6 +10,8 @@ import sss.asado.util.Serialize.ToBytes
   */
 package object block {
 
+  case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 10)
+
   case class VoteLeader(nodeId: String)
   case class Leader(nodeId: String)
   case class FindLeader(height: Long, signatureIndex: Int, nodeId: String)
@@ -26,6 +28,13 @@ package object block {
     }
 
     override def hashCode(): Int = (17 + id.toInt) * txId.hash
+  }
+
+  implicit class GetTxPageTo(getTxPage: GetTxPage) extends ToBytes[GetTxPage] {
+    override def toBytes: Array[Byte] = GetTxPageSerializer.toBytes(getTxPage)
+  }
+  implicit class GetTxPageFrom(b: Array[Byte]) {
+    def toGetTxPage: GetTxPage = GetTxPageSerializer.fromBytes(b)
   }
 
   implicit class FindLeaderTo(lb: FindLeader) extends ToBytes[FindLeader] {

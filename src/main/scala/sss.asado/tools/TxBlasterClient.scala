@@ -8,7 +8,6 @@ import block._
 import com.google.common.primitives.Longs
 import com.typesafe.config.Config
 import ledger.{SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
-import sss.asado.block.BlockChainMonitorActor
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, SendToNetwork}
@@ -47,9 +46,6 @@ object TxBlasterClient extends BaseClient {
       println("Waiting for connection...")
       Thread.sleep(1111)
     }
-
-    val monitorRef = actorSystem.actorOf(Props(classOf[BlockChainMonitorActor], messageRouter, db))
-
 
     peerList.foreach (e => println(s"Connected $e"))
 

@@ -6,8 +6,6 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.storage.{TxDBStorage, TxDBStorageTest}
 import sss.db.Db
 
-import scala.util.{Failure, Success}
-
 /**
   * Created by alan on 2/15/16.
   */
@@ -56,34 +54,28 @@ class BlockChainTest extends FlatSpec with Matchers {
   }
 
   it should " find the correct last block " in {
-    bc.lastBlock match {
-      case Success(block) => matchFirstBlock(block)
-      case Failure(_) => fail("No last block?!")
-    }
+    matchFirstBlock(bc.lastBlock)
   }
 
 
   it should " close a block correctly " in {
 
     val now = new Date()
-    val lastBlock = bc.lastBlock.get
+    val lastBlock = bc.lastBlock
     val txWriter = TxDBStorage(newHeight)
     val stx = TxDBStorageTest.createSignedTx(TxDBStorageTest.createGenesis)
     txWriter.write(stx.txId, stx)
     bc.closeBlock(lastBlock)
 
-    bc.lastBlock match {
-      case Success(block) => matchSecondBlock(block, lastBlock.hash)
-      case Failure(_) => fail("No last block?!")
-    }
+    matchSecondBlock(bc.lastBlock, lastBlock.hash)
 
   }
 
   it should " lookup up a block correctly " in {
 
-    val firstBlock = bc.block(height).get
+    val firstBlock = bc.block(height)
     matchFirstBlock(firstBlock)
-    matchSecondBlock(bc.block(height + 1).get, firstBlock.hash)
+    matchSecondBlock(bc.block(height + 1), firstBlock.hash)
 
   }
 
