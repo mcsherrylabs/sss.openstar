@@ -31,7 +31,8 @@ case object AcknowledgeNewLedger
 class BlockChainActor(blockChainSettings: BlockChainSettings,
                       bc: BlockChain,
                       utxoLedger: UTXOLedger,
-                      writersRouterRef: ActorRef
+                      writersRouterRef: ActorRef,
+                      blockChainSyncingActor: ActorRef
                       )(implicit db: Db) extends Actor with ActorLogging {
 
 
@@ -94,6 +95,8 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     bc.closeBlock(lastClosedBlock) match {
       case Success(newLastBlock) => {
         log.info(s"Block ${newLastBlock.height} successfully saved.")
+        blockChainSyncingActor ! DistributeClose(newLastBlock.height)
+
         context.become(handleRouterDeath orElse waiting(newLastBlock))
         startTimer(secondsToWait(newLastBlock.time))
       }

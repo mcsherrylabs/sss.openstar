@@ -46,4 +46,14 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain.nodeId === c.nodeId)
     assert(backAgain === c)
   }
+
+  "A Get Page Tx" should " be corrrectly serialised and deserialized " in {
+    val c = GetTxPage(Long.MaxValue, 4, 45)
+    val asBytes = c.toBytes
+    val backAgain: GetTxPage = asBytes.toGetTxPage
+    assert(backAgain.pageSize === c.pageSize)
+    assert(backAgain.index === c.index)
+    assert(backAgain.blockHeight === c.blockHeight)
+    assert(backAgain === c)
+  }
 }

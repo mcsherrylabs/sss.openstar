@@ -65,6 +65,7 @@ class BlockChain(implicit db: Db) extends Logging {
         } else new BlockHeader(height, 0, hashPrevBlock, Array(), new Date())
 
         val newRow = blockHeaderTable.insert(newBlock.asMap)
+        log.debug(s"New Block header $newRow")
         BlockHeader(newRow)
 
       }

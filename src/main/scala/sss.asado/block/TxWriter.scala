@@ -18,8 +18,6 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   override def postStop = log.warning(s"Tx Writer ($self) is down."); super.postStop
 
-  // deal with registrations here.
-
   private def writeStx(blockLedger: Ledger, signedTx: SignedTx): Unit = {
       blockLedger(signedTx) match {
         case Success(TxDbId(height, id)) =>

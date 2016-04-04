@@ -23,6 +23,7 @@ object MessageKeys {
   val PagedTx: Byte = 41
   val EndPageTx: Byte = 42
   val CloseBlock: Byte = 43
+  val Synced: Byte = 44
 
 
 

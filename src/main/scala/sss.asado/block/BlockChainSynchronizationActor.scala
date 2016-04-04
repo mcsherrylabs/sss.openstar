@@ -15,8 +15,12 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 3/24/16.
   */
 case class ClientSynched(ref: ActorRef)
+case class DistributeClose(blockNumber: Long)
 
-class BlockChainSynchronizationActor(quorum: Int, stateMachine: ActorRef, messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging {
+class BlockChainSynchronizationActor(quorum: Int,
+                                     stateMachine: ActorRef,
+                                     bc: BlockChain,
+                                     messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging {
 
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! Register(MessageKeys.GetTxPage)
@@ -34,8 +38,11 @@ class BlockChainSynchronizationActor(quorum: Int, stateMachine: ActorRef, messag
       context.become(awaitConfirms(updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
 
 
+    case DistributeClose(blockNumber) =>
+      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, Array()))
+
     case netTxPage @ NetworkMessage(MessageKeys.GetTxPage, bytes) =>
-      val ref = context.actorOf(Props(classOf[TxPageActor]))
+      val ref = context.actorOf(Props(classOf[TxPageActor], bc, db))
       ref forward netTxPage
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
@@ -70,6 +77,7 @@ class BlockChainSynchronizationActor(quorum: Int, stateMachine: ActorRef, messag
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(newPeerSet, awaitGroup))
       if(newPeerSet.size == quorum) stateMachine ! Synced
+      clientRef ! NetworkMessage(MessageKeys.Synced, Array())
   }
 
   private def addConfirmation(confirm: AckConfirmTx) = TxDBStorage.confirm(confirm.txId, confirm.height, confirm.id)

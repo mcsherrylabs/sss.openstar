@@ -52,18 +52,22 @@ trait Protocol {
     assert(length >= 0, "Data length is negative!")
 
     val data = new Array[Byte](length)
-    //READ CHECKSUM
-    val checksum = new Array[Byte](Protocol.ChecksumLength)
-    bytes.get(checksum)
 
-    //READ DATA
-    bytes.get(data)
+    if(length > 0) {
 
-    //VALIDATE CHECKSUM
-    val digest = hash(data).take(Protocol.ChecksumLength)
+      //READ CHECKSUM
+      val checksum = new Array[Byte](Protocol.ChecksumLength)
+      bytes.get(checksum)
 
-    //CHECK IF CHECKSUM MATCHES
-    assert(checksum.sameElements(digest), s"Invalid data checksum length = $length")
+      //READ DATA
+      bytes.get(data)
+
+      //VALIDATE CHECKSUM
+      val digest = hash(data).take(Protocol.ChecksumLength)
+
+      //CHECK IF CHECKSUM MATCHES
+      assert(checksum.sameElements(digest), s"Invalid data checksum length = $length")
+    }
 
     NetworkMessage(msgCode, data)
   }

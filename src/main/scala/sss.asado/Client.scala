@@ -7,7 +7,6 @@ import sss.asado.console.{ConsoleActor, InfoActor}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
-import sss.db.Db
 
 import scala.language.postfixOps
 
@@ -25,9 +24,9 @@ object Client extends BaseClient {
                              ncRef: ActorRef,
                              nodeConfig: Config,
                              args: Array[String]
-                            )(implicit db: Db): Unit = {
+                            ): Unit = {
 
-    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList, db))
+    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, peerList))
 
     val infoRef = actorSystem.actorOf(Props(classOf[InfoActor], messageRouter))
 

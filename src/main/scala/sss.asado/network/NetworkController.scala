@@ -49,8 +49,8 @@ object NetworkController {
   case object ShutdownNetwork
 
   private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
-  def toInetSocketAddress(pattern: String): NodeId = pattern match { case peerPattern(id, ip, port) => NodeId(id, new InetSocketAddress(ip, port.toInt))}
-  def toInetSocketAddresses(patterns: Set[String]): Set[NodeId] = patterns map (toInetSocketAddress)
+  def toNodeId(pattern: String): NodeId = pattern match { case peerPattern(id, ip, port) => NodeId(id, new InetSocketAddress(ip, port.toInt))}
+  def toNodeIds(patterns: Set[String]): Set[NodeId] = patterns map (toNodeId)
 }
 
 class NetworkController(messageRouter: ActorRef,

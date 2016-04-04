@@ -15,7 +15,7 @@ object AsadoStateProtocol {
 
   case object FindTheLeader
   case class SyncWithLeader(leader: String)
-  case object AcceptTransactions
+  case class AcceptTransactions(leader: String)
   case object StopAcceptingTransactions
   case object Connecting
 }
@@ -42,7 +42,7 @@ trait AsadoStateMachine
   onTransition {
     case _ -> QuorumState => self ! FindTheLeader
     case QuorumState -> OrderedState => self ! SyncWithLeader(nextStateData.get)
-    case OrderedState -> ReadyState => self ! AcceptTransactions
+    case OrderedState -> ReadyState => self ! AcceptTransactions(nextStateData.get)
     case ReadyState -> ConnectingState =>
       self ! StopAcceptingTransactions
       self ! Connecting

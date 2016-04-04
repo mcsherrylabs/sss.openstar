@@ -75,12 +75,13 @@ object BlockChainTool extends Configure {
         val str = DatatypeConverter.printHexBinary(gx.txId)
         p(str)
         utxos.genesis(gx)
+        utxos.entry(TxIndex(gx.txId, 0)) map (println)
       }
     }
   }
   def init(args: List[String]): Unit = {
     val bc = new BlockChain()
-    p(s"Last block was ${bc.lastBlock}")
+    //p(s"Last block was ${bc.lastBlock}")
     bc.genesisBlock()
     p(s"${bc.lastBlock} <- now")
   }

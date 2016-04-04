@@ -52,16 +52,26 @@ class LeaderActor(thisNodeId: String,
 
     case NetworkMessage(MessageKeys.FindLeader,bytes) =>
       (makeFindLeaderNetMsg, bytes.toFindLeader) match {
-        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hidSigIndx, hisId)) if(hisBlkHeight > myBlockHeight) =>
+        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hidSigIndx, hisId)) if (hisBlkHeight > myBlockHeight) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
           sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
 
         case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisSigIndx, hisId))
-          if(hisBlkHeight == myBlockHeight) && (mySigIndex > hisSigIndx) =>
-            // I vote for him
-            log.info(s"My name is $nodeId and I'm voting for $hisId")
+          if (hisBlkHeight == myBlockHeight) && (mySigIndex > hisSigIndx) =>
+          // I vote for him
+          log.info(s"My name is $nodeId and I'm voting for $hisId")
+          sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
+
+        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisSigIndx, hisId))
+          if (hisBlkHeight == myBlockHeight) && (mySigIndex == hisSigIndx) =>
+          // This can only happen when there are txs in the chain. Very special case.
+          // the sigs Must have an order. They can't be the same unless there are none.
+          def makeLong(str: String) = str.foldLeft(0l)((acc, e) => acc + e.toLong)
+          if (makeLong(nodeId) > makeLong(hisId)) {
+            log.info(s"My name is $nodeId and I'm voting for $hisId in order to get started up.")
             sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
+          }
 
         case (mine, his) => log.info(s"$mine is ahead of $his")
       }

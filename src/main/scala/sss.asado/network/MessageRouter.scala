@@ -17,6 +17,7 @@ object MessageRouter {
   case class RegisterRef(msgCode: Byte, ref: ActorRef)
   case class Register(msgCode: Byte)
   case class UnRegister(msgCode: Byte)
+  case class UnRegisterRef(msgCode: Byte, ref: ActorRef)
 
 }
 
@@ -29,21 +30,15 @@ class MessageRouter extends Actor with ActorLogging {
 
   private def manageRegister(registeredParties: Map[Byte, Set[ActorRef]]): Receive = {
 
+    case UnRegisterRef(msgCode, ref) => unRegisterRef(ref, msgCode, registeredParties)
+
     case RegisterRef(msgCode, ref) => registerRef(ref, msgCode, registeredParties)
 
     case Register(msgCode) => registerRef(sender(), msgCode, registeredParties)
 
-
-    case UnRegister(msgCode) =>
-      log.debug(s"Removing msgCode $msgCode registrant ")
-      val registrant = sender()
-      context unwatch registrant
-      val newRegistrantList = registeredParties(msgCode).filterNot(_ == registrant)
-      context.become(manageRegister(registeredParties + (msgCode -> newRegistrantList)))
-
+    case UnRegister(msgCode) => unRegisterRef(sender(), msgCode, registeredParties)
 
     case e @ NetworkMessage(msgCode, bytes) =>
-      log.debug(s"We got a message, code is $msgCode")
       registeredParties(msgCode).foreach(_ forward e)
 
 
@@ -54,6 +49,12 @@ class MessageRouter extends Actor with ActorLogging {
       context.become(manageRegister(newRegistrantMap))
 
     case x   => log.warning(s"We got rubbish -> $x")
+  }
+
+  private def unRegisterRef(registrant: ActorRef, msgCode: Byte, registeredParties: Map[Byte, Set[ActorRef]]): Unit = {
+    context unwatch registrant
+    val newRegistrantList = registeredParties(msgCode).filterNot(_ == registrant)
+    context.become(manageRegister(registeredParties + (msgCode -> newRegistrantList)))
   }
 
   private def registerRef(newRegistrant: ActorRef, msgCode: Byte, registeredParties: Map[Byte, Set[ActorRef]]): Unit = {

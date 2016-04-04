@@ -2,7 +2,6 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
-import com.twitter.util.LruMap
 import ledger._
 import sss.asado.MessageKeys
 import sss.asado.ledger.{Ledger, UTXOLedger}
@@ -23,14 +22,9 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
   messageRouter ! Register(MessageKeys.EndPageTx)
   messageRouter ! Register(MessageKeys.ConfirmTx)
   messageRouter ! Register(MessageKeys.CloseBlock)
-
-  private def writeToDb(confirm: ConfirmTx): Try[Long] = Try {
-    lru.getOrElseUpdate(confirm.height, TxDBStorage(confirm.height)).write(confirm.stx.txId, confirm.stx)
-  }
-  private val lru = new LruMap[Long, TxDBStorage](3)
+  messageRouter ! Register(MessageKeys.Synced)
 
   private def makeNextLedger(lastHeight: Long) = new Ledger(lastHeight + 1, TxDBStorage(lastHeight+ 1), utxo)
-
 
   override def postStop = log.warning("BlockChainDownloaderActor Monitor actor is down!"); super.postStop
 
@@ -39,6 +33,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
     syncLedgerWithLeader(lastBlock, makeNextLedger(lastBlock.height))
   }
 
+  var synced = false
 
   private def syncLedgerWithLeader(lastBlock: BlockHeader, ledger: Ledger): Receive = {
 
@@ -62,19 +57,25 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
 
 
     case NetworkMessage(MessageKeys.EndPageTx, bytes) =>
-      sender() ! NetworkMessage(MessageKeys.GetTxPage, bytes)
+      val getTxPage = bytes.toGetTxPage
+      val nextPage = GetTxPage(getTxPage.blockHeight, getTxPage.index + getTxPage.pageSize, getTxPage.pageSize)
+      sender() ! NetworkMessage(MessageKeys.GetTxPage, nextPage.toBytes)
 
     case NetworkMessage(MessageKeys.CloseBlock, _) =>
       //close block
       bc.closeBlock(lastBlock) match {
         case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
         case Success(blockHeader) =>
-          log.debug(s"Synching - up to block ${blockHeader.height}")
+          log.info(s"Synching - block height ${blockHeader.height}")
           context.become(syncLedgerWithLeader(blockHeader, makeNextLedger(blockHeader.height)))
-          val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
-          // TODO SIGN THE BLOCK
-          sender() ! NetworkMessage(MessageKeys.GetTxPage, nextBlockPage.toBytes)
+          if(!synced) {
+            val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
+            // TODO SIGN THE BLOCK
+            sender() ! NetworkMessage(MessageKeys.GetTxPage, nextBlockPage.toBytes)
+          }
       }
+
+    case NetworkMessage(MessageKeys.Synced, _) => synced = true; log.info("Downloader is synced")
 
     case NetworkMessage(MessageKeys.ConfirmTx, bytes) =>
       Try(bytes.toSignedTx) match {

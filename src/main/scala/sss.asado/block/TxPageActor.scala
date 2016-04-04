@@ -14,15 +14,17 @@ import sss.db.Db
 class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
 
-  private case class EndOfPage(ref: ActorRef)
+  private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
   private case class EndOfBlock(ref: ActorRef)
 
   private case class TxToReturn(ref: ActorRef, stxBytes: Array[Byte])
 
   override def receive: Receive = {
 
-    case EndOfBlock(ref) => ref ! NetworkMessage(MessageKeys.CloseBlock, Array())
-    case EndOfPage(ref) => ref ! NetworkMessage(MessageKeys.EndPageTx, Array())
+    case EndOfBlock(ref) =>
+      ref ! NetworkMessage(MessageKeys.CloseBlock, Array())
+
+    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(MessageKeys.EndPageTx, getTxPageBytes)
     case synched @ ClientSynched(ref) =>
       context.parent  ! synched
       context.stop(self)
@@ -30,12 +32,13 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
     case TxToReturn(ref, stxBytes) => ref ! NetworkMessage(MessageKeys.PagedTx, stxBytes)
 
     case netTxPage @ NetworkMessage(MessageKeys.GetTxPage, bytes) =>
+      log.info("About to serve a tx page")
       val getTxPage : GetTxPage = bytes.toGetTxPage
       val maxHeight = bc.lastBlock.height + 1
       if(maxHeight >= getTxPage.blockHeight) {
         val nextPage = TxDBStorage(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
         nextPage.foreach(self ! TxToReturn(sender(), _))
-        if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sender())
+        if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sender(), bytes)
         else if(maxHeight == getTxPage.blockHeight) self ! ClientSynched(sender())
         else self ! EndOfBlock(sender())
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")

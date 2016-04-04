@@ -32,7 +32,8 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
   def write(k: TxIndex, le: TxOutput): Long = {
     val bs = le.toBytes
     val hexStr:String = DatatypeConverter.printHexBinary(k.txId)
-    utxoLedgerTable.insert(hexStr, k.index, bs)
+    val res = utxoLedgerTable.insert(hexStr, k.index, bs)
+    res
   }
 
 }

@@ -1,15 +1,12 @@
 package sss.asado
 
-import java.net.InetSocketAddress
-
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import com.typesafe.config.Config
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.console.ConsolePattern
-import sss.asado.network.NetworkController.{BindControllerSettings, ConnectTo}
+import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
-import sss.db.Db
 
 import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -28,35 +25,40 @@ trait BaseClient extends Configure with ConsolePattern {
 
     val nodeConfig = config(args(0))
     val dbConfig = s"${args(0)}.database"
-    implicit val db = Db(dbConfig)
+    //implicit val db = Db(dbConfig)
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
 
     implicit val actorSystem = ActorSystem("asado-network-client")
-    val peerList = Agent[Set[Connection]](Set.empty[Connection])
+    val connectedPeers = Agent[Set[Connection]](Set.empty[Connection])
+
+    val peersList = nodeConfig.getStringList("peers").toSet.map(NetworkController.toNodeId)
 
     val messageRouter = actorSystem.actorOf(Props(classOf[MessageRouter]))
 
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
-    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], false, messageRouter, settings, uPnp, peerList))
+    val netInf = new NetworkInterface(settings, uPnp)
 
-    val peers: scala.collection.mutable.Seq[String] = nodeConfig.getStringList("peers")
-    peers.foreach { case peerPattern(ip, port) =>
-      //actorSystem.scheduler.schedule(0 second, 30 seconds, ncRef, ConnectTo(new InetSocketAddress(ip, port.toInt)))
-      ncRef !  ConnectTo(NodeId("some place", new InetSocketAddress(ip, port.toInt)))
-    }
+    val stateMachine = actorSystem.actorOf(Props[DumbMachine])
 
-    run(settings, actorSystem, peerList, messageRouter, ncRef, nodeConfig, args)
+    val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
+
+    run(settings, actorSystem, connectedPeers, messageRouter, ncRef, nodeConfig, args)
 
   }
 
   protected def run(settings: BindControllerSettings,
                     actorSystem: ActorSystem,
-                    peerList :Agent[Set[Connection]],
+                    connectedPeers :Agent[Set[Connection]],
                     messageRouter: ActorRef,
                     ncRef: ActorRef,
                     nodeConfig: Config,
-                    args: Array[String]
-                 )(implicit db: Db)
+                    args: Array[String])
+}
+
+class DumbMachine extends Actor with ActorLogging {
+  override def receive: Receive = {
+    case x => log.info(x.toString)
+  }
 }

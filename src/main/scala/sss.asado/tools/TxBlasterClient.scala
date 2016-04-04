@@ -14,7 +14,6 @@ import sss.asado.network.NetworkController.{BindControllerSettings, SendToNetwor
 import sss.asado.network._
 import sss.asado.util.ClientKey
 import sss.asado.{BaseClient, MessageKeys}
-import sss.db.Db
 
 import scala.language.postfixOps
 
@@ -32,7 +31,7 @@ object TxBlasterClient extends BaseClient {
                              ncRef: ActorRef,
                              nodeConfig: Config,
                              args: Array[String]
-                            )(implicit db: Db): Unit = {
+                            ): Unit = {
 
     val pka = ClientKey.account
     val firstTxIdHex = args(1)
@@ -40,7 +39,7 @@ object TxBlasterClient extends BaseClient {
     val firstAmount = args(3).toInt
     val firstTxId = DatatypeConverter.parseHexBinary(firstTxIdHex )
 
-    val ref = actorSystem.actorOf(Props(classOf[TxBlasterActor], args, messageRouter, ncRef, db))
+    val ref = actorSystem.actorOf(Props(classOf[TxBlasterActor], args, messageRouter, ncRef))
 
     while(peerList().size == 0) {
       println("Waiting for connection...")
@@ -110,7 +109,7 @@ object TxBlasterClient extends BaseClient {
 
 }
 
-class TxBlasterActor(args :Array[String], messageRouter: ActorRef, ncRef : ActorRef, db: Db) extends Actor with ActorLogging {
+class TxBlasterActor(args :Array[String], messageRouter: ActorRef, ncRef : ActorRef) extends Actor with ActorLogging {
 
   messageRouter ! Register(MessageKeys.SignedTxAck)
   messageRouter ! Register(MessageKeys.SignedTxNack)
