@@ -53,7 +53,7 @@ class BlockChain(implicit db: Db) extends Logging {
 
       blockTxsTable inTransaction {
         val txs = blockTxsTable.map( { row =>
-          if(row[Int]("confirms") == 0) throw new RuntimeException("No confirms on some rows. TEMP SANITY check, TODO!! ")
+          if(row[Int]("confirm") == 0) log.warn("No confirms on some rows. TEMP SANITY check, TODO!! ")
           row[Array[Byte]]("entry").toSignedTx
         }, OrderAsc("id")).toSet
 

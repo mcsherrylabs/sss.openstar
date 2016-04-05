@@ -1,6 +1,6 @@
 package sss.asado.state
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef, ReceiveTimeout}
 import akka.agent.Agent
 import block._
 import sss.asado.MessageKeys
@@ -12,6 +12,9 @@ import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
 import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound}
 import sss.db.Db
+
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 /**
   * Created by alan on 4/1/16.
@@ -46,11 +49,16 @@ class LeaderActor(thisNodeId: String,
                              stateMachine: ActorRef,
                              leaderConfirms: Set[String]): Receive = {
 
-    case FindTheLeader => {
-      nc ! SendToNetwork(NetworkMessage(MessageKeys.FindLeader, makeFindLeaderNetMsg.toBytes))
-    }
+    case FindTheLeader =>
+      val findMsg = makeFindLeaderNetMsg
+      log.info("Sending FindLeader to network ")
+      context.setReceiveTimeout(10 seconds)
+      nc ! SendToNetwork(NetworkMessage(MessageKeys.FindLeader, findMsg.toBytes))
+
+    case ReceiveTimeout => self ! FindTheLeader
 
     case NetworkMessage(MessageKeys.FindLeader,bytes) =>
+      log.info("Someone asked us to vote on a leader (FindLeader)")
       (makeFindLeaderNetMsg, bytes.toFindLeader) match {
         case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hidSigIndx, hisId)) if (hisBlkHeight > myBlockHeight) =>
           // I vote for him
@@ -92,6 +100,7 @@ class LeaderActor(thisNodeId: String,
 
     case NetworkMessage(MessageKeys.Leader,bytes) =>
       val leader = bytes.toLeader
+      context.setReceiveTimeout(Duration.Undefined)
       context.become(handle(nc, stateMachine,leader.nodeId))
       log.info(s"The leader is ${leader.nodeId}")
       stateMachine ! LeaderFound(leader.nodeId)
@@ -106,6 +115,7 @@ class LeaderActor(thisNodeId: String,
     case NetworkMessage(MessageKeys.Leader,bytes) => log.info(s"Got an unneeded leader indicator ${bytes.toLeader.nodeId}, leader is $leader")
 
     case FindTheLeader =>  {
+      log.info("Sending FindLeader to myself.")
       context.become(handleNoLeader(nc, stateMachine,Set.empty))
       self forward FindTheLeader
     }

@@ -52,7 +52,9 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
       val pagedTx = bytes.toSignedTx
       ledger(pagedTx) match {
         case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
-        case Success(txDbId) => log.debug(s"Up to $txDbId")
+        case Success(txDbId) =>
+          TxDBStorage.confirm(pagedTx.txId, txDbId.height, txDbId.id)
+          log.debug(s"CONFIRMED Up to $txDbId")
       }
 
 

@@ -9,6 +9,7 @@ import sss.asado.console.ConsoleActor
 import sss.asado.ledger.UTXOLedger
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
+import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
 import sss.asado.storage.UTXODBStorage
 import sss.db.Db
@@ -76,6 +77,8 @@ object Node extends Configure {
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor)
 
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, connectedPeers, db))
+
+    if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
     ref ! "init"
 

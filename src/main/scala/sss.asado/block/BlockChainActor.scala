@@ -70,6 +70,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
       if(unconfirmedRoutees.size == 0) {
         log.info(s"New ledger ack'd by all.")
+        // TODO Coin base transaction ??
         action(lastClosedBlock)
       }
       else context.become(handleRouterDeath orElse awaitAcks(lastClosedBlock, unconfirmedRoutees, action))
@@ -91,19 +92,27 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
   private def closeBlock(lastClosedBlock: BlockHeader): Unit = {
     // all are writing to new ledger.
     // close last block
-    log.info(s"About to close block ${lastClosedBlock.height + 1}")
-    bc.closeBlock(lastClosedBlock) match {
-      case Success(newLastBlock) => {
-        log.info(s"Block ${newLastBlock.height} successfully saved.")
-        blockChainSyncingActor ! DistributeClose(newLastBlock.height)
+    bc.getUnconfirmed(lastClosedBlock, 1) match {
+      case Set.empty =>
+        log.info(s"About to close block ${lastClosedBlock.height + 1}")
+        bc.closeBlock(lastClosedBlock) match {
+          case Success(newLastBlock) => {
+            log.info(s"Block ${newLastBlock.height} successfully saved.")
+            blockChainSyncingActor ! DistributeClose(newLastBlock.height)
 
-        context.become(handleRouterDeath orElse waiting(newLastBlock))
-        startTimer(secondsToWait(newLastBlock.time))
-      }
-      case Failure(e) => {
-        log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
-      }
+            context.become(handleRouterDeath orElse waiting(newLastBlock))
+            startTimer(secondsToWait(newLastBlock.time))
+          }
+          case Failure(e) => {
+            log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
+          }
+        }
+      case unconfirmedTxs =>
+        unconfirmedTxs.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
+
     }
+
+
   }
 
   private def startWaiting(lastClosedBlock: BlockHeader): Unit = {
