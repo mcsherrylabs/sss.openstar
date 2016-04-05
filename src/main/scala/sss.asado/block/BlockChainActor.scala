@@ -4,6 +4,7 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
+import block.ReDistributeTx
 import sss.asado.ledger.{Ledger, UTXOLedger}
 import sss.asado.storage.TxDBStorage
 import sss.db.Db
@@ -92,26 +93,22 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
   private def closeBlock(lastClosedBlock: BlockHeader): Unit = {
     // all are writing to new ledger.
     // close last block
-    bc.getUnconfirmed(lastClosedBlock, 1) match {
-      case Set.empty =>
-        log.info(s"About to close block ${lastClosedBlock.height + 1}")
-        bc.closeBlock(lastClosedBlock) match {
-          case Success(newLastBlock) => {
-            log.info(s"Block ${newLastBlock.height} successfully saved.")
-            blockChainSyncingActor ! DistributeClose(newLastBlock.height)
+    val unconfirmed  = bc.getUnconfirmed(lastClosedBlock, 1)
+    if(unconfirmed.isEmpty) {
 
-            context.become(handleRouterDeath orElse waiting(newLastBlock))
-            startTimer(secondsToWait(newLastBlock.time))
-          }
-          case Failure(e) => {
-            log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
-          }
-        }
-      case unconfirmedTxs =>
-        unconfirmedTxs.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
+      log.info(s"About to close block ${lastClosedBlock.height + 1}")
+      bc.closeBlock(lastClosedBlock) match {
+        case Success(newLastBlock) =>
+          log.info(s"Block ${newLastBlock.height} successfully saved.")
+          blockChainSyncingActor ! DistributeClose(newLastBlock.height)
 
-    }
+          context.become(handleRouterDeath orElse waiting(newLastBlock))
+          startTimer(secondsToWait(newLastBlock.time))
 
+        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
+
+      }
+    } else unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
 
   }
 

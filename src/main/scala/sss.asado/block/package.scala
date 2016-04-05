@@ -16,18 +16,18 @@ package object block {
   case class Leader(nodeId: String)
   case class FindLeader(height: Long, signatureIndex: Int, nodeId: String)
 
-  case class DistributeTx(client: ActorRef, signedTx: SignedTx, height: Long, id: Long)
-  case class ConfirmTx(stx: SignedTx, height: Long, id: Long)
-  case class AckConfirmTx(txId: TxId, height: Long, id: Long) extends ByteArrayComparisonOps {
+  case class ReDistributeTx(signedTx: SignedTx, height: Long)
+  case class DistributeTx(client: ActorRef, signedTx: SignedTx, height: Long)
+  case class ConfirmTx(stx: SignedTx, height: Long)
+  case class AckConfirmTx(txId: TxId, height: Long) extends ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = obj match {
       case ackConfirm: AckConfirmTx => ackConfirm.height == height &&
-        ackConfirm.id == id &&
         ackConfirm.txId.isSame(txId)
 
       case _ => false
     }
 
-    override def hashCode(): Int = (17 + id.toInt) * txId.hash
+    override def hashCode(): Int = 17  * txId.hash
   }
 
   implicit class GetTxPageTo(getTxPage: GetTxPage) extends ToBytes[GetTxPage] {

@@ -11,14 +11,12 @@ import sss.asado.util.Serialize.Serializer
   */
 object ConfirmTxSerializer extends Serializer[ConfirmTx]{
 
-  override def toBytes(ct: ConfirmTx): Array[Byte] = Longs.toByteArray(ct.height) ++ Longs.toByteArray(ct.id) ++ ct.stx.toBytes
+  override def toBytes(ct: ConfirmTx): Array[Byte] = Longs.toByteArray(ct.height) ++ ct.stx.toBytes
 
   override def fromBytes(b: Array[Byte]): ConfirmTx = {
     val (heightBs, rest) = b.splitAt(8)
     val height = Longs.fromByteArray(heightBs)
-    val (dbIdBs, txBytes) = rest.splitAt(8)
-    val id = Longs.fromByteArray(dbIdBs)
-    ConfirmTx(txBytes.toSignedTx, height, id)
+    ConfirmTx(rest.toSignedTx, height)
   }
 
 }

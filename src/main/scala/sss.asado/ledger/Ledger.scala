@@ -18,8 +18,8 @@ class Ledger(val blockHeight: Long, storage: Storage[TxId, SignedTx], utxo: UTXO
           case Some(s) => None
           case None =>
             utxo.genesis(genesisTx)
-            val id = storage.write(genesisTx.txId, SignedTx(genesisTx))
-            Some(TxDbId(blockHeight, id))
+            storage.write(genesisTx.txId, SignedTx(genesisTx))
+            Some(TxDbId(blockHeight))
         }
       } match {
         case None => throw new TxInLedger(genesisTx.txId)
@@ -36,7 +36,7 @@ class Ledger(val blockHeight: Long, storage: Storage[TxId, SignedTx], utxo: UTXO
           case None =>
             utxo(stx)
             val id = storage.write(stx.txId, stx)
-            Some(TxDbId(blockHeight, id))
+            Some(TxDbId(blockHeight))
         }
       } match {
         case None => throw new TxInLedger(stx.txId)

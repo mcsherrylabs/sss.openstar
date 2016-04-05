@@ -53,7 +53,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
       ledger(pagedTx) match {
         case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
         case Success(txDbId) =>
-          TxDBStorage.confirm(pagedTx.txId, txDbId.height, txDbId.id)
+          TxDBStorage.confirm(pagedTx.txId, txDbId.height)
           log.debug(s"CONFIRMED Up to $txDbId")
       }
 
@@ -87,7 +87,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
             case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
             case Success(txDbId) =>
               log.info(s"Local id is ${txDbId}")
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(stx.txId, txDbId.height, txDbId.id).toBytes)
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(stx.txId, txDbId.height).toBytes)
           }
       }
 

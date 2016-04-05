@@ -25,14 +25,14 @@ class BlockChainSynchronizationActor(quorum: Int,
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! Register(MessageKeys.GetTxPage)
 
-  private case class ClientTx(client : ActorRef, height: Long, id: Long)
+  private case class ClientTx(client : ActorRef, height: Long)
 
   private def awaitConfirms(updateToDatePeers: Set[ActorRef], awaitGroup: Map[ActorRef, List[ClientTx]]): Receive = {
-    case DistributeTx(client, signedTx, height, id) =>
+    case DistributeTx(client, signedTx, height) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {
         upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx, signedTx.toBytes)
-        upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, height, id))
+        upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, height))
       }
 
       context.become(awaitConfirms(updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
@@ -52,7 +52,8 @@ class BlockChainSynchronizationActor(quorum: Int,
         addConfirmation(confirm)
 
         val newMap = awaitGroup(sndr).filter { ctx =>
-          if (ctx.id == confirm.id && ctx.height == confirm.height) {
+          if (ctx == confirm) {
+            //Yes. side effects.
             ctx.client ! NetworkMessage(MessageKeys.AckConfirmTx, bytes)
             false
           } else true
@@ -80,7 +81,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       clientRef ! NetworkMessage(MessageKeys.Synced, Array())
   }
 
-  private def addConfirmation(confirm: AckConfirmTx) = TxDBStorage.confirm(confirm.txId, confirm.height, confirm.id)
+  private def addConfirmation(confirm: AckConfirmTx) = TxDBStorage.confirm(confirm.txId, confirm.height)
 
   override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))
 }

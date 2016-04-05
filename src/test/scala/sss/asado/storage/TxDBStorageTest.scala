@@ -17,7 +17,7 @@ object TxDBStorageTest {
   implicit val db = Db("DBStorageTest")
   val dbStorage = new TxDBStorage("ledger")
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
-  def createGenesis = {
+  lazy val createGenesis = {
     dbStorage.write(genisis.txId, genisis)
     genisis
   }

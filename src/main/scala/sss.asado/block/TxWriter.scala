@@ -20,10 +20,10 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   private def writeStx(blockLedger: Ledger, signedTx: SignedTx): Unit = {
       blockLedger(signedTx) match {
-        case Success(TxDbId(height, id)) =>
+        case Success(TxDbId(height)) =>
           val sendr = sender()
           sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
-          writeConfirmActor ! DistributeTx(sendr, signedTx, height, id)
+          writeConfirmActor ! DistributeTx(sendr, signedTx, height)
         case Failure(e) => {
           log.error(e, s"Failed to apply tx! ${e.getMessage}")
           sender() ! NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)

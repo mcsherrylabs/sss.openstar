@@ -19,7 +19,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   val stx = SignedTxTest.createSignedTx
 
   "A Confirm Tx " should " be correctly serialised and deserialized " in {
-    val c = ConfirmTx(stx, height, id)
+    val c = ConfirmTx(stx, height)
     val asBytes = c.toBytes
     val backAgain = asBytes.toConfirmTx
     assert(backAgain === c)
@@ -27,11 +27,11 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
 
   "An Ack Confirm Tx" should " be corrrectly serialised and deserialized " in {
-    val c = AckConfirmTx(stx.txId, height, id)
+    val c = AckConfirmTx(stx.txId, height)
     val asBytes = c.toBytes
     val backAgain = asBytes.toAckConfirmTx
     assert(backAgain.height === c.height)
-    assert(backAgain.id === c.id)
+
     assert(backAgain.txId === c.txId)
     assert(backAgain === c)
 

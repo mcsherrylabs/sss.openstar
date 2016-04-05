@@ -79,7 +79,7 @@ object BlockChainTool extends Configure {
     val str = DatatypeConverter.printHexBinary(gx.txId)
     p(str)
     val txDbId = ledger.genesis(gx).get
-    TxDBStorage.confirm(gx.txId, txDbId.height, txDbId.id)
+    TxDBStorage.confirm(gx.txId, txDbId.height)
     utxos.entry(TxIndex(gx.txId, 0)) map (println)
   }
 

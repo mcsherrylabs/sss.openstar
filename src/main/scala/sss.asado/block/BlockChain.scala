@@ -35,6 +35,11 @@ class BlockChain(implicit db: Db) extends Logging {
     BlockHeader(blockHeaderTable.insert(genesisHeader.asMap))
   }
 
+  def getUnconfirmed(block: BlockHeader, quorum: Int): Seq[SignedTx] = {
+    val blockTxsTable = db.table(TxDBStorage.tableName(block.height))
+    blockTxsTable.filter(Where("confirm < ?", quorum)) map (row => row[Array[Byte]]("entry").toSignedTx)
+  }
+
   // use id > 0 to satisfy the where clause. No other reason.
   def lastBlock: BlockHeader = lookupBlock(" id > 0 ORDER BY height DESC LIMIT 1").get
 
@@ -55,7 +60,7 @@ class BlockChain(implicit db: Db) extends Logging {
         val txs = blockTxsTable.map( { row =>
           if(row[Int]("confirm") == 0) log.warn("No confirms on some rows. TEMP SANITY check, TODO!! ")
           row[Array[Byte]]("entry").toSignedTx
-        }, OrderAsc("id")).toSet
+        }, OrderAsc("txid")).toSet
 
         val newBlock = if(txs.size > 0) {
           val txIds: IndexedSeq[mutable.WrappedArray[Byte]] = txs.map(_.txId: mutable.WrappedArray[Byte]).toIndexedSeq

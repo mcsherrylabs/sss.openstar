@@ -1,10 +1,8 @@
 package sss.asado.storage
 
-import javax.xml.bind.DatatypeConverter
-
 import ledger._
+import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, Where}
-
 
 class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
 
@@ -19,19 +17,19 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
   def inTransaction[T](f: => T): T = utxoLedgerTable.inTransaction[T](f)
 
   def delete(k: TxIndex): Boolean = {
-    val hexStr:String = DatatypeConverter.printHexBinary(k.txId)
+    val hexStr = k.txId.toVarChar
     val numDeleted = utxoLedgerTable.delete(Where("txid = ? AND indx = ?", hexStr, k.index))
     numDeleted == 1
   }
 
   override def get(k: TxIndex): Option[TxOutput] = {
-    val hexStr: String = DatatypeConverter.printHexBinary(k.txId)
+    val hexStr = k.txId.toVarChar
     utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
   }
 
   def write(k: TxIndex, le: TxOutput): Long = {
     val bs = le.toBytes
-    val hexStr:String = DatatypeConverter.printHexBinary(k.txId)
+    val hexStr = k.txId.toVarChar
     val res = utxoLedgerTable.insert(hexStr, k.index, bs)
     res
   }
