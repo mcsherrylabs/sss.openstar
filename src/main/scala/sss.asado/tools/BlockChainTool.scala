@@ -68,6 +68,10 @@ object BlockChainTool extends Configure {
     p(s"Address ${acc.address}")
   }
 
+  /**
+    * @warning
+    * @param args
+    */
   def genesis(args: List[String]): Unit = {
     val amount = args match {
       case Nil => p("Using default figure for the initial purse..."); 1000000

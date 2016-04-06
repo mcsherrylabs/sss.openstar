@@ -6,6 +6,7 @@ import akka.actor.{Actor, _}
 import akka.agent.Agent
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
+import sss.asado.Node.InitWithActorRefs
 import sss.asado.network.NetworkController._
 import sss.asado.state.AsadoStateProtocol.{QuorumGained, QuorumLost}
 
@@ -65,8 +66,6 @@ class NetworkController(messageRouter: ActorRef,
   import context.system
 
   IO(Tcp) ! Bind(self, netInf.localAddress)
-
-  peersList foreach (self ! ConnectTo(_))
 
   private def manageNetwork: Actor.Receive = {
 
@@ -153,6 +152,13 @@ class NetworkController(messageRouter: ActorRef,
     context.actorOf(Props(classOf[ConnectionHandler], connection, remoteAddress, nodeNonce.toLong))
   }
 
+  private def init: Receive = {
+    case InitWithActorRefs() =>
+      peersList foreach (self ! ConnectTo(_))
+      context.become(manageNetwork)
+  }
+
   override def postStop = log.warning("Network controller is down!"); super.postStop
-  override def receive: Receive = manageNetwork
+  override def receive: Receive = init
+
 }

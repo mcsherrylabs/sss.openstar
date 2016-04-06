@@ -26,7 +26,8 @@ object TxBlasterClient extends BaseClient {
 
   override protected def run(settings: BindControllerSettings,
                              actorSystem: ActorSystem,
-                             peerList: Agent[Set[Connection]],
+                             peerList: Set[NodeId],
+                             connectedPeers: Agent[Set[Connection]],
                              messageRouter: ActorRef,
                              ncRef: ActorRef,
                              nodeConfig: Config,
@@ -41,7 +42,7 @@ object TxBlasterClient extends BaseClient {
 
     val ref = actorSystem.actorOf(Props(classOf[TxBlasterActor], args, messageRouter, ncRef))
 
-    while(peerList().size == 0) {
+    while(connectedPeers().size == 0) {
       println("Waiting for connection...")
       Thread.sleep(1111)
     }

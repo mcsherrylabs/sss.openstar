@@ -7,7 +7,7 @@ import sss.asado.storage.Storage
 import scala.util.Try
 
 
-class TxInLedger(txId: TxId) extends RuntimeException("Tx already in ledger")
+case class TxInLedger(txId: TxId) extends RuntimeException("Tx already in ledger")
 
 class Ledger(val blockHeight: Long, storage: Storage[TxId, SignedTx], utxo: UTXOLedger) extends Logging {
 
@@ -39,7 +39,7 @@ class Ledger(val blockHeight: Long, storage: Storage[TxId, SignedTx], utxo: UTXO
             Some(TxDbId(blockHeight))
         }
       } match {
-        case None => throw new TxInLedger(stx.txId)
+        case None => throw TxInLedger(stx.txId)
         case Some(x) => x
       }
     }

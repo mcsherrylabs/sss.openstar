@@ -91,6 +91,7 @@ class LeaderActor(thisNodeId: String,
       log.info(s"$thisNodeId got a vote from ${vote.nodeId}, now have ${confirms.size} of $quorum")
       if(confirms.size == quorum) {
         // I am the leader.
+        context.setReceiveTimeout(Duration.Undefined)
         context.become(handle(nc, stateMachine,thisNodeId))
         log.info(s"The leader is $thisNodeId (me)")
         stateMachine ! LeaderFound(thisNodeId)

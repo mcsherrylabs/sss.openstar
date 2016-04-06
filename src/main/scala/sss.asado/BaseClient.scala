@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import com.typesafe.config.Config
 import sss.ancillary.{Configure, DynConfig}
+import sss.asado.Node.InitWithActorRefs
 import sss.asado.console.ConsolePattern
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
@@ -44,12 +45,15 @@ trait BaseClient extends Configure with ConsolePattern {
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
-    run(settings, actorSystem, connectedPeers, messageRouter, ncRef, nodeConfig, args)
+    ncRef ! InitWithActorRefs()
+
+    run(settings, actorSystem, peersList, connectedPeers, messageRouter, ncRef, nodeConfig, args)
 
   }
 
   protected def run(settings: BindControllerSettings,
                     actorSystem: ActorSystem,
+                    peersList: Set[NodeId],
                     connectedPeers :Agent[Set[Connection]],
                     messageRouter: ActorRef,
                     ncRef: ActorRef,

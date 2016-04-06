@@ -17,8 +17,14 @@ object TxDBStorage extends Logging {
     Try {
       val blcokTable = db.table(tableName(height))
       val hex = txId.toVarChar
-      val rowsUpdated = blcokTable.update("confirm = confirm + 1", s"txid = $hex")
-      require(rowsUpdated == 1)
+      val rowsUpdated = blcokTable.update("confirm = confirm + 1", s"txid = '$hex'")
+      if(rowsUpdated != 1) {
+        val blcokTablebehind = db.table(tableName(height - 1))
+        val isBehind = blcokTablebehind.find(Where("txid = ?", hex))
+        val blcokTableAhead = db.table(tableName(height + 1))
+        val isahead = blcokTableAhead.find(Where("txid = ?", hex))
+      }
+      require(rowsUpdated == 1, s"Must update 1 row, by confirming the tx, not $rowsUpdated rows")
 
     } match {
       case Failure(e) => log.error(s"FAILED to add confirmation!", e)

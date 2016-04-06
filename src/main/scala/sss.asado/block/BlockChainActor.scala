@@ -26,6 +26,7 @@ trait BlockChainSettings {
 
 case class BlockLedger(ref: ActorRef, blockLedger: Ledger)
 case object MaxBlockOpenTimeElapsed
+case object TryCloseBlock
 case object AcknowledgeNewLedger
 
 
@@ -69,13 +70,39 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
         case x => throw new Error(s"Got an unknown routee $x")
       })
 
-      if(unconfirmedRoutees.size == 0) {
+      if(unconfirmedRoutees.isEmpty) {
         log.info(s"New ledger ack'd by all.")
         // TODO Coin base transaction ??
         action(lastClosedBlock)
       }
       else context.become(handleRouterDeath orElse awaitAcks(lastClosedBlock, unconfirmedRoutees, action))
     }
+
+    case TryCloseBlock =>
+      // all are writing to new ledger.
+      // close last block
+      val unconfirmed  = bc.getUnconfirmed(lastClosedBlock.height + 1, 1)
+      if(unconfirmed.isEmpty) {
+
+        log.info(s"About to close block ${lastClosedBlock.height + 1}")
+        bc.closeBlock(lastClosedBlock) match {
+          case Success(newLastBlock) =>
+            log.info(s"Block ${newLastBlock.height} successfully saved.")
+            blockChainSyncingActor ! DistributeClose(newLastBlock.height)
+
+            context.become(handleRouterDeath orElse waiting(newLastBlock))
+            startTimer(secondsToWait(newLastBlock.time))
+
+          case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
+
+        }
+        //TODO Fix Redistribute
+      } else {
+        unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
+        context.system.scheduler.scheduleOnce(
+          FiniteDuration(5, SECONDS ),
+          self, TryCloseBlock)
+      }
     case MaxBlockOpenTimeElapsed => log.error("Max block open time has elapsed without tx writer acknowledgements...")
   }
 
@@ -89,28 +116,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     if(nextBlockScheduledClose > 0) (nextBlockScheduledClose / 1000) else 1
   }
 
-
-  private def closeBlock(lastClosedBlock: BlockHeader): Unit = {
-    // all are writing to new ledger.
-    // close last block
-    val unconfirmed  = bc.getUnconfirmed(lastClosedBlock, 1)
-    if(unconfirmed.isEmpty) {
-
-      log.info(s"About to close block ${lastClosedBlock.height + 1}")
-      bc.closeBlock(lastClosedBlock) match {
-        case Success(newLastBlock) =>
-          log.info(s"Block ${newLastBlock.height} successfully saved.")
-          blockChainSyncingActor ! DistributeClose(newLastBlock.height)
-
-          context.become(handleRouterDeath orElse waiting(newLastBlock))
-          startTimer(secondsToWait(newLastBlock.time))
-
-        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
-
-      }
-    } else unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
-
-  }
+  private def closeBlock(lastClosedBlock: BlockHeader): Unit = { self ! TryCloseBlock }
 
   private def startWaiting(lastClosedBlock: BlockHeader): Unit = {
     // all are writing to correct ledger.

@@ -12,15 +12,20 @@ import sss.asado.state.AsadoStateProtocol.SyncWithLeader
 import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
-
 
 
 class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
+  private case class PuntedConfirm(ref :ActorRef, confirmTx: ConfirmTx)
+
   messageRouter ! Register(MessageKeys.PagedTx)
   messageRouter ! Register(MessageKeys.EndPageTx)
   messageRouter ! Register(MessageKeys.ConfirmTx)
+  messageRouter ! Register(MessageKeys.ReConfirmTx)
   messageRouter ! Register(MessageKeys.CloseBlock)
   messageRouter ! Register(MessageKeys.Synced)
 
@@ -53,7 +58,6 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
       ledger(pagedTx) match {
         case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
         case Success(txDbId) =>
-          TxDBStorage.confirm(pagedTx.txId, txDbId.height)
           log.debug(s"CONFIRMED Up to $txDbId")
       }
 
@@ -79,19 +83,53 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
 
     case NetworkMessage(MessageKeys.Synced, _) => synced = true; log.info("Downloader is synced")
 
-    case NetworkMessage(MessageKeys.ConfirmTx, bytes) =>
-      Try(bytes.toSignedTx) match {
+    case NetworkMessage(MessageKeys.ReConfirmTx, bytes) =>
+      Try(bytes.toConfirmTx) match {
         case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
-        case Success(stx) =>
-          ledger(stx) match {
-            case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
-            case Success(txDbId) =>
-              log.info(s"Local id is ${txDbId}")
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(stx.txId, txDbId.height).toBytes)
+        case Success(confirmStx) =>
+          TxDBStorage(confirmStx.height).get(confirmStx.stx.txId) match {
+            case None => sender() ! NetworkMessage(MessageKeys.NackConfirmTx, Array())
+            case Some(sTx) =>
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, confirmStx.height).toBytes)
           }
       }
 
-  }
+    case p @ PuntedConfirm(client, confirmStx) => {
+      if(ledger.blockHeight < confirmStx.height) {
+        context.system.scheduler.scheduleOnce(1 milliseconds, self, p)
+      } else {
+        ledger(confirmStx.stx) match {
+          case Failure(e) =>
+            client ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.stx.txId)
+            log.error(s"Ledger cannot sync, game over man, game over.", e)
+          case Success(txDbId) =>
+            if(confirmStx.height !=  txDbId.height) {
+              log.info(s"Local id is ${txDbId}, but remote id is ${confirmStx.height}")
+            }
+            client ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, txDbId.height).toBytes)
+        }
+      }
+    }
 
+    case NetworkMessage(MessageKeys.ConfirmTx, bytes) =>
+      Try(bytes.toConfirmTx) match {
+        case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
+        case Success(confirmStx) if(ledger.blockHeight < confirmStx.height) =>
+          val sndr = sender()
+          context.system.scheduler.scheduleOnce(1 milliseconds, self, PuntedConfirm(sndr, confirmStx))
+        case Success(confirmStx) if(ledger.blockHeight == confirmStx.height) =>
+          ledger(confirmStx.stx) match {
+            case Failure(e) =>
+              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.stx.txId)
+              log.error(s"Ledger cannot sync, game over man, game over.", e)
+            case Success(txDbId) =>
+              if(confirmStx.height !=  txDbId.height) {
+                log.info(s"Local id is ${txDbId}, but remote id is ${confirmStx.height}")
+              }
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, txDbId.height).toBytes)
+          }
+        case Success(confirmStx) => log.error(s"Local block height is ${ledger.blockHeight}, but remote is ${confirmStx.height}")
+      }
+  }
 
 }

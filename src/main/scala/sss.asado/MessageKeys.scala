@@ -12,6 +12,9 @@ object MessageKeys {
   val SeqSignedTx: Byte = 102
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
+  val NackConfirmTx: Byte = 106
+  val ReConfirmTx: Byte = 107
+
 
   val MalformedMessage: Byte = 20
 

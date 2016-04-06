@@ -35,8 +35,11 @@ class BlockChain(implicit db: Db) extends Logging {
     BlockHeader(blockHeaderTable.insert(genesisHeader.asMap))
   }
 
-  def getUnconfirmed(block: BlockHeader, quorum: Int): Seq[SignedTx] = {
-    val blockTxsTable = db.table(TxDBStorage.tableName(block.height))
+  def getUnconfirmed(blockHeight: Long, quorum: Int): Seq[SignedTx] = {
+    val blockTxsTable = db.table(TxDBStorage.tableName(blockHeight))
+    val all = blockTxsTable.filter(Where("confirm < ?", quorum)) map (row => (row[Int]("confirm"), row[Array[Byte]]("entry").toSignedTx))
+    log.info("Print ALL with 0")
+    all.foreach {case (conf: Int, stx: SignedTx) => log.info(s"Not enough confirms:$conf ${stx.toString}")}
     blockTxsTable.filter(Where("confirm < ?", quorum)) map (row => row[Array[Byte]]("entry").toSignedTx)
   }
 

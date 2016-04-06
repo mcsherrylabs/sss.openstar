@@ -19,7 +19,8 @@ object Client extends BaseClient {
 
   override protected def run(settings: BindControllerSettings,
                              actorSystem: ActorSystem,
-                             peerList: Agent[Set[Connection]],
+                             peerList: Set[NodeId],
+                             connectedPeers: Agent[Set[Connection]],
                              messageRouter: ActorRef,
                              ncRef: ActorRef,
                              nodeConfig: Config,

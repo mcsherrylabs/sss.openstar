@@ -77,6 +77,7 @@ object Node extends Configure {
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor)
 
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, connectedPeers, db))
+    ncRef ! InitWithActorRefs()
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
