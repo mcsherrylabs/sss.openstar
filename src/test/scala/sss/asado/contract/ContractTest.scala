@@ -1,12 +1,6 @@
 package sss.asado.contract
 
-import contract.{NullDecumbrance, NullEncumbrance}
-import ledger._
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.PrivateKeyAccount
-import sss.asado.ledger.UTXOLedger
-import sss.asado.storage.MemoryStorage
-import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 
 /**
   * Created by alan on 2/15/16.
@@ -14,7 +8,7 @@ import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 class ContractTest extends FlatSpec with Matchers {
 
 
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
+  /*lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
 
 
   val genisis = SignedTx(GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance))))
@@ -22,7 +16,7 @@ class ContractTest extends FlatSpec with Matchers {
 
   "A single sig " should " unlock a single key contract " in {
 
-    val ledger = new UTXOLedger(new MemoryStorage(genisis))
+    val ledger = new UTXOLedger(new UTXODBStorage(genisis))
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
@@ -79,5 +73,5 @@ class ContractTest extends FlatSpec with Matchers {
     ledger(SignedTx(tx2, Seq(sig)))
   }
 
-}
+}*/
 }

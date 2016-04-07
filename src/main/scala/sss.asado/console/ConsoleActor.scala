@@ -10,11 +10,10 @@ import ledger._
 import sss.asado.MessageKeys
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
-import sss.asado.ledger.UTXOLedger
+import sss.asado.ledger.{UTXODBStorage, UTXOLedger}
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController._
 import sss.asado.network.{NetworkMessage, NodeId}
-import sss.asado.storage.UTXODBStorage
 import sss.asado.util.{ClientKey, Console}
 import sss.db.{Db, Where}
 

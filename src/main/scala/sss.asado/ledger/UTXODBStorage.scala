@@ -1,10 +1,10 @@
-package sss.asado.storage
+package sss.asado.ledger
 
 import ledger._
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, Where}
 
-class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
+class UTXODBStorage(implicit db: Db) {
 
   private val utxoLedgerTable = db.table("utxo")
 
@@ -14,6 +14,8 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
     }.toSet
   }
 
+  def apply(k: TxIndex): TxOutput = get(k).get
+
   def inTransaction[T](f: => T): T = utxoLedgerTable.inTransaction[T](f)
 
   def delete(k: TxIndex): Boolean = {
@@ -22,7 +24,7 @@ class UTXODBStorage(implicit db: Db) extends Storage[TxIndex, TxOutput] {
     numDeleted == 1
   }
 
-  override def get(k: TxIndex): Option[TxOutput] = {
+  def get(k: TxIndex): Option[TxOutput] = {
     val hexStr = k.txId.toVarChar
     utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
   }

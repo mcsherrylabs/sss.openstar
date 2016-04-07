@@ -4,10 +4,9 @@ import javax.xml.bind.DatatypeConverter
 
 import ledger.{GenisesTx, SignedTx, TxIndex, TxOutput}
 import sss.ancillary.Logging
-import sss.asado.storage.Storage
 
 
-class UTXOLedger(val storage: Storage[TxIndex, TxOutput]) extends Logging {
+class UTXOLedger(val storage: UTXODBStorage) extends Logging {
 
   def genesis(genisesTx: GenisesTx) = {
     val stx = SignedTx(genisesTx)
@@ -33,11 +32,11 @@ class UTXOLedger(val storage: Storage[TxIndex, TxOutput]) extends Logging {
       ins foreach { in =>
         entry(in.txIndex) match {
           case Some(txOut) => {
-            require(txOut.amount >= in.amount)
+            require(txOut.amount >= in.amount, s"Cannot pay out (${in.amount}), only ${txOut.amount} available ")
             totalIn += in.amount
             val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
             log.debug(s"${asStr}, ${in.txIndex.index} is unspent and a valid amount (${in.amount}).")
-            require(txOut.encumbrance.decumber(txId +: stx.params, in.sig))
+            require(txOut.encumbrance.decumber(txId +: stx.params, in.sig), "Failed to decumber!")
             storage.delete(in.txIndex)
           }
           case None => throw new IllegalArgumentException(s"${in.txIndex} does not exist.")

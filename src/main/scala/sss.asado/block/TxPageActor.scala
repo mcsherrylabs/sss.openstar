@@ -4,7 +4,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
 import sss.asado.MessageKeys
 import sss.asado.network.NetworkMessage
-import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
 /**
@@ -36,7 +35,7 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
       val getTxPage : GetTxPage = bytes.toGetTxPage
       val maxHeight = bc.lastBlock.height + 1
       if(maxHeight >= getTxPage.blockHeight) {
-        val nextPage = TxDBStorage(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
+        val nextPage = Block(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
         nextPage.foreach(self ! TxToReturn(sender(), _))
         if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sender(), bytes)
         else if(maxHeight == getTxPage.blockHeight) self ! ClientSynched(sender())

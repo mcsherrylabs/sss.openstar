@@ -9,7 +9,6 @@ import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol.SyncWithLeader
-import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,7 +28,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
   messageRouter ! Register(MessageKeys.CloseBlock)
   messageRouter ! Register(MessageKeys.Synced)
 
-  private def makeNextLedger(lastHeight: Long) = new Ledger(lastHeight + 1, TxDBStorage(lastHeight+ 1), utxo)
+  private def makeNextLedger(lastHeight: Long) = new Ledger(lastHeight + 1, Block(lastHeight+ 1), utxo)
 
   override def postStop = log.warning("BlockChainDownloaderActor Monitor actor is down!"); super.postStop
 
@@ -45,7 +44,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
     case SyncWithLeader(leader) =>
         val getTxs = {
             val lb = lastBlock
-            val blockStorage = TxDBStorage(lb.height + 1)
+            val blockStorage = Block(lb.height + 1)
             val lastIndexOfRow = blockStorage.count
             GetTxPage(lb.height + 1, lastIndexOfRow)
         }
@@ -87,7 +86,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
       Try(bytes.toConfirmTx) match {
         case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
         case Success(confirmStx) =>
-          TxDBStorage(confirmStx.height).get(confirmStx.stx.txId) match {
+          Block(confirmStx.height).get(confirmStx.stx.txId) match {
             case None => sender() ! NetworkMessage(MessageKeys.NackConfirmTx, Array())
             case Some(sTx) =>
               sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, confirmStx.height).toBytes)

@@ -8,7 +8,6 @@ import sss.asado.MessageKeys
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol.Synced
-import sss.asado.storage.TxDBStorage
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -107,7 +106,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       clientRef ! NetworkMessage(MessageKeys.Synced, Array())
   }
 
-  private def addConfirmation(confirm: AckConfirmTx) = TxDBStorage.confirm(confirm.txId, confirm.height)
+  private def addConfirmation(confirm: AckConfirmTx) = Block.confirm(confirm.txId, confirm.height)
 
   override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))
 }

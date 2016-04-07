@@ -6,7 +6,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import block.ReDistributeTx
 import sss.asado.ledger.{Ledger, UTXOLedger}
-import sss.asado.storage.TxDBStorage
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -52,7 +51,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
   private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): Ledger = {
     val newBlockheight = lastClosedBlock.height + blockHeightIncrement
-    val txStorage = TxDBStorage(newBlockheight)
+    val txStorage = Block(newBlockheight)
     new Ledger(newBlockheight, txStorage, utxoLedger)
   }
 

@@ -3,7 +3,6 @@ package sss.asado.block
 import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.storage.{TxDBStorage, TxDBStorageTest}
 import sss.db.Db
 
 /**
@@ -62,8 +61,8 @@ class BlockChainTest extends FlatSpec with Matchers {
 
     val now = new Date()
     val lastBlock = bc.lastBlock
-    val txWriter = TxDBStorage(newHeight)
-    val stx = TxDBStorageTest.createSignedTx(TxDBStorageTest.createGenesis)
+    val txWriter = Block(newHeight)
+    val stx = BlockTestSpec.createSignedTx(BlockTestSpec.createGenesis)
     txWriter.write(stx.txId, stx)
     bc.closeBlock(lastBlock)
 

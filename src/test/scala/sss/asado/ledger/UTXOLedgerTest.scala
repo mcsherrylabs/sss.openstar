@@ -3,8 +3,8 @@ package sss.asado.ledger
 import contract.{NullDecumbrance, NullEncumbrance}
 import ledger._
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.storage.MemoryStorage
 import sss.asado.util.SeedBytes
+import sss.db.Db
 
 /**
   * Created by alan on 2/15/16.
@@ -12,15 +12,16 @@ import sss.asado.util.SeedBytes
 class UTXOLedgerTest extends FlatSpec with Matchers {
 
 
-  val genisis = SignedTx(GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance))))
-  lazy val ledger = new UTXOLedger(new MemoryStorage(genisis))
+  implicit val db: Db = Db("DBStorageTest")
+  db.executeSql("TRUNCATE TABLE utxo ")
+  val genisis = GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance)))
+  val storage = new UTXODBStorage()
+  val ledger = new UTXOLedger(storage)
+
+  ledger.genesis(genisis)
 
 
-  /*
-  prevent negative
-  prevent out > in
-  prevent badly decumbred txs
-   */
+  var validOut: TxIndex = _
 
   "A Ledger " should " prevent txs with bad balances " in {
 
@@ -42,9 +43,6 @@ class UTXOLedgerTest extends FlatSpec with Matchers {
 
   it should " not allow out balance to be greater than in " in {
 
-
-    //val inputTx = ledger.entry(genisis.txId)
-
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(11, NullEncumbrance))
     intercept[IllegalArgumentException] {
@@ -56,7 +54,9 @@ class UTXOLedgerTest extends FlatSpec with Matchers {
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 1), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+    val stx = SignedTx(StandardTx(ins, outs))
+    validOut = TxIndex(stx.txId, 0)
+    val le = ledger.apply(stx)
 
     intercept[IllegalArgumentException] {
       ledger.apply(SignedTx(StandardTx(ins, outs)))
@@ -74,10 +74,8 @@ class UTXOLedgerTest extends FlatSpec with Matchers {
 
   it should " allow spending from a tx out that was also a tx " in {
 
-    val ledger = new UTXOLedger(new MemoryStorage(genisis))
-
-    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
-    val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
+    val ins = Seq(TxInput(validOut, 99, NullDecumbrance))
+    val outs = Seq(TxOutput(98, NullEncumbrance), TxOutput(1, NullEncumbrance))
     val stx = SignedTx(StandardTx(ins, outs))
     ledger(stx)
     val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 1), 1, NullDecumbrance))

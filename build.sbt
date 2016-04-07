@@ -2,6 +2,8 @@ enablePlugins(JavaAppPackaging)
 
 scalacOptions += "-target:jvm-1.8"
 
+parallelExecution in Test := false
+
 name := "sss.asado"
 
 version := "1.0"
@@ -24,7 +26,7 @@ libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.6"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.17"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.18"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
@@ -34,9 +36,6 @@ libraryDependencies += "com.typesafe.akka" %% "akka-testkit"  % "2.4.+" % "test"
 
 libraryDependencies += "org.bitlet" % "weupnp" % "0.1.+"
 
-libraryDependencies += "com.chuusai" % "shapeless_2.11" % "1.2.4"
-
 libraryDependencies += "com.twitter" %% "util-collection" % "6.27.0"
-
 
 mainClass in Compile := Some("sss.asado.Node")

@@ -1,4 +1,4 @@
-package sss.asado.storage
+package sss.asado.ledger
 
 import java.sql.SQLIntegrityConstraintViolationException
 
@@ -19,6 +19,8 @@ class UTXODBStorageTest extends FlatSpec with Matchers {
     TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
 
   implicit val db = Db("DBStorageTest")
+  val r = db.executeSql("TRUNCATE TABLE utxo;")
+  println(s"Got $r from sql")
   val dbStorage = new UTXODBStorage
 
 

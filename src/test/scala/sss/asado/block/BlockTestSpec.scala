@@ -1,4 +1,4 @@
-package sss.asado.storage
+package sss.asado.block
 
 import ledger._
 import org.scalatest.{FlatSpec, Matchers}
@@ -11,11 +11,11 @@ import sss.db.Db
   * Created by alan on 2/15/16.
   */
 
-object TxDBStorageTest {
+object BlockTestSpec {
   lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
 
   implicit val db = Db("DBStorageTest")
-  val dbStorage = new TxDBStorage("ledger")
+  val dbStorage = new Block("ledger")
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
   lazy val createGenesis = {
     dbStorage.write(genisis.txId, genisis)
@@ -28,9 +28,9 @@ object TxDBStorageTest {
     SignedTx(tx)
   }
 }
-class TxDBStorageTest extends FlatSpec with Matchers {
+class BlockTestSpec extends FlatSpec with Matchers {
 
-  import TxDBStorageTest._
+  import BlockTestSpec._
 
   "Tx DB storage " should " allow gensies ledger entries to be persisted " in {
 

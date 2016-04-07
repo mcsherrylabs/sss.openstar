@@ -6,7 +6,6 @@ import sss.ancillary.Logging
 import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
 import sss.asado.block.signature.BlockSignatures
-import sss.asado.storage.TxDBStorage
 import sss.db.{Db, OrderAsc, Where}
 
 import scala.collection.mutable
@@ -36,7 +35,7 @@ class BlockChain(implicit db: Db) extends Logging {
   }
 
   def getUnconfirmed(blockHeight: Long, quorum: Int): Seq[SignedTx] = {
-    val blockTxsTable = db.table(TxDBStorage.tableName(blockHeight))
+    val blockTxsTable = db.table(Block.tableName(blockHeight))
     val all = blockTxsTable.filter(Where("confirm < ?", quorum)) map (row => (row[Int]("confirm"), row[Array[Byte]]("entry").toSignedTx))
     log.info("Print ALL with 0")
     all.foreach {case (conf: Int, stx: SignedTx) => log.info(s"Not enough confirms:$conf ${stx.toString}")}
@@ -53,7 +52,7 @@ class BlockChain(implicit db: Db) extends Logging {
 
     Try {
       val height = prevHeader.height + 1
-      val blockTxsTable = db.table(TxDBStorage.tableName(height))
+      val blockTxsTable = db.table(Block.tableName(height))
 
       val hashPrevBlock = prevHeader.hash
 

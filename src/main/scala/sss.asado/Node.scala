@@ -6,12 +6,11 @@ import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.block._
 import sss.asado.console.ConsoleActor
-import sss.asado.ledger.UTXOLedger
+import sss.asado.ledger.{UTXODBStorage, UTXOLedger}
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
-import sss.asado.storage.UTXODBStorage
 import sss.db.Db
 
 import scala.collection.JavaConversions._
