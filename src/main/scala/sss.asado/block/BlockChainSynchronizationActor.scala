@@ -31,18 +31,18 @@ class BlockChainSynchronizationActor(quorum: Int,
   private case class ClientTx(client : ActorRef, txId: TxId, height: Long)
 
   private def awaitConfirms(updateToDatePeers: Set[ActorRef], awaitGroup: Map[ActorRef, List[ClientTx]]): Receive = {
-    case DistributeTx(client, signedTx, height) =>
+    case DistributeTx(client, btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {
-        upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx, ConfirmTx(signedTx, height).toBytes)
+        upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes)
         upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, signedTx.txId, height))
       }
 
       context.become(awaitConfirms(updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
 
 
-    case ReDistributeTx(signedTx, height) =>
-      updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx, ConfirmTx(signedTx, height).toBytes))
+    case ReDistributeTx(btx) =>
+      updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes))
 
     case DistributeClose(blockNumber) =>
       updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, Array()))

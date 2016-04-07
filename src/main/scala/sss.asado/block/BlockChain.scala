@@ -2,6 +2,8 @@ package sss.asado.block
 
 import java.util.Date
 
+import block.BlockChainTx
+import com.twitter.util.SynchronizedLruMap
 import sss.ancillary.Logging
 import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
@@ -14,7 +16,7 @@ import scala.util.Try
 
 object BlockChain {
   val tableName = "blockchain"
-
+  private lazy val blockHeaderCache = new SynchronizedLruMap[Long, BlockHeader](100)
 }
 
 class BlockChain(implicit db: Db) extends Logging {
@@ -38,12 +40,23 @@ class BlockChain(implicit db: Db) extends Logging {
     BlockHeader(blockHeaderTable.insert(genesisHeader.asMap))
   }
 
-  def getUnconfirmed(blockHeight: Long, quorum: Int): Seq[SignedTx] = Block(blockHeight).getUnconfirmed(quorum) map (_._2)
+  def getUnconfirmed(blockHeight: Long, quorum: Int): Seq[BlockChainTx] =
+    Block(blockHeight).getUnconfirmed(quorum) map (pair => BlockChainTx(blockHeight, pair._2))
 
   // use id > 0 to satisfy the where clause. No other reason.
   def lastBlock: BlockHeader = lookupBlockHeader(" id > 0 ORDER BY height DESC LIMIT 1").get
 
-  def blockHeaderOpt(height: Long): Option[BlockHeader] = lookupBlockHeader(s"height = $height")
+  def blockHeaderOpt(height: Long): Option[BlockHeader] = {
+    blockHeaderCache.get(height) match {
+      case None => lookupBlockHeader(s"height = $height").map(foundHeader => {
+        blockHeaderCache.put(height, foundHeader)
+        foundHeader
+      })
+
+      case found@Some(_) => found
+    }
+  }
+
   def blockHeader(height: Long): BlockHeader = blockHeaderOpt(height).get
 
   def closeBlock(prevHeader: BlockHeader): Try[BlockHeader] = {

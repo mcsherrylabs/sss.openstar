@@ -18,10 +18,10 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   private def writeStx(blockLedger: BlockChainLedger, signedTx: SignedTx): Unit = {
       blockLedger(signedTx) match {
-        case Success(BlockChainTx(height, BlockTx(index, signedTx))) =>
+        case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
           val sendr = sender()
           sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
-          writeConfirmActor ! DistributeTx(sendr, signedTx, height)
+          writeConfirmActor ! DistributeTx(sendr, btx)
         case Failure(e) => {
           log.error(e, s"Failed to apply tx! ${e.getMessage}")
           sender() ! NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)

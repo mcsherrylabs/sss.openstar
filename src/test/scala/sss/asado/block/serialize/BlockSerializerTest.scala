@@ -18,10 +18,10 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   val id = 20000
   val stx = SignedTxTest.createSignedTx
 
-  "A Confirm Tx " should " be correctly serialised and deserialized " in {
-    val c = ConfirmTx(stx, height)
+  "A BlockChain Tx " should " be correctly serialised and deserialized " in {
+    val c = BlockChainTx(height, BlockTx(9, stx))
     val asBytes = c.toBytes
-    val backAgain = asBytes.toConfirmTx
+    val backAgain = asBytes.toBlockChainTx
     assert(backAgain === c)
 
   }

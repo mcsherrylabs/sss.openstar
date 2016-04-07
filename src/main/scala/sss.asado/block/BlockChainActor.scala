@@ -94,7 +94,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
         }
         //TODO Fix Redistribute
       } else {
-        unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx, lastClosedBlock.height))
+        unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx))
         context.system.scheduler.scheduleOnce(
           FiniteDuration(5, SECONDS ),
           self, TryCloseBlock)

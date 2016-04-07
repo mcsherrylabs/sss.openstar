@@ -18,7 +18,7 @@ import scala.util.{Failure, Success, Try}
 
 class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
-  private case class PuntedConfirm(ref :ActorRef, confirmTx: ConfirmTx)
+  private case class PuntedConfirm(ref :ActorRef, confirmTx:BlockChainTx)
 
   messageRouter ! Register(MessageKeys.PagedTx)
   messageRouter ! Register(MessageKeys.EndPageTx)
@@ -82,13 +82,13 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
     case NetworkMessage(MessageKeys.Synced, _) => synced = true; log.info("Downloader is synced")
 
     case NetworkMessage(MessageKeys.ReConfirmTx, bytes) =>
-      Try(bytes.toConfirmTx) match {
+      Try(bytes.toBlockChainTx) match {
         case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
         case Success(confirmStx) =>
-          Block(confirmStx.height).get(confirmStx.stx.txId) match {
+          Block(confirmStx.height).get(confirmStx.blockTx.signedTx.txId) match {
             case None => sender() ! NetworkMessage(MessageKeys.NackConfirmTx, Array())
             case Some(sTx) =>
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, confirmStx.height).toBytes)
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, confirmStx.height).toBytes)
           }
       }
 
@@ -96,35 +96,35 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
       if(ledger.blockHeight < confirmStx.height) {
         context.system.scheduler.scheduleOnce(1 milliseconds, self, p)
       } else {
-        ledger(confirmStx.stx) match {
+        ledger(confirmStx.blockTx.signedTx) match {
           case Failure(e) =>
-            client ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.stx.txId)
+            client ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.blockTx.signedTx.txId)
             log.error(s"Ledger cannot sync, game over man, game over.", e)
           case Success(txDbId) =>
             if(confirmStx.height !=  txDbId.height) {
               log.info(s"PuntedConfirmLocal id is ${txDbId}, but remote id is ${confirmStx.height}")
             }
-            client ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, txDbId.height).toBytes)
+            client ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, txDbId.height).toBytes)
         }
       }
     }
 
     case NetworkMessage(MessageKeys.ConfirmTx, bytes) =>
-      Try(bytes.toConfirmTx) match {
+      Try(bytes.toBlockChainTx) match {
         case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
         case Success(confirmStx) if(ledger.blockHeight < confirmStx.height) =>
           val sndr = sender()
           context.system.scheduler.scheduleOnce(1 milliseconds, self, PuntedConfirm(sndr, confirmStx))
         case Success(confirmStx) if(ledger.blockHeight == confirmStx.height) =>
-          ledger(confirmStx.stx) match {
+          ledger(confirmStx.blockTx.signedTx) match {
             case Failure(e) =>
-              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.stx.txId)
+              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.blockTx.signedTx.txId)
               log.error(s"Ledger cannot sync, game over man, game over.", e)
             case Success(txDbId) =>
               if(confirmStx.height !=  txDbId.height) {
                 log.info(s"Local id is ${txDbId}, but remote id is ${confirmStx.height}")
               }
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, txDbId.height).toBytes)
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, txDbId.height).toBytes)
           }
         case Success(confirmStx) => log.error(s"Local block height is ${ledger.blockHeight}, but remote is ${confirmStx.height}")
       }

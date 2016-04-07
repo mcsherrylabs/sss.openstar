@@ -5,7 +5,7 @@ import com.twitter.util.SynchronizedLruMap
 import ledger._
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayVarcharOps._
-import sss.db.{Db, OrderAsc, Where}
+import sss.db.{Db, OrderAsc, Row, Where}
 
 import scala.util.{Failure, Success, Try}
 
@@ -37,6 +37,8 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     }, OrderAsc("id"))
   }
 
+  private def toBlockTx(r: Row): BlockTx = BlockTx(r[Long]("id"), r[Array[Byte]]("entry").toSignedTx)
+
   def page(index: Long, pageSize: Int): Seq[Array[Byte]] = {
     blockTxTable.page(index, pageSize, Seq(OrderAsc("txid"))) map(r => r[Array[Byte]]("entry"))
   }
@@ -47,9 +49,8 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
-  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where("txid = ?", id.toVarChar)).map {
-    r => BlockTx(r[Long]("id"), r[Array[Byte]]("entry").toSignedTx)
-  }
+  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where("txid = ?", id.toVarChar)).map(toBlockTx)
+
 
   def delete(id: TxId): Boolean = blockTxTable.delete(Where("txid = ?", id.toVarChar)) == 1
 
@@ -65,10 +66,10 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     blockTxTable.insert(None, hexStr, bs, 0)
   }
 
-  def getUnconfirmed(requiredConfirms: Int): Seq[(Int, SignedTx)] = {
-    val all = blockTxTable.filter(Where("confirm < ?", requiredConfirms)) map (row => (row[Int]("confirm"), row[Array[Byte]]("entry").toSignedTx))
+  def getUnconfirmed(requiredConfirms: Int): Seq[(Int, BlockTx)] = {
+    val all = blockTxTable.filter(Where("confirm < ?", requiredConfirms)) map (row => (row[Int]("confirm"), toBlockTx(row)))
     log.info("Print ALL with 0")
-    all.foreach {case (conf: Int, stx: SignedTx) => log.info(s"Not enough confirms:$conf ${stx.toString}")}
+    all.foreach {case (conf: Int, btx: BlockTx) => log.info(s"Not enough confirms:$conf ${btx.toString}")}
     all
   }
 
