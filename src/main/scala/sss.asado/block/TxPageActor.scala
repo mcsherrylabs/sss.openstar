@@ -24,7 +24,7 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
       ref ! NetworkMessage(MessageKeys.CloseBlock, Array())
 
     case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(MessageKeys.EndPageTx, getTxPageBytes)
-    case synched @ ClientSynched(ref) =>
+    case synched @ ClientSynched(ref, currentBlockHeight, expectedNextMessage) =>
       context.parent  ! synched
       context.stop(self)
 
@@ -38,7 +38,7 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
         val nextPage = Block(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
         nextPage.foreach(self ! TxToReturn(sender(), _))
         if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sender(), bytes)
-        else if(maxHeight == getTxPage.blockHeight) self ! ClientSynched(sender())
+        else if(maxHeight == getTxPage.blockHeight) self ! ClientSynched(sender(), maxHeight, getTxPage.index + nextPage.size)
         else self ! EndOfBlock(sender())
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
 

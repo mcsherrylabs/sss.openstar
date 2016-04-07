@@ -1,13 +1,10 @@
 package sss.asado.ledger
 
 import contract.{NullDecumbrance, NullEncumbrance}
-import ledger.{GenisesTx, SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
+import ledger._
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.block.Block
 import sss.asado.util.SeedBytes
 import sss.db.Db
-
-import scala.util.{Failure, Try}
 
 /**
   * Created by alan on 2/15/16.
@@ -16,37 +13,21 @@ class LedgerTest extends FlatSpec with Matchers {
 
 
   implicit val db: Db = Db("DBStorageTest")
-  def reset = db.executeSql("TRUNCATE TABLE utxo")
+  db.executeSql("TRUNCATE TABLE utxo ")
+  val genisis = GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance)))
+  val ledger = Ledger()
 
-  reset
+  ledger.genesis(genisis)
 
-  val genesisTx = GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance)))
-  val genisis = SignedTx(genesisTx)
-  val utxostorage = new UTXOLedger(new UTXODBStorage())
-  val ledger = new Ledger(1, Block(1), utxostorage)
-  ledger.genesis(genesisTx)
 
-  /*
-  prevent negative
-  prevent out > in
-  prevent badly decumbred txs
-   */
+  var validOut: TxIndex = _
 
   "A Ledger " should " prevent txs with bad balances " in {
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 1000,  NullDecumbrance))
     val outs = Seq(TxOutput(1, NullEncumbrance), TxOutput(1, NullEncumbrance))
-
-    expectIllegalArgument(ledger.apply(SignedTx(StandardTx(ins, outs))),
-      "Allowed to spend more than there?")
-
-  }
-
-  def expectIllegalArgument(result: Try[_], msg:String = "Something wrong"): Unit = {
-    result match {
-      case Failure(e: TxInLedger) =>
-      case Failure(e: IllegalArgumentException) =>
-      case x => fail(msg)
+    intercept[IllegalArgumentException] {
+      val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
     }
   }
 
@@ -54,44 +35,46 @@ class LedgerTest extends FlatSpec with Matchers {
 
     val ins: Seq[TxInput] = Seq()
     val outs: Seq[TxOutput] = Seq()
-
-    expectIllegalArgument(ledger.apply(SignedTx(StandardTx(ins, outs))),
-      "Dont need ins and outs?")
-
+    intercept[IllegalArgumentException] {
+      val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+    }
   }
 
   it should " not allow out balance to be greater than in " in {
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(11, NullEncumbrance))
-    expectIllegalArgument(ledger.apply(SignedTx(StandardTx(ins, outs))), "out bigger? ")
-
+    intercept[IllegalArgumentException] {
+      val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+    }
   }
 
   it should " prevent double spend " in {
 
-    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
+    val ins = Seq(TxInput(TxIndex(genisis.txId, 1), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+    val stx = SignedTx(StandardTx(ins, outs))
+    validOut = TxIndex(stx.txId, 0)
+    val le = ledger.apply(stx)
 
-    expectIllegalArgument(ledger.apply(SignedTx(StandardTx(ins, outs))))
-
+    intercept[IllegalArgumentException] {
+      ledger.apply(SignedTx(StandardTx(ins, outs)))
+    }
   }
 
   it should " prevent spend from invalid tx in" in {
 
-    val ins = Seq(TxInput(TxIndex(SeedBytes(3), 0), 100,  NullDecumbrance))
+    val ins = Seq(TxInput(TxIndex(SeedBytes(3), 2), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    expectIllegalArgument( ledger.apply(SignedTx(StandardTx(ins, outs))))
-
+    intercept[IllegalArgumentException] {
+      ledger.apply(SignedTx(StandardTx(ins, outs)))
+    }
   }
 
   it should " allow spending from a tx out that was also a tx " in {
 
-    reset
-
-    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
-    val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
+    val ins = Seq(TxInput(validOut, 99, NullDecumbrance))
+    val outs = Seq(TxOutput(98, NullEncumbrance), TxOutput(1, NullEncumbrance))
     val stx = SignedTx(StandardTx(ins, outs))
     ledger(stx)
     val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 1), 1, NullDecumbrance))
@@ -99,5 +82,12 @@ class LedgerTest extends FlatSpec with Matchers {
     val nextTx = SignedTx(StandardTx(nextIns, nextOuts))
     ledger(nextTx)
 
+    intercept[IllegalArgumentException] {
+      ledger(stx)
+    }
+
+    intercept[IllegalArgumentException] {
+      ledger(nextTx)
+    }
   }
 }

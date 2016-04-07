@@ -4,7 +4,7 @@ import ledger._
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, Where}
 
-class UTXODBStorage(implicit db: Db) {
+private[ledger] class UTXODBStorage(implicit db: Db) {
 
   private val utxoLedgerTable = db.table("utxo")
 

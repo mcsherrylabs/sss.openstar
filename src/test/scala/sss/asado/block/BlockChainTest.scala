@@ -72,9 +72,9 @@ class BlockChainTest extends FlatSpec with Matchers {
 
   it should " lookup up a block correctly " in {
 
-    val firstBlock = bc.block(height)
+    val firstBlock = bc.blockHeader(height)
     matchFirstBlock(firstBlock)
-    matchSecondBlock(bc.block(height + 1), firstBlock.hash)
+    matchSecondBlock(bc.blockHeader(height + 1), firstBlock.hash)
 
   }
 

@@ -6,7 +6,6 @@ import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.block._
 import sss.asado.console.ConsoleActor
-import sss.asado.ledger.{UTXODBStorage, UTXOLedger}
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
@@ -50,7 +49,6 @@ object Node extends Configure {
 
     val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
     val bc = new BlockChain()
-    val utxoLedger = new UTXOLedger(new UTXODBStorage())
 
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 
@@ -60,13 +58,13 @@ object Node extends Configure {
     val leaderActorRef = actorSystem.actorOf(Props(classOf[LeaderActor], settings.nodeId, quorum, connectedPeers, messageRouter, bc, db))
 
     val stateMachine = actorSystem.actorOf(Props(classOf[AsadoStateMachineActor],
-       settings.nodeId, connectedPeers, blockChainSettings, utxoLedger, bc, quorum, db))
+       settings.nodeId, connectedPeers, blockChainSettings, bc, quorum, db))
 
     val netInf = new NetworkInterface(settings, uPnp)
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
-    val chainDownloaderRef = actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], utxoLedger, ncRef, messageRouter, bc, db))
+    val chainDownloaderRef = actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], ncRef, messageRouter, bc, db))
 
     leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
 

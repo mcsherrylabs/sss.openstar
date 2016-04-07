@@ -7,8 +7,8 @@ import contract.NullEncumbrance
 import ledger.{GenisesTx, TxIndex, TxOutput}
 import sss.ancillary.Configure
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.block.{Block, BlockChain}
-import sss.asado.ledger.{Ledger, UTXODBStorage, UTXOLedger}
+import sss.asado.block.{BlockChain, BlockChainLedger}
+import sss.asado.ledger.Ledger
 import sss.db.{Db, Where}
 
 
@@ -21,8 +21,8 @@ object BlockChainTool extends Configure {
 
   implicit var db: Db = _
 
-  lazy val utxos = new UTXOLedger(new UTXODBStorage())
-  lazy val ledger = new Ledger(1, Block(1), utxos)
+  lazy val utxos = Ledger()
+  lazy val ledger = BlockChainLedger(1)
   lazy val utxosTable = db.table("utxo")
   lazy val blockHeaderTable = db.table(BlockChain.tableName)
 
@@ -72,6 +72,7 @@ object BlockChainTool extends Configure {
     * @param args
     */
   def genesis(args: List[String]): Unit = {
+    val bc = new BlockChain()
     val amount = args match {
       case Nil => p("Using default figure for the initial purse..."); 1000000
       case amount :: rest => amount.toInt
@@ -82,7 +83,7 @@ object BlockChainTool extends Configure {
     val str = DatatypeConverter.printHexBinary(gx.txId)
     p(str)
     val txDbId = ledger.genesis(gx).get
-    Block.confirm(gx.txId, txDbId.height)
+    bc.confirm(gx.txId, txDbId.height)
     utxos.entry(TxIndex(gx.txId, 0)) map (println)
   }
 

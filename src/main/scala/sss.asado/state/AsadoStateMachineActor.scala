@@ -5,7 +5,6 @@ import akka.agent.Agent
 import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
 import sss.asado.block.{BlockChainActor, _}
-import sss.asado.ledger.UTXOLedger
 import sss.asado.network.Connection
 import sss.asado.network.MessageRouter.{RegisterRef, UnRegisterRef}
 import sss.asado.state.AsadoStateProtocol._
@@ -17,7 +16,6 @@ import sss.db.Db
 class AsadoStateMachineActor(thisNodeId: String,
                              connectedPeers: Agent[Set[Connection]],
                              blockChainSettings: BlockChainSettings,
-                             utxoLedger : UTXOLedger,
                              bc: BlockChain,
                              quorum: Int,
                              db: Db
@@ -54,7 +52,7 @@ class AsadoStateMachineActor(thisNodeId: String,
     case  AcceptTransactions(leader) =>
       log.info("Tx Accept :D")
       if(thisNodeId == leader) {
-        blockChainActor = Some(context.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, utxoLedger, txRouter, blockChainSyncerActor, db)))
+        blockChainActor = Some(context.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, txRouter, blockChainSyncerActor, db)))
         messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
       } else {
         // ignore for now. Eventually forward them.

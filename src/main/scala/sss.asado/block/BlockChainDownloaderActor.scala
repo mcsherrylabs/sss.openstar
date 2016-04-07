@@ -4,7 +4,6 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
 import ledger._
 import sss.asado.MessageKeys
-import sss.asado.ledger.{Ledger, UTXOLedger}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.NetworkMessage
@@ -17,7 +16,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 
-class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
+class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
   private case class PuntedConfirm(ref :ActorRef, confirmTx: ConfirmTx)
 
@@ -28,7 +27,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
   messageRouter ! Register(MessageKeys.CloseBlock)
   messageRouter ! Register(MessageKeys.Synced)
 
-  private def makeNextLedger(lastHeight: Long) = new Ledger(lastHeight + 1, Block(lastHeight+ 1), utxo)
+  private def makeNextLedger(lastHeight: Long) = BlockChainLedger(lastHeight + 1)
 
   override def postStop = log.warning("BlockChainDownloaderActor Monitor actor is down!"); super.postStop
 
@@ -39,7 +38,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
 
   var synced = false
 
-  private def syncLedgerWithLeader(lastBlock: BlockHeader, ledger: Ledger): Receive = {
+  private def syncLedgerWithLeader(lastBlock: BlockHeader, ledger: BlockChainLedger): Receive = {
 
     case SyncWithLeader(leader) =>
         val getTxs = {

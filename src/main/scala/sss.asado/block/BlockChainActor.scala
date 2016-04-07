@@ -5,7 +5,6 @@ import java.util.Date
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import block.ReDistributeTx
-import sss.asado.ledger.{Ledger, UTXOLedger}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -23,7 +22,7 @@ trait BlockChainSettings {
   val maxBlockOpenSecs: Int
 }
 
-case class BlockLedger(ref: ActorRef, blockLedger: Ledger)
+case class BlockLedger(ref: ActorRef, blockLedger: BlockChainLedger)
 case object MaxBlockOpenTimeElapsed
 case object TryCloseBlock
 case object AcknowledgeNewLedger
@@ -31,7 +30,6 @@ case object AcknowledgeNewLedger
 
 class BlockChainActor(blockChainSettings: BlockChainSettings,
                       bc: BlockChain,
-                      utxoLedger: UTXOLedger,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef
                       )(implicit db: Db) extends Actor with ActorLogging {
@@ -49,10 +47,9 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
       self, MaxBlockOpenTimeElapsed)
   }
 
-  private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): Ledger = {
+  private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): BlockChainLedger = {
     val newBlockheight = lastClosedBlock.height + blockHeightIncrement
-    val txStorage = Block(newBlockheight)
-    new Ledger(newBlockheight, txStorage, utxoLedger)
+    BlockChainLedger(newBlockheight)
   }
 
   private def handleRouterDeath: Receive = {

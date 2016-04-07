@@ -1,11 +1,10 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block.DistributeTx
+import block.{BlockChainTx, BlockTx, DistributeTx}
 import com.google.common.primitives.Longs
 import ledger._
 import sss.asado.MessageKeys
-import sss.asado.ledger.Ledger
 import sss.asado.network.NetworkMessage
 
 import scala.util.{Failure, Success}
@@ -17,9 +16,9 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   override def postStop = log.warning(s"Tx Writer ($self) is down."); super.postStop
 
-  private def writeStx(blockLedger: Ledger, signedTx: SignedTx): Unit = {
+  private def writeStx(blockLedger: BlockChainLedger, signedTx: SignedTx): Unit = {
       blockLedger(signedTx) match {
-        case Success(TxDbId(height)) =>
+        case Success(BlockChainTx(height, BlockTx(index, signedTx))) =>
           val sendr = sender()
           sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
           writeConfirmActor ! DistributeTx(sendr, signedTx, height)
@@ -63,9 +62,9 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
     sender() ! NetworkMessage(MessageKeys.MalformedMessage, msg.getBytes)
   }
 
-  private def working(blockLedgerOpt: Option[Ledger]): Receive = {
+  private def working(blockLedgerOpt: Option[BlockChainLedger]): Receive = {
 
-    case BlockLedger(coordinator: ActorRef, blockLedger: Ledger) => {
+    case BlockLedger(coordinator: ActorRef, blockLedger: BlockChainLedger) => {
       context.become(working(Some(blockLedger)))
       coordinator ! AcknowledgeNewLedger
 

@@ -10,6 +10,9 @@ import sss.asado.util.Serialize.ToBytes
   */
 package object block {
 
+  case class BlockTx(index: Long, signedTx: SignedTx)
+  case class BlockChainTx(height: Long, blockTx: BlockTx)
+
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 10)
 
   case class VoteLeader(nodeId: String)

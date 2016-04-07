@@ -16,7 +16,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 3/24/16.
   */
-case class ClientSynched(ref: ActorRef)
+case class ClientSynched(ref: ActorRef, currentBlockHeight: Long, expectedNextMessage: Long)
 case class DistributeClose(blockNumber: Long)
 
 class BlockChainSynchronizationActor(quorum: Int,
@@ -98,7 +98,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       val newPeerSet = updateToDatePeers - deadClient
       context.become(awaitConfirms(newPeerSet, newAwaitGroup))
 
-    case ClientSynched(clientRef) =>
+    case ClientSynched(clientRef, currentBlock, nextMessageIndex) =>
       context watch clientRef
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(newPeerSet, awaitGroup))
@@ -106,7 +106,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       clientRef ! NetworkMessage(MessageKeys.Synced, Array())
   }
 
-  private def addConfirmation(confirm: AckConfirmTx) = Block.confirm(confirm.txId, confirm.height)
+  private def addConfirmation(confirm: AckConfirmTx) = bc.confirm(confirm.txId, confirm.height)
 
   override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))
 }

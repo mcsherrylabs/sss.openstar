@@ -10,7 +10,7 @@ import ledger._
 import sss.asado.MessageKeys
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
-import sss.asado.ledger.{UTXODBStorage, UTXOLedger}
+import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController._
 import sss.asado.network.{NetworkMessage, NodeId}
@@ -38,7 +38,7 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
                    peerList: Agent[List[InetSocketAddress]],
                    implicit val db: Db) extends Actor with Console with ConsolePattern {
 
-  lazy val utxos = new UTXOLedger(new UTXODBStorage())
+  lazy val utxos = Ledger()
   lazy val utxosTable = db.table("utxo")
   lazy val blocks = db.table("blockchain")
 

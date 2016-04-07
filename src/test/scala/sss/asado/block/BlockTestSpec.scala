@@ -15,7 +15,7 @@ object BlockTestSpec {
   lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
 
   implicit val db = Db("DBStorageTest")
-  val dbStorage = new Block("ledger")
+  val dbStorage = new Block(99)
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
   lazy val createGenesis = {
     dbStorage.write(genisis.txId, genisis)
@@ -36,14 +36,14 @@ class BlockTestSpec extends FlatSpec with Matchers {
 
     createGenesis
     val retrieved = dbStorage(genisis.tx.txId)
-    assert(retrieved == genisis)
+    assert(retrieved.signedTx == genisis)
   }
 
   it should " allow standard ledger entries to be persisted " in {
 
     val inputTx = dbStorage(genisis.tx.txId)
 
-    val stx = createSignedTx (inputTx)
+    val stx = createSignedTx (inputTx.signedTx)
 
     intercept[NoSuchElementException] {
       dbStorage(stx.txId)
@@ -51,6 +51,6 @@ class BlockTestSpec extends FlatSpec with Matchers {
 
     dbStorage.write(stx.txId, stx)
     val retrieved = dbStorage(stx.txId)
-    assert(retrieved == stx)
+    assert(retrieved.signedTx == stx)
   }
 }
