@@ -104,7 +104,7 @@ class BlockChainDownloaderActor(utxo: UTXOLedger, nc: ActorRef, messageRouter: A
             log.error(s"Ledger cannot sync, game over man, game over.", e)
           case Success(txDbId) =>
             if(confirmStx.height !=  txDbId.height) {
-              log.info(s"Local id is ${txDbId}, but remote id is ${confirmStx.height}")
+              log.info(s"PuntedConfirmLocal id is ${txDbId}, but remote id is ${confirmStx.height}")
             }
             client ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.stx.txId, txDbId.height).toBytes)
         }
