@@ -18,6 +18,9 @@ class BlockChainTest extends FlatSpec with Matchers {
   val numTxs = 0
   val time = new Date
   val newHeight = height + 1
+  Block(height).truncate
+  Block(newHeight).truncate
+
   //bc.blockHeaderTable.insert(height, numTxs, prevHash, merkleRoot, time)
 
   "A block header in the chain " should " have it's hash in the following block header " in {
@@ -78,10 +81,5 @@ class BlockChainTest extends FlatSpec with Matchers {
 
   }
 
-  it should " sign a block correctly " in {
-
-    bc.sign(1, "")
-
-  }
 
 }

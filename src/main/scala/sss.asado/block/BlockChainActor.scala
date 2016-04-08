@@ -4,12 +4,12 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.ReDistributeTx
+import block.{BlockId, DistributeClose, ReDistributeTx}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{FiniteDuration, SECONDS}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -81,10 +81,10 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
       if(unconfirmed.isEmpty) {
 
         log.info(s"About to close block ${lastClosedBlock.height + 1}")
-        bc.closeBlock(lastClosedBlock) match {
+        Try(bc.closeBlock(lastClosedBlock)) match {
           case Success(newLastBlock) =>
             log.info(s"Block ${newLastBlock.height} successfully saved.")
-            blockChainSyncingActor ! DistributeClose(newLastBlock.height)
+            blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
 
             context.become(handleRouterDeath orElse waiting(newLastBlock))
             startTimer(secondsToWait(newLastBlock.time))

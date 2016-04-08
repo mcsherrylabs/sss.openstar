@@ -1,10 +1,14 @@
 package sss.asado
 
+import sss.ancillary.Logging
+
+import scala.util.{Failure, Success, Try}
+
 
 /**
   * Created by alan on 3/18/16.
   */
-object MessageKeys {
+object MessageKeys extends Logging {
 
   val SignedTx: Byte = 100
   val SignedTxAck: Byte = 101
@@ -22,12 +26,21 @@ object MessageKeys {
   val Leader: Byte = 31
   val VoteLeader: Byte = 32
 
-  val GetTxPage: Byte = 40
+  val GetPageTx: Byte = 40
   val PagedTx: Byte = 41
   val EndPageTx: Byte = 42
   val CloseBlock: Byte = 43
   val Synced: Byte = 44
 
 
+
+  def decode[T](msgCode: Byte, f: => T)(t: T => Unit): Unit = {
+    Try {
+      f
+    } match {
+      case Failure(e) => log.error(s"Unable to decoode a request of type $msgCode", e)
+      case Success(s) => t(s)
+    }
+  }
 
 }

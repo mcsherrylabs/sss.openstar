@@ -29,8 +29,6 @@ class Ledger(storage: UTXODBStorage) extends Logging {
       require(ins.nonEmpty, "Tx has no inputs")
       require(outs.nonEmpty, "Tx has no outputs")
 
-      log.debug("Tx has at least 1 in and 1 out")
-
       var totalIn = 0
 
       ins foreach { in =>
@@ -39,15 +37,12 @@ class Ledger(storage: UTXODBStorage) extends Logging {
             require(txOut.amount >= in.amount, s"Cannot pay out (${in.amount}), only ${txOut.amount} available ")
             totalIn += in.amount
             val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
-            log.debug(s"${asStr}, ${in.txIndex.index} is unspent and a valid amount (${in.amount}).")
             require(txOut.encumbrance.decumber(txId +: stx.params, in.sig), "Failed to decumber!")
             storage.delete(in.txIndex)
           }
           case None => throw new IllegalArgumentException(s"${in.txIndex} does not exist.")
         }
       }
-
-      log.debug(s"Tx total in amount = $totalIn")
 
       var totalOut = 0
       outs.foldLeft(0) { (acc, out) =>
@@ -57,7 +52,6 @@ class Ledger(storage: UTXODBStorage) extends Logging {
         acc + 1
       }
 
-      log.debug(s"Tx total out amount = $totalOut")
       require(totalOut <= totalIn, "Total out *must* be less than or equal to total in")
 
     }

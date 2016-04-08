@@ -12,6 +12,7 @@ import scala.util.{Failure, Success}
 case class NodeId(id: String, inetSocketAddress: InetSocketAddress)
 case class Connection(nodeId: NodeId, handlerRef: ActorRef)
 case class NetworkMessage(msgCode: Byte, data: Array[Byte])
+
 case object CloseConnection
 
 class ConnectionHandler(

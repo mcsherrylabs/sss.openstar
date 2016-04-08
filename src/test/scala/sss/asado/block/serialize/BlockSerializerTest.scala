@@ -26,17 +26,39 @@ class BlockSerializerTest extends FlatSpec with Matchers {
 
   }
 
-  "An Ack Confirm Tx" should " be corrrectly serialised and deserialized " in {
-    val c = AckConfirmTx(stx.txId, height)
+  "A Block  id " should " be corrrectly serialised and deserialized " in {
+    val c = BlockId(222, 3433)
     val asBytes = c.toBytes
-    val backAgain = asBytes.toAckConfirmTx
-    assert(backAgain.height === c.height)
+    val backAgain = asBytes.toBlockId
+    assert(backAgain.blockHeight === c.blockHeight)
 
-    assert(backAgain.txId === c.txId)
+    assert(backAgain.numTxs == c.numTxs)
+    assert(backAgain.hashCode() === c.hashCode())
     assert(backAgain === c)
-
   }
 
+  "An Block chain Tx id " should " be corrrectly serialised and deserialized " in {
+    val c = BlockChainTxId(height, BlockTxId(stx.txId, 34))
+    val asBytes = c.toBytes
+    val backAgain = asBytes.toBlockChainIdTx
+    assert(backAgain.height === c.height)
+
+    assert(backAgain.blockTxId.txId === c.blockTxId.txId)
+    assert(backAgain.blockTxId.index === c.blockTxId.index)
+    assert(backAgain.hashCode() === c.hashCode())
+    assert(backAgain === c)
+  }
+
+  "An Block Tx id " should " be corrrectly serialised and deserialized " in {
+    val c = BlockTxId(stx.txId, 34)
+    val asBytes = c.toBytes
+    val backAgain = asBytes.toBlockIdTx
+    assert(backAgain.index === c.index)
+
+    assert(backAgain.txId === c.txId)
+    assert(backAgain.hashCode() === c.hashCode())
+    assert(backAgain === c)
+  }
 
   "A Find Leader " should " be corrrectly serialised and deserialized " in {
     val c = FindLeader(1234, 4, "Holy Karelia!")

@@ -16,9 +16,9 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
 
   implicit val db: Db = Db("DBStorageTest")
-  def reset = db.executeSql("TRUNCATE TABLE utxo")
+  def resetUtxo = db.executeSql("TRUNCATE TABLE utxo")
 
-  reset
+  resetUtxo
 
   val genesisTx = GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance)))
   val genisis = SignedTx(genesisTx)
@@ -42,9 +42,8 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
   }
 
-  def expectIllegalArgument(result: Try[_], msg:String = "Something wrong"): Unit = {
-    result match {
-      case Failure(e: TxInLedger) =>
+  def expectIllegalArgument(result: => Any, msg:String = "Something wrong"): Unit = {
+    Try(result) match {
       case Failure(e: IllegalArgumentException) =>
       case x => fail(msg)
     }
@@ -88,8 +87,9 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
   it should " allow spending from a tx out that was also a tx " in {
 
-    reset
-
+    resetUtxo
+    val ledger = BlockChainLedger(2)
+    val r = ledger.genesis(genesisTx)
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
     val stx = SignedTx(StandardTx(ins, outs))

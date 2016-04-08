@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
 import ledger._
 import sss.asado.MessageKeys
+import sss.asado.MessageKeys._
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.NetworkMessage
@@ -18,116 +19,105 @@ import scala.util.{Failure, Success, Try}
 
 class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
-  private case class PuntedConfirm(ref :ActorRef, confirmTx:BlockChainTx)
 
-  messageRouter ! Register(MessageKeys.PagedTx)
-  messageRouter ! Register(MessageKeys.EndPageTx)
-  messageRouter ! Register(MessageKeys.ConfirmTx)
-  messageRouter ! Register(MessageKeys.ReConfirmTx)
-  messageRouter ! Register(MessageKeys.CloseBlock)
-  messageRouter ! Register(MessageKeys.Synced)
+  private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
+
+  messageRouter ! Register(PagedTx)
+  messageRouter ! Register(EndPageTx)
+  messageRouter ! Register(ConfirmTx)
+  messageRouter ! Register(ReConfirmTx)
+  messageRouter ! Register(CloseBlock)
+  messageRouter ! Register(Synced)
 
   private def makeNextLedger(lastHeight: Long) = BlockChainLedger(lastHeight + 1)
 
   override def postStop = log.warning("BlockChainDownloaderActor Monitor actor is down!"); super.postStop
 
-  override def receive: Receive = {
-    val lastBlock = bc.lastBlock
-    syncLedgerWithLeader(lastBlock, makeNextLedger(lastBlock.height))
-  }
+  override def receive: Receive = syncLedgerWithLeader
+
 
   var synced = false
 
-  private def syncLedgerWithLeader(lastBlock: BlockHeader, ledger: BlockChainLedger): Receive = {
+  private def syncLedgerWithLeader: Receive = {
 
     case SyncWithLeader(leader) =>
         val getTxs = {
-            val lb = lastBlock
+            val lb = bc.lastBlock
             val blockStorage = Block(lb.height + 1)
-            val lastIndexOfRow = blockStorage.count
+            val lastIndexOfRow = blockStorage.maxMonotonicIndex
             GetTxPage(lb.height + 1, lastIndexOfRow)
         }
 
-        nc ! SendToNetwork(NetworkMessage(MessageKeys.GetTxPage, getTxs.toBytes), (_ filter(_.nodeId.id == leader)) )
+        nc ! SendToNetwork(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), (_ filter(_.nodeId.id == leader)) )
 
 
     case NetworkMessage(MessageKeys.PagedTx, bytes) =>
-      val pagedTx = bytes.toSignedTx
-      ledger(pagedTx) match {
-        case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
-        case Success(txDbId) =>
-          log.debug(s"CONFIRMED Up to $txDbId")
+      decode(PagedTx, bytes.toBlockChainTx) { blockChainTx =>
+        Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
+          case Failure(e) => log.error(e, s"Ledger cannot sync PagedTx, game over man, game over.")
+
+          case Success(txDbId) =>
+            log.debug(s"CONFIRMED Up to $txDbId")
+        }
       }
 
 
     case NetworkMessage(MessageKeys.EndPageTx, bytes) =>
       val getTxPage = bytes.toGetTxPage
       val nextPage = GetTxPage(getTxPage.blockHeight, getTxPage.index + getTxPage.pageSize, getTxPage.pageSize)
-      sender() ! NetworkMessage(MessageKeys.GetTxPage, nextPage.toBytes)
+      sender() ! NetworkMessage(MessageKeys.GetPageTx, nextPage.toBytes)
 
-    case NetworkMessage(MessageKeys.CloseBlock, _) =>
-      //close block
-      bc.closeBlock(lastBlock) match {
-        case Failure(e) => log.error(s"Ledger cannot sync, game over man, game over.", e)
-        case Success(blockHeader) =>
-          log.info(s"Synching - block height ${blockHeader.height}")
-          context.become(syncLedgerWithLeader(blockHeader, makeNextLedger(blockHeader.height)))
-          if(!synced) {
-            val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
-            // TODO SIGN THE BLOCK
-            sender() ! NetworkMessage(MessageKeys.GetTxPage, nextBlockPage.toBytes)
+    case CommitBlock(serverRef, blockId, reTryCount) if reTryCount > 5 => log.error(s"Ledger cannot sync retry")
+
+    case CommitBlock(serverRef, blockId, reTryCount) => {
+
+      Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
+        case Failure(e) =>
+          log.error(e, s"Could not commit this block ${blockId}", e)
+          context.system.scheduler.scheduleOnce(500 millis, self, CommitBlock(serverRef, blockId, reTryCount + 1))
+        case Success(_) =>
+          Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
+            case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
+            case Success(blockHeader) =>
+              log.info(s"Synching - block height ${blockHeader.height}")
+
+              if (!synced) {
+                val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
+                // TODO SIGN THE BLOCK
+                serverRef ! NetworkMessage(MessageKeys.GetPageTx, nextBlockPage.toBytes)
+              }
           }
-      }
-
-    case NetworkMessage(MessageKeys.Synced, _) => synced = true; log.info("Downloader is synced")
-
-    case NetworkMessage(MessageKeys.ReConfirmTx, bytes) =>
-      Try(bytes.toBlockChainTx) match {
-        case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
-        case Success(confirmStx) =>
-          Block(confirmStx.height).get(confirmStx.blockTx.signedTx.txId) match {
-            case None => sender() ! NetworkMessage(MessageKeys.NackConfirmTx, Array())
-            case Some(sTx) =>
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, confirmStx.height).toBytes)
-          }
-      }
-
-    case p @ PuntedConfirm(client, confirmStx) => {
-      if(ledger.blockHeight < confirmStx.height) {
-        context.system.scheduler.scheduleOnce(1 milliseconds, self, p)
-      } else {
-        ledger(confirmStx.blockTx.signedTx) match {
-          case Failure(e) =>
-            client ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.blockTx.signedTx.txId)
-            log.error(s"Ledger cannot sync, game over man, game over.", e)
-          case Success(txDbId) =>
-            if(confirmStx.height !=  txDbId.height) {
-              log.info(s"PuntedConfirmLocal id is ${txDbId}, but remote id is ${confirmStx.height}")
-            }
-            client ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, txDbId.height).toBytes)
-        }
       }
     }
 
-    case NetworkMessage(MessageKeys.ConfirmTx, bytes) =>
-      Try(bytes.toBlockChainTx) match {
-        case Failure(e) => log.error(e, "Unable to decoode a request for confirmation")
-        case Success(confirmStx) if(ledger.blockHeight < confirmStx.height) =>
-          val sndr = sender()
-          context.system.scheduler.scheduleOnce(1 milliseconds, self, PuntedConfirm(sndr, confirmStx))
-        case Success(confirmStx) if(ledger.blockHeight == confirmStx.height) =>
-          ledger(confirmStx.blockTx.signedTx) match {
+    case NetworkMessage(CloseBlock, bytes) =>
+      val sendr = sender()
+      decode(CloseBlock, bytes.toBlockId)(blockId => self ! CommitBlock(sendr, blockId))
+
+
+    case NetworkMessage(Synced, _) => synced = true; log.info("Downloader is synced")
+
+
+    case NetworkMessage(ReConfirmTx, bytes) =>
+      log.error("RECONFIRM IS THE SAME AS CONFIRM????")
+      //context.system.scheduler.scheduleOnce(1 milliseconds, self, _)
+
+
+    case NetworkMessage(ConfirmTx, bytes) =>
+      decode(ConfirmTx, bytes.toBlockChainTx) { blockChainTx =>
+          Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
             case Failure(e) =>
-              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, confirmStx.blockTx.signedTx.txId)
-              log.error(s"Ledger cannot sync, game over man, game over.", e)
-            case Success(txDbId) =>
-              if(confirmStx.height !=  txDbId.height) {
-                log.info(s"Local id is ${txDbId}, but remote id is ${confirmStx.height}")
-              }
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, AckConfirmTx(confirmStx.blockTx.signedTx.txId, txDbId.height).toBytes)
+              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, blockChainTx.toId.toBytes)
+              log.error(e, s"Ledger cannot sync, game over man, game over.")
+            case Success(resultBlockChainTx) =>
+              log.info(s"Local index is ${resultBlockChainTx.toId.blockTxId.index}, remote index is ${blockChainTx.toId.blockTxId.index}")
+              val isSame = ByteArrayComparison(blockChainTx.toId.blockTxId.txId).isSame(resultBlockChainTx.toId.blockTxId.txId)
+              log.info(s"Txs same?  $isSame")
+              log.info(s"Local is ${resultBlockChainTx.height}, remote id is ${blockChainTx.height}")
+              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, resultBlockChainTx.toId.toBytes)
           }
-        case Success(confirmStx) => log.error(s"Local block height is ${ledger.blockHeight}, but remote is ${confirmStx.height}")
       }
   }
+
 
 }

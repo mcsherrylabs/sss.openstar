@@ -38,7 +38,7 @@ case class BlockHeader(
     case _ => false
   }
 
-  override def hashCode(): Int = (17 + height.toInt) * (numTxs + hashPrevBlock.hashCode() + merkleRoot.hashCode() + time.hashCode)
+  override def hashCode(): Int = (17 + Longs.hashCode(height)) * (numTxs + hashPrevBlock.hashCode() + merkleRoot.hashCode() + time.hashCode)
 }
 
 object BlockHeader {

@@ -1,12 +1,13 @@
 package sss.asado.block
 
-import block.BlockTx
+import block.{BlockTx, BlockTxId}
 import com.twitter.util.SynchronizedLruMap
 import ledger._
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, OrderAsc, Row, Where}
 
+import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
 
@@ -15,6 +16,19 @@ object Block extends Logging {
   private lazy val blockCache = new SynchronizedLruMap[Long, Block](10)
   private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
   def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
+
+  private[block] def findSmallestMissing(candidates: Seq[Long]): Long = {
+
+    @tailrec
+    def hasNext(candis: Seq[Long], count: Long): Long = {
+      candis match {
+        case Seq() =>  count
+        case head +: rest if(head == count + 1) => hasNext(rest, count + 1)
+        case _ => count
+      }
+    }
+    hasNext(candidates, 0)
+  }
 }
 
 class Block(val height: Long)(implicit db:Db) extends Logging {
@@ -31,16 +45,23 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   private val blockTxTable = db.table(tableName)
 
+  private[block] def truncate: Unit = db.executeSql(s"TRUNCATE TABLE $tableName")
+
   private[block] def entries: Seq[SignedTx] = {
     blockTxTable.map ({ row =>
       row[Array[Byte]]("entry").toSignedTx
-    }, OrderAsc("id"))
+    }, OrderAsc(id))
   }
 
-  private def toBlockTx(r: Row): BlockTx = BlockTx(r[Long]("id"), r[Array[Byte]]("entry").toSignedTx)
+  private def toBlockTx(r: Row): BlockTx = BlockTx(r[Long](id), r[Array[Byte]](entry).toSignedTx)
 
   def page(index: Long, pageSize: Int): Seq[Array[Byte]] = {
-    blockTxTable.page(index, pageSize, Seq(OrderAsc("txid"))) map(r => r[Array[Byte]]("entry"))
+    blockTxTable.page(index, pageSize, Seq(OrderAsc(txid))) map(r => r[Array[Byte]](entry))
+  }
+
+  def maxMonotonicIndex: Long = {
+    val allIds = blockTxTable.map(r => r[Long](id), OrderAsc(id))
+    findSmallestMissing(allIds)
   }
 
   def apply(k: TxId): BlockTx = get(k).get
@@ -49,21 +70,23 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
-  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where("txid = ?", id.toVarChar)).map(toBlockTx)
+  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where(s"$txid = ?", id.toVarChar)).map(toBlockTx)
 
 
-  def delete(id: TxId): Boolean = blockTxTable.delete(Where("txid = ?", id.toVarChar)) == 1
+  def delete(id: TxId): Boolean = blockTxTable.delete(Where(s"$txid = ?", id.toVarChar)) == 1
 
   def write(index: Long, k: TxId, le: SignedTx): Long = {
     val bs = le.toBytes
     val hexStr = k.toVarChar
-    blockTxTable.insert(index, hexStr, bs, 0)
+    val row = blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs))
+    row(id)
   }
 
   def write(k: TxId, le: SignedTx): Long = {
     val bs = le.toBytes
     val hexStr = k.toVarChar
-    blockTxTable.insert(None, hexStr, bs, 0)
+    val row = blockTxTable.persist(Map(txid -> hexStr, entry -> bs))
+    row(id)
   }
 
   def getUnconfirmed(requiredConfirms: Int): Seq[(Int, BlockTx)] = {
@@ -73,16 +96,10 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     all
   }
 
-  def confirm(txId: Array[Byte]): Unit = {
+  def confirm(blockTxId: BlockTxId): Unit = {
     Try {
-      val hex = txId.toVarChar
+      val hex = blockTxId.txId.toVarChar
       val rowsUpdated = blockTxTable.update("confirm = confirm + 1", s"txid = '$hex'")
-      if(rowsUpdated != 1) {
-        val blcokTablebehind = Block(height - 1)
-        val isBehind = blcokTablebehind.get(txId)
-        val blcokTableAhead = Block(height + 1)
-        val isahead = blcokTableAhead.get(txId)
-      }
       require(rowsUpdated == 1, s"Must update 1 row, by confirming the tx, not $rowsUpdated rows")
 
     } match {

@@ -125,7 +125,7 @@ class TxBlasterActor(args :Array[String], messageRouter: ActorRef, ncRef : Actor
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) => println(new String(bytes))
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) => {
-      val confirmed = bytes.toAckConfirmTx
+      val confirmed = bytes.toBlockChainIdTx
       println(s"Confirmation $confirmed")
     }
 

@@ -53,4 +53,18 @@ class BlockTestSpec extends FlatSpec with Matchers {
     val retrieved = dbStorage(stx.txId)
     assert(retrieved.signedTx == stx)
   }
+
+  "FindSmallest " should "find the smallest missing  " in {
+
+    var seq = Seq[Long]()
+    assert(Block.findSmallestMissing(seq) == 0)
+    seq = Seq[Long](1)
+    assert(Block.findSmallestMissing(seq) == 1)
+    seq = Seq[Long](1,2)
+    assert(Block.findSmallestMissing(seq) == 2)
+    seq = Seq[Long](1,2, 4, 5, 6)
+    assert(Block.findSmallestMissing(seq) == 2)
+    seq = Seq[Long](1,2, 3, 4, 6)
+    assert(Block.findSmallestMissing(seq) == 4)
+  }
 }

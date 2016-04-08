@@ -3,7 +3,6 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
-import ledger.TxId
 import sss.asado.MessageKeys
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkMessage
@@ -17,7 +16,7 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 3/24/16.
   */
 case class ClientSynched(ref: ActorRef, currentBlockHeight: Long, expectedNextMessage: Long)
-case class DistributeClose(blockNumber: Long)
+
 
 class BlockChainSynchronizationActor(quorum: Int,
                                      stateMachine: ActorRef,
@@ -26,16 +25,16 @@ class BlockChainSynchronizationActor(quorum: Int,
 
   messageRouter ! Register(MessageKeys.NackConfirmTx)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
-  messageRouter ! Register(MessageKeys.GetTxPage)
+  messageRouter ! Register(MessageKeys.GetPageTx)
 
-  private case class ClientTx(client : ActorRef, txId: TxId, height: Long)
+  private case class ClientTx(client : ActorRef, blockChainTxId: BlockChainTxId)
 
   private def awaitConfirms(updateToDatePeers: Set[ActorRef], awaitGroup: Map[ActorRef, List[ClientTx]]): Receive = {
     case DistributeTx(client, btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {
         upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes)
-        upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, signedTx.txId, height))
+        upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, btx.toId))
       }
 
       context.become(awaitConfirms(updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
@@ -44,20 +43,21 @@ class BlockChainSynchronizationActor(quorum: Int,
     case ReDistributeTx(btx) =>
       updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes))
 
-    case DistributeClose(blockNumber) =>
-      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, Array()))
+    case DistributeClose(bId @ BlockId(blockheight, numTxs)) =>
+      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, bId.toBytes))
 
-    case netTxPage @ NetworkMessage(MessageKeys.GetTxPage, bytes) =>
+    case netTxPage @ NetworkMessage(MessageKeys.GetPageTx, bytes) =>
       val ref = context.actorOf(Props(classOf[TxPageActor], bc, db))
       ref forward netTxPage
 
-    case NetworkMessage(MessageKeys.NackConfirmTx, txIdNacked) =>
+    case NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>
       val sndr = sender()
       Try {
+        val blockChainTxIdNacked = blockChainTxIdNackedBytes.toBlockChainIdTx
         val newMap = awaitGroup(sndr).filter { ctx =>
-          if (ctx.txId.isSame(txIdNacked)) {
+          if (ctx.blockChainTxId == blockChainTxIdNacked) {
             //Yes. side effects.
-            ctx.client ! NetworkMessage(MessageKeys.NackConfirmTx, txIdNacked)
+            ctx.client ! NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes)
             false
           } else true
         } match {
@@ -73,11 +73,11 @@ class BlockChainSynchronizationActor(quorum: Int,
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val sndr = sender()
       Try {
-        val confirm = bytes.toAckConfirmTx
-        addConfirmation(confirm)
+        val confirm = bytes.toBlockChainIdTx
+        bc.confirm(confirm)
 
         val newMap = awaitGroup(sndr).filter { ctx =>
-          if (ctx.height == confirm.height && ctx.txId.isSame(confirm.txId)) {
+          if (ctx.blockChainTxId == confirm) {
             //Yes. side effects.
             ctx.client ! NetworkMessage(MessageKeys.AckConfirmTx, bytes)
             false
@@ -105,8 +105,6 @@ class BlockChainSynchronizationActor(quorum: Int,
       if(newPeerSet.size == quorum) stateMachine ! Synced
       clientRef ! NetworkMessage(MessageKeys.Synced, Array())
   }
-
-  private def addConfirmation(confirm: AckConfirmTx) = bc.confirm(confirm.txId, confirm.height)
 
   override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))
 }

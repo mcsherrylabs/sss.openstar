@@ -7,7 +7,7 @@ import ledger._
 import sss.asado.MessageKeys
 import sss.asado.network.NetworkMessage
 
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 3/18/16.
   */
@@ -17,7 +17,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   override def postStop = log.warning(s"Tx Writer ($self) is down."); super.postStop
 
   private def writeStx(blockLedger: BlockChainLedger, signedTx: SignedTx): Unit = {
-      blockLedger(signedTx) match {
+      Try(blockLedger(signedTx)) match {
         case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
           val sendr = sender()
           sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
@@ -64,9 +64,9 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   private def working(blockLedgerOpt: Option[BlockChainLedger]): Receive = {
 
-    case BlockLedger(coordinator: ActorRef, blockLedger: BlockChainLedger) => {
+    case BlockLedger(blockChainActor: ActorRef, blockLedger: BlockChainLedger) => {
       context.become(working(Some(blockLedger)))
-      coordinator ! AcknowledgeNewLedger
+      blockChainActor ! AcknowledgeNewLedger
 
     }
 
@@ -81,7 +81,6 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
 
     case NetworkMessage(MessageKeys.SignedTx, bytes) =>
-      log.info(s"Got a signed tx ... ")
 
       bytes.toSignedTxTry match {
         case Success(stx) => blockLedgerOpt match {

@@ -2,7 +2,7 @@ package sss.asado.block
 
 import java.util.Date
 
-import block.BlockChainTx
+import block.{BlockChainTx, BlockChainTxId}
 import com.twitter.util.SynchronizedLruMap
 import sss.ancillary.Logging
 import sss.asado.block.merkle.MerklePersist._
@@ -11,7 +11,6 @@ import sss.asado.block.signature.BlockSignatures
 import sss.db.{Db, Where}
 
 import scala.collection.mutable
-import scala.util.Try
 
 
 object BlockChain {
@@ -23,7 +22,6 @@ class BlockChain(implicit db: Db) extends Logging {
 
   import BlockChain._
   import MerklePersist.MerklePersister
-  import ledger._
 
   private[block] lazy val blockHeaderTable = db.table(tableName)
 
@@ -31,7 +29,7 @@ class BlockChain(implicit db: Db) extends Logging {
       blockHeaderTable.find(Where(sql)) map (BlockHeader(_))
   }
 
-  def confirm(txId: TxId, height: Long): Unit = Block(height).confirm(txId)
+  def confirm(blockChainTxId: BlockChainTxId): Unit = Block(blockChainTxId.height).confirm(blockChainTxId.blockTxId)
 
 
   def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): BlockHeader = {
@@ -59,9 +57,8 @@ class BlockChain(implicit db: Db) extends Logging {
 
   def blockHeader(height: Long): BlockHeader = blockHeaderOpt(height).get
 
-  def closeBlock(prevHeader: BlockHeader): Try[BlockHeader] = {
+  def closeBlock(prevHeader: BlockHeader): BlockHeader = {
 
-    Try {
       val height = prevHeader.height + 1
       val block = Block(height)
 
@@ -83,7 +80,6 @@ class BlockChain(implicit db: Db) extends Logging {
         log.debug(s"New Block header $newRow")
         BlockHeader(newRow)
 
-      }
     }
   }
 

@@ -99,9 +99,9 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId],
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) => println(new String(bytes))
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
-      val confirmed = bytes.toAckConfirmTx
-      val nextIndex = alltransmitted(TxIndex(confirmed.txId, 0))
-      alltransmitted -= TxIndex(confirmed.txId, 0)
+      val confirmed = bytes.toBlockChainIdTx
+      val nextIndex = alltransmitted(TxIndex(confirmed.blockTxId.txId, 0))
+      alltransmitted -= TxIndex(confirmed.blockTxId.txId, 0)
       println(s"Confirmation $confirmed")
       self ! FreeTxIndex(nextIndex, 10)
 

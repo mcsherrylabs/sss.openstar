@@ -1,8 +1,10 @@
 
 import akka.actor.ActorRef
+import com.google.common.primitives.Longs
 import ledger.{SignedTx, TxId}
 import sss.asado.block.serialize._
 import sss.asado.util.ByteArrayComparisonOps
+import sss.asado.util.ByteArrayVarcharOps.ByteArrayToVarChar
 import sss.asado.util.Serialize.ToBytes
 
 /**
@@ -10,8 +12,11 @@ import sss.asado.util.Serialize.ToBytes
   */
 package object block {
 
+  case class BlockId(blockHeight: Long, numTxs: Long)
   case class BlockTx(index: Long, signedTx: SignedTx)
-  case class BlockChainTx(height: Long, blockTx: BlockTx)
+  case class BlockChainTx(height: Long, blockTx: BlockTx) {
+    def toId: BlockChainTxId = BlockChainTxId(height, BlockTxId(blockTx.signedTx.txId, blockTx.index))
+  }
 
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 10)
 
@@ -21,16 +26,32 @@ package object block {
 
   case class ReDistributeTx(blockChainTx: BlockChainTx)
   case class DistributeTx(client: ActorRef, blockChainTx: BlockChainTx)
+  case class DistributeClose(blockId: BlockId)
 
-  case class AckConfirmTx(txId: TxId, height: Long) extends ByteArrayComparisonOps {
+
+  case class BlockTxId(txId: TxId, index: Long) extends ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = obj match {
-      case ackConfirm: AckConfirmTx => ackConfirm.height == height &&
-        ackConfirm.txId.isSame(txId)
+      case blockTxId: BlockTxId => blockTxId.index == index &&
+        blockTxId.txId.isSame(txId)
 
       case _ => false
     }
 
-    override def hashCode(): Int = 17  * txId.hash
+    override def toString: String = s"Index: ${index}, " + txId.toVarChar
+
+    override def hashCode(): Int = Longs.hashCode(index) + (17 * txId.hash)
+  }
+
+  case class BlockChainTxId(height: Long, blockTxId: BlockTxId) extends ByteArrayComparisonOps {
+    override def equals(obj: scala.Any): Boolean = obj match {
+      case blockChainTxId: BlockChainTxId => blockChainTxId.height == height &&
+        blockChainTxId.blockTxId == blockTxId
+
+      case _ => false
+    }
+
+    override def toString: String = s"Height: ${height}, $blockTxId"
+    override def hashCode(): Int = Longs.hashCode(height) + blockTxId.hashCode()
   }
 
   implicit class GetTxPageTo(getTxPage: GetTxPage) extends ToBytes[GetTxPage] {
@@ -59,12 +80,19 @@ package object block {
   implicit class VoteLeaderFrom(b: Array[Byte]) {
     def toVoteLeader: VoteLeader = VoteLeaderSerializer.fromBytes(b)
   }
-  
-  implicit class AckConfirmTxTo(t: AckConfirmTx) extends ToBytes[AckConfirmTx] {
-    override def toBytes: Array[Byte] = AckConfirmTxSerializer.toBytes(t)
+
+  implicit class BlockChainIdTxTo(t: BlockChainTxId) extends ToBytes[BlockChainTxId] {
+    override def toBytes: Array[Byte] = BlockChainTxIdSerializer.toBytes(t)
   }
-  implicit class AckConfirmTxFrom(b: Array[Byte]) {
-    def toAckConfirmTx: AckConfirmTx = AckConfirmTxSerializer.fromBytes(b)
+  implicit class BlockChainIdTxFrom(b: Array[Byte]) {
+    def toBlockChainIdTx: BlockChainTxId = BlockChainTxIdSerializer.fromBytes(b)
+  }
+
+  implicit class BlockIdTxTo(t: BlockTxId) extends ToBytes[BlockTxId] {
+    override def toBytes: Array[Byte] = BlockTxIdSerializer.toBytes(t)
+  }
+  implicit class BlockIdTxFrom(b: Array[Byte]) {
+    def toBlockIdTx: BlockTxId = BlockTxIdSerializer.fromBytes(b)
   }
 
   implicit class BlockChainTxTo(t: BlockChainTx) extends ToBytes[BlockChainTx] {
@@ -78,5 +106,12 @@ package object block {
   }
   implicit class BlockTxFrom(b: Array[Byte]) {
     def toBlockTx: BlockTx = BlockTxSerializer.fromBytes(b)
+  }
+
+  implicit class BlockIdTo(t: BlockId) extends ToBytes[BlockId] {
+    override def toBytes: Array[Byte] = BlockIdSerializer.toBytes(t)
+  }
+  implicit class BlockIdFrom(b: Array[Byte]) {
+    def toBlockId: BlockId = BlockIdSerializer.fromBytes(b)
   }
 }
