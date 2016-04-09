@@ -28,6 +28,18 @@ case object TryCloseBlock
 case object AcknowledgeNewLedger
 
 
+/**
+  * This is the actor that cause blocks to be formed.
+  * When the time comes it sends all the tx writers a
+  * new ledger to use and when they confirm that they are using it
+  * they close the current block.
+  *
+  * @param blockChainSettings
+  * @param bc
+  * @param writersRouterRef
+  * @param blockChainSyncingActor
+  * @param db
+  */
 class BlockChainActor(blockChainSettings: BlockChainSettings,
                       bc: BlockChain,
                       writersRouterRef: ActorRef,

@@ -47,6 +47,8 @@ class BlockChainSynchronizationActor(quorum: Int,
       updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, bId.toBytes))
 
     case netTxPage @ NetworkMessage(MessageKeys.GetPageTx, bytes) =>
+      val tmp = bytes.toGetTxPage
+      log.info(s"First ask is for $tmp")
       val ref = context.actorOf(Props(classOf[TxPageActor], bc, db))
       ref forward netTxPage
 

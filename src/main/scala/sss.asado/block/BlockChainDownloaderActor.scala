@@ -73,7 +73,7 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
 
       Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
         case Failure(e) =>
-          log.error(e, s"Could not commit this block ${blockId}", e)
+          log.error(e, s"Could not commit this block ${blockId}")
           context.system.scheduler.scheduleOnce(500 millis, self, CommitBlock(serverRef, blockId, reTryCount + 1))
         case Success(_) =>
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {

@@ -1,10 +1,11 @@
 package sss.asado.ledger
 
 import ledger._
+import sss.ancillary.Logging
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, Where}
 
-private[ledger] class UTXODBStorage(implicit db: Db) {
+private[ledger] class UTXODBStorage(implicit db: Db) extends Logging {
 
   private val utxoLedgerTable = db.table("utxo")
 
@@ -26,6 +27,8 @@ private[ledger] class UTXODBStorage(implicit db: Db) {
 
   def get(k: TxIndex): Option[TxOutput] = {
     val hexStr = k.txId.toVarChar
+    log.info(s"UTXO DB looking for $hexStr, have ... ")
+    utxoLedgerTable.map(r => log.info(r.toString + " " + r[Array[Byte]]("entry").toTxOutput))
     utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
   }
 
