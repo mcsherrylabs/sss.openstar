@@ -4,7 +4,7 @@ package sss.asado.block
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
 import sss.asado.MessageKeys
-import sss.asado.network.MessageRouter.Register
+import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol.Synced
 import sss.asado.util.ByteArrayComparisonOps
@@ -23,9 +23,12 @@ class BlockChainSynchronizationActor(quorum: Int,
                                      bc: BlockChain,
                                      messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging with ByteArrayComparisonOps {
 
+  val pageResponder = context.actorOf(Props(classOf[TxPageActor], bc, db))
+
   messageRouter ! Register(MessageKeys.NackConfirmTx)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
-  messageRouter ! Register(MessageKeys.GetPageTx)
+  messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
+
 
   private case class ClientTx(client : ActorRef, blockChainTxId: BlockChainTxId)
 
@@ -45,12 +48,6 @@ class BlockChainSynchronizationActor(quorum: Int,
 
     case DistributeClose(bId @ BlockId(blockheight, numTxs)) =>
       updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, bId.toBytes))
-
-    case netTxPage @ NetworkMessage(MessageKeys.GetPageTx, bytes) =>
-      val tmp = bytes.toGetTxPage
-      log.info(s"First ask is for $tmp")
-      val ref = context.actorOf(Props(classOf[TxPageActor], bc, db))
-      ref forward netTxPage
 
     case NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>
       val sndr = sender()
@@ -100,7 +97,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       val newPeerSet = updateToDatePeers - deadClient
       context.become(awaitConfirms(newPeerSet, newAwaitGroup))
 
-    case ClientSynched(clientRef, currentBlock, nextMessageIndex) =>
+    case ClientSynched(clientRef, currentBlock, _) =>
       context watch clientRef
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(newPeerSet, awaitGroup))

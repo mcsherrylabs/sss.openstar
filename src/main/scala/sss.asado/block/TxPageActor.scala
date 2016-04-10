@@ -15,10 +15,8 @@ import sss.db.Db
   */
 class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
 
-
   private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
   private case class EndOfBlock(ref: ActorRef, blockId: BlockId)
-
   private case class TxToReturn(ref: ActorRef, blockChainTx: BlockChainTx)
 
   override def receive: Receive = {
@@ -29,7 +27,6 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
     case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(MessageKeys.EndPageTx, getTxPageBytes)
     case synched @ ClientSynched(ref, currentBlockHeight, expectedNextMessage) =>
       context.parent  ! synched
-      context.stop(self)
 
     case TxToReturn(ref, blockChainTx) =>
       ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)

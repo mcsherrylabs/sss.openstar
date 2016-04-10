@@ -69,6 +69,7 @@ object Node extends Configure {
     leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
 
     val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor], quorum, stateMachine, bc, messageRouter, db))
+
     val txRouter: ActorRef = actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], blockChainSyncerActor)), "txRouter")
 
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor)

@@ -9,6 +9,7 @@ import com.google.common.primitives.Longs
 import ledger._
 import sss.asado.MessageKeys
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.block.Block
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.ledger.Ledger
 import sss.asado.network.MessageRouter.{Register, UnRegister}
@@ -27,7 +28,8 @@ import scala.util.{Failure, Success, Try}
 trait ConsolePattern {
   val connectPeerPattern = """connect (.*):(\d\d\d\d)""".r
   val peerPattern = """(.*):(\d\d\d\d)""".r
-  val blockHeaders = """blocks ([0-9]+)""".r
+  val blocksParse = """block ([0-9]+)""".r
+  val blockHeaders = """blockheader ([0-9]+)""".r
   val repeatTx = """repeat tx (.*) ([0-9]+) ([0-9]+) ([0-9]+)""".r
 }
 
@@ -58,6 +60,12 @@ class ConsoleActor(args: Array[String], msgRouter: ActorRef,
 
     case "help" => {
       printHelp()
+    }
+
+    case blocksParse(height) => {
+      println(s"block $height")
+      Block(height.toLong).entries.foreach(println)
+
     }
 
     case blockHeaders(count) => {
