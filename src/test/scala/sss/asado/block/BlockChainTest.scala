@@ -13,7 +13,7 @@ class BlockChainTest extends FlatSpec with Matchers {
   val merkleRoot= "12345678123456781234567812345678".getBytes
   val prevHash = "12345678123456781234567812345678".getBytes
   implicit val db = Db("DBStorageTest")
-  val bc = new BlockChain()
+  val bc = new BlockChainImpl()
   val height = 1
   val numTxs = 0
   val time = new Date
@@ -56,20 +56,20 @@ class BlockChainTest extends FlatSpec with Matchers {
   }
 
   it should " find the correct last block " in {
-    matchFirstBlock(bc.lastBlock)
+    matchFirstBlock(bc.lastBlockHeader)
   }
 
 
   it should " close a block correctly " in {
 
     val now = new Date()
-    val lastBlock = bc.lastBlock
+    val lastBlock = bc.lastBlockHeader
     val txWriter = Block(newHeight)
     val stx = BlockTestSpec.createSignedTx(BlockTestSpec.createGenesis)
-    txWriter.write(stx.txId, stx)
+    txWriter.writeCommitted(stx.txId, stx)
     bc.closeBlock(lastBlock)
 
-    matchSecondBlock(bc.lastBlock, lastBlock.hash)
+    matchSecondBlock(bc.lastBlockHeader, lastBlock.hash)
 
   }
 

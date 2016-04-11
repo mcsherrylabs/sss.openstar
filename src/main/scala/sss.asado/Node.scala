@@ -48,7 +48,7 @@ object Node extends Configure {
     val messageRouter = actorSystem.actorOf(Props(classOf[MessageRouter]))
 
     val blockChainSettings = DynConfig[BlockChainSettings](s"${args(0)}.blockchain")
-    val bc = new BlockChain()
+    val bc = new BlockChainImpl()
 
     val uPnp = DynConfig.opt[UPnPSettings](s"${args(0)}.upnp") map (new UPnP(_))
 

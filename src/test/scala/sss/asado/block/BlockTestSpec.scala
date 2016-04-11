@@ -18,7 +18,7 @@ object BlockTestSpec {
   val dbStorage = new Block(99)
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
   lazy val createGenesis = {
-    dbStorage.write(genisis.txId, genisis)
+    dbStorage.writeCommitted(genisis.txId, genisis)
     genisis
   }
   def createSignedTx(inputTx : SignedTx) = {
@@ -49,7 +49,7 @@ class BlockTestSpec extends FlatSpec with Matchers {
       dbStorage(stx.txId)
     }
 
-    dbStorage.write(stx.txId, stx)
+    dbStorage.writeCommitted(stx.txId, stx)
     val retrieved = dbStorage(stx.txId)
     assert(retrieved.signedTx == stx)
   }

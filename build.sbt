@@ -26,7 +26,7 @@ libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.6"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.19"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.21"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

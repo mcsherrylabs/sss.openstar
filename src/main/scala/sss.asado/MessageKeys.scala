@@ -31,6 +31,7 @@ object MessageKeys extends Logging {
   val EndPageTx: Byte = 42
   val CloseBlock: Byte = 43
   val Synced: Byte = 44
+  val NoMoreTxs: Byte = 45
 
 
 

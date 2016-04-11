@@ -22,7 +22,7 @@ package object block {
 
   case class VoteLeader(nodeId: String)
   case class Leader(nodeId: String)
-  case class FindLeader(height: Long, signatureIndex: Int, nodeId: String)
+  case class FindLeader(height: Long, commitedTxIndex: Long, signatureIndex: Int, nodeId: String)
 
   case class ReDistributeTx(blockChainTx: BlockChainTx)
   case class DistributeTx(client: ActorRef, blockChainTx: BlockChainTx)

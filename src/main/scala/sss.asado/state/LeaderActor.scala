@@ -31,9 +31,10 @@ class LeaderActor(thisNodeId: String,
   messageRouter ! Register(MessageKeys.VoteLeader)
 
   private def makeFindLeaderNetMsg: FindLeader = {
-    val blockHeader = bc.lastBlock
-    val index = BlockSignatures(blockHeader.height).indexOfBlockSignature(thisNodeId).getOrElse(Int.MaxValue)
-    FindLeader(blockHeader.height, index, thisNodeId)
+    val blockHeader = bc.lastBlockHeader
+    val biggestCommittedTxIndex = bc.block(blockHeader.height + 1).maxMonotonicIndex
+    val sigIndex = BlockSignatures(blockHeader.height).indexOfBlockSignature(thisNodeId).getOrElse(Int.MaxValue)
+    FindLeader(blockHeader.height, biggestCommittedTxIndex, sigIndex, thisNodeId)
   }
 
 
@@ -60,20 +61,30 @@ class LeaderActor(thisNodeId: String,
     case NetworkMessage(MessageKeys.FindLeader,bytes) =>
       log.info("Someone asked us to vote on a leader (FindLeader)")
       (makeFindLeaderNetMsg, bytes.toFindLeader) match {
-        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hidSigIndx, hisId)) if (hisBlkHeight > myBlockHeight) =>
+        case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisCommittedTxIndex, hidSigIndx, hisId)) if (hisBlkHeight > myBlockHeight) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
           sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
 
-        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisSigIndx, hisId))
-          if (hisBlkHeight == myBlockHeight) && (mySigIndex > hisSigIndx) =>
+        case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisCommittedTxIndex, hisSigIndx, hisId))
+          if (hisBlkHeight == myBlockHeight) && (hisCommittedTxIndex > myCommittedTxIndex) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
           sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
 
-        case (FindLeader(myBlockHeight, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisSigIndx, hisId))
-          if (hisBlkHeight == myBlockHeight) && (mySigIndex == hisSigIndx) =>
-          // This can only happen when there are txs in the chain. Very special case.
+        case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisCommittedTxIndex, hisSigIndx, hisId))
+          if (hisBlkHeight == myBlockHeight) &&
+             (hisCommittedTxIndex == myCommittedTxIndex) &&
+            (mySigIndex > hisSigIndx) =>
+          // I vote for him
+          log.info(s"My name is $nodeId and I'm voting for $hisId")
+          sender ! NetworkMessage(MessageKeys.VoteLeader, VoteLeader(nodeId).toBytes)
+
+        case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId), FindLeader(hisBlkHeight, hisCommittedTxIndex, hisSigIndx, hisId))
+          if (hisBlkHeight == myBlockHeight) &&
+            (hisCommittedTxIndex == myCommittedTxIndex) &&
+            (mySigIndex == hisSigIndx) =>
+          // This can only happen when there are no txs in the chain. Very special case.
           // the sigs Must have an order. They can't be the same unless there are none.
           def makeLong(str: String) = str.foldLeft(0l)((acc, e) => acc + e.toLong)
           if (makeLong(nodeId) > makeLong(hisId)) {
@@ -111,7 +122,6 @@ class LeaderActor(thisNodeId: String,
                      stateMachine: ActorRef,leader: String): Receive = {
 
     case NetworkMessage(MessageKeys.FindLeader,bytes) => if(leader == thisNodeId) sender() ! NetworkMessage(MessageKeys.Leader,Leader(leader).toBytes)
-
     case NetworkMessage(MessageKeys.VoteLeader,bytes) => log.info(s"Got an surplus vote from ${bytes.toVoteLeader.nodeId}, leader is $leader")
     case NetworkMessage(MessageKeys.Leader,bytes) => log.info(s"Got an unneeded leader indicator ${bytes.toLeader.nodeId}, leader is $leader")
 

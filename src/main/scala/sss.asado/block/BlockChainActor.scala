@@ -41,7 +41,7 @@ case object AcknowledgeNewLedger
   * @param db
   */
 class BlockChainActor(blockChainSettings: BlockChainSettings,
-                      bc: BlockChain,
+                      bc: BlockChain with BlockChainTxConfirms,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef
                       )(implicit db: Db) extends Actor with ActorLogging {
@@ -116,7 +116,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
 
   // there must be a last closed block or we cannot start up.
-  override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlock)
+  override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlockHeader)
 
   private def secondsToWait(lastClosedBlockTime: Date): Long = {
     val passedTimeSinceLastBlockMs = (new Date().getTime) - lastClosedBlockTime.getTime

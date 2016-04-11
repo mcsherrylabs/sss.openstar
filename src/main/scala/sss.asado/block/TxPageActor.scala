@@ -5,7 +5,6 @@ import block._
 import ledger._
 import sss.asado.MessageKeys
 import sss.asado.network.NetworkMessage
-import sss.db.Db
 
 /**
   * Sends pages of txs to a client trying to downlad the whole chain.
@@ -13,7 +12,7 @@ import sss.db.Db
   *
   * Created by alan on 3/24/16.
   */
-class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
+class TxPageActor(bc: BlockChain) extends Actor with ActorLogging {
 
   private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
   private case class EndOfBlock(ref: ActorRef, blockId: BlockId)
@@ -25,8 +24,6 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
       ref ! NetworkMessage(MessageKeys.CloseBlock, blockId.toBytes)
 
     case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(MessageKeys.EndPageTx, getTxPageBytes)
-    case synched @ ClientSynched(ref, currentBlockHeight, expectedNextMessage) =>
-      context.parent  ! synched
 
     case TxToReturn(ref, blockChainTx) =>
       ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
@@ -34,18 +31,20 @@ class TxPageActor(bc: BlockChain)(implicit db: Db) extends Actor with ActorLoggi
     case netTxPage @ NetworkMessage(MessageKeys.GetPageTx, bytes) =>
 
       val getTxPage : GetTxPage = bytes.toGetTxPage
-      log.info(s"Asking for $getTxPage")
-      val maxHeight = bc.lastBlock.height + 1
+      val sendr = sender()
+      log.info(s"Another node asking me for $getTxPage")
+      val maxHeight = bc.lastBlockHeader.height + 1
       if(maxHeight >= getTxPage.blockHeight) {
-        val nextPage = Block(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
+        val nextPage = bc.block(getTxPage.blockHeight).page(getTxPage.index, getTxPage.pageSize)
+        val pageIncremented = GetTxPage(getTxPage.blockHeight, getTxPage.index + nextPage.size , getTxPage.pageSize)
         for(i <- nextPage.indices) {
           val stxBytes: Array[Byte] = nextPage(i)
           val bctx = BlockChainTx(getTxPage.blockHeight, BlockTx(getTxPage.index + i, stxBytes.toSignedTx))
-          log.info(s"Sending back page line -> $bctx")
-          self ! TxToReturn(sender(), bctx)
+          //log.info(s"Sending back page line -> $bctx")
+          self ! TxToReturn(sendr, bctx)
         }
-        if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sender(), bytes)
-        else if(maxHeight == getTxPage.blockHeight) self ! ClientSynched(sender(), maxHeight, getTxPage.index + nextPage.size)
+        if (nextPage.size == getTxPage.pageSize) self ! EndOfPage(sendr, pageIncremented.toBytes)
+        else if(maxHeight == getTxPage.blockHeight) context.parent ! ClientSynched(sendr, pageIncremented)
         else self ! EndOfBlock(sender(), BlockId(getTxPage.blockHeight, getTxPage.index + nextPage.size))
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
 

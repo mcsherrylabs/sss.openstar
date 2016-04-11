@@ -7,6 +7,7 @@ import akka.agent.Agent
 import com.google.common.primitives.Longs
 import com.typesafe.config.Config
 import ledger.{SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
+import sss.ancillary.Memento
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, ConnectTo, SendToNetwork}
@@ -41,8 +42,9 @@ object TxClient extends BaseClient {
     val index = args(2).toInt
     val firstAmount = args(3).toInt
     val firstTxId = DatatypeConverter.parseHexBinary(firstTxIdHex)
+    val freeIndexes = Memento("freeindexes")
 
-    val ref = actorSystem.actorOf(Props(classOf[TxClientActor], args,peerList: Set[NodeId],
+    val ref = actorSystem.actorOf(Props(classOf[TxClientActor], args,peerList: Set[NodeId],freeIndexes,
       connectedPeers: Agent[Set[Connection]], messageRouter, ncRef))
 
     while (connectedPeers().size == 0) {
@@ -52,13 +54,19 @@ object TxClient extends BaseClient {
 
     ref ! CheckConnection
     peerList.foreach(e => println(s"Connected $e"))
-    ref ! FreeTxIndex(TxIndex(firstTxId, index), firstAmount)
+
+    val firstOne = freeIndexes.read match {
+      case Some(txIndexStr) => DatatypeConverter.parseHexBinary(txIndexStr)
+      case None => firstTxId
+
+    }
+    ref ! FreeTxIndex(TxIndex(firstOne, index), firstAmount)
   }
 }
 case object CheckConnection
 case class FreeTxIndex(txIndx: TxIndex, amount: Int)
 
-class TxClientActor(args: Array[String],peerList: Set[NodeId],
+class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Memento,
                     connectedPeers: Agent[Set[Connection]], messageRouter: ActorRef, ncRef: ActorRef) extends Actor with ActorLogging {
 
   import block._
@@ -70,7 +78,7 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId],
 
   val pka = ClientKey.account
 
-  var alltransmitted : Map[TxIndex, TxIndex] = Map()
+  var alltransmitted : Set[TxIndex] = Set()
 
   def createTx(txIndex: TxIndex, amunt: Int): SignedTx = {
     val txOutput = TxOutput(amunt, SinglePrivateKey(pka.publicKey))
@@ -88,9 +96,10 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId],
 
     case FreeTxIndex(txIndex, amount) =>
       val newTx = createTx(txIndex, amount)
-      val newPair = (TxIndex(newTx.txId, 0) -> TxIndex(newTx.txId, 0))
+      val newPair = TxIndex(newTx.txId, 0)
       alltransmitted += newPair
       ncRef ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, newTx.toBytes))
+      freeIndexes.write(DatatypeConverter.printHexBinary(newTx.txId), false)
 
 
     case CheckConnection =>
@@ -101,9 +110,10 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId],
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val confirmed = bytes.toBlockChainIdTx
       println(s"Confirmation $confirmed")
-      alltransmitted.get(TxIndex(confirmed.blockTxId.txId, 0)) map { nextIndex =>
+      alltransmitted.find(_ == TxIndex(confirmed.blockTxId.txId, 0)) map { nextIndex =>
         alltransmitted -= TxIndex(confirmed.blockTxId.txId, 0)
-        self ! FreeTxIndex(nextIndex, 10)
+        //self !  FreeTxIndex(nextIndex, 10)
+        context.system.scheduler.scheduleOnce(500 millis, self,  FreeTxIndex(nextIndex, 10))
       }
 
   }

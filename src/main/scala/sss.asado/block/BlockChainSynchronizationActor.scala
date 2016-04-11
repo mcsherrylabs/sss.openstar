@@ -15,15 +15,15 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 3/24/16.
   */
-case class ClientSynched(ref: ActorRef, currentBlockHeight: Long, expectedNextMessage: Long)
+case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
 
 
 class BlockChainSynchronizationActor(quorum: Int,
                                      stateMachine: ActorRef,
-                                     bc: BlockChain,
+                                     bc: BlockChain with BlockChainTxConfirms,
                                      messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging with ByteArrayComparisonOps {
 
-  val pageResponder = context.actorOf(Props(classOf[TxPageActor], bc, db))
+  val pageResponder = context.actorOf(Props(classOf[TxPageActor], bc))
 
   messageRouter ! Register(MessageKeys.NackConfirmTx)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
@@ -97,12 +97,16 @@ class BlockChainSynchronizationActor(quorum: Int,
       val newPeerSet = updateToDatePeers - deadClient
       context.become(awaitConfirms(newPeerSet, newAwaitGroup))
 
-    case ClientSynched(clientRef, currentBlock, _) =>
-      context watch clientRef
-      val newPeerSet = updateToDatePeers + clientRef
-      context.become(awaitConfirms(newPeerSet, awaitGroup))
-      if(newPeerSet.size == quorum) stateMachine ! Synced
-      clientRef ! NetworkMessage(MessageKeys.Synced, Array())
+    case ClientSynched(clientRef, lastTxPage) =>
+      if(updateToDatePeers.size < quorum) {
+        context watch clientRef
+        val newPeerSet = updateToDatePeers + clientRef
+        context.become(awaitConfirms(newPeerSet, awaitGroup))
+        if (newPeerSet.size == quorum) stateMachine ! Synced
+        clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
+      } else {
+        clientRef ! NetworkMessage(MessageKeys.NoMoreTxs, lastTxPage.toBytes)
+      }
   }
 
   override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))

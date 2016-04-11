@@ -46,17 +46,19 @@ class ConnectionHandler(
   }
 
 
-  private val sentHandShakeTrue, gotHandShakeTrue = true
-  private val handShakeNotSent, noHandShakeReceived = false
+  private val sentHandShakeTrue = true
+  private val handShakeNotSent = false
 
-  private def handshake(sentHandShake: Boolean, gotHandShake: Boolean): Receive = {
+  private def handshake(sentHandShake: Boolean, remoteIdOpt: Option[String]): Receive = {
 
     case h: Handshake =>
       connection ! Write(ByteString(h.bytes))
-      if(gotHandShake) {
-        context.parent ! Connection(NodeId(h.nodeId, remote), self)
-        context become working
-      } else context become handshake(sentHandShakeTrue, noHandShakeReceived)
+      remoteIdOpt match {
+        case Some(remoteId) =>
+          context.parent ! Connection(NodeId(remoteId, remote), self)
+          context become working
+        case None => context become handshake(sentHandShakeTrue, remoteIdOpt)
+      }
 
     case Received(data) =>
       Handshake.parse(data.toArray) match {
@@ -69,7 +71,7 @@ class ConnectionHandler(
             if(sentHandShake) {
               context.parent ! Connection(NodeId(shake.nodeId, remote), self)
               context become working
-            } else context.become(handshake(handShakeNotSent, gotHandShakeTrue))
+            } else context.become(handshake(handShakeNotSent, Some(shake.nodeId)))
 
           } else {
             log.info(s"Got a handshake from myself?!")
@@ -117,6 +119,6 @@ class ConnectionHandler(
         log.warning(s"Strange input for ConnectionHandler: $nonsense")
     }: Receive)
 
-  override def receive: Receive = handshake(handShakeNotSent, noHandShakeReceived)
+  override def receive: Receive = handshake(handShakeNotSent, None)
 }
 

@@ -61,7 +61,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
 
   "A Find Leader " should " be corrrectly serialised and deserialized " in {
-    val c = FindLeader(1234, 4, "Holy Karelia!")
+    val c = FindLeader(1234, 99, 4, "Holy Karelia!")
     val asBytes = c.toBytes
     val backAgain = asBytes.toFindLeader
     assert(backAgain.height === c.height)
