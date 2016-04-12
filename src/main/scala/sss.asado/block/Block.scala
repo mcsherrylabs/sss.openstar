@@ -88,7 +88,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     row(id)
   }
 
-  def getUnCommitted: Seq[BlockTx] = blockTxTable.filter(Where(s"$committed IS ? ORDER BY $id ASC", false)) map (toBlockTx)
+  def getUnCommitted: Seq[BlockTx] = blockTxTable.filter(Where(s"$committed IS FALSE ORDER BY $id ASC")) map (toBlockTx)
 
   def commit(index: Long): Unit = {
     blockTxTable.update(Map(id -> index, committed -> true))

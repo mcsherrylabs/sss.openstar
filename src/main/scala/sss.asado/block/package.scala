@@ -18,7 +18,7 @@ package object block {
     def toId: BlockChainTxId = BlockChainTxId(height, BlockTxId(blockTx.signedTx.txId, blockTx.index))
   }
 
-  case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 10)
+  case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
 
   case class VoteLeader(nodeId: String)
   case class Leader(nodeId: String)

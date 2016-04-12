@@ -173,6 +173,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
         }
         //TODO Fix Redistribute
       } else {
+        log.warning(s"there were ${unconfirmed.size} unconfirmed txs, retrying....")
         unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx))
         context.system.scheduler.scheduleOnce(
           FiniteDuration(5, SECONDS ),

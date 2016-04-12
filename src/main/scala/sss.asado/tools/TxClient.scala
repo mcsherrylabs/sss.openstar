@@ -119,8 +119,8 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Meme
       println(s"Confirmation $confirmed")
       alltransmitted.find(_ == TxIndex(confirmed.blockTxId.txId, 0)) map { nextIndex =>
         alltransmitted -= TxIndex(confirmed.blockTxId.txId, 0)
-        //self !  FreeTxIndex(nextIndex, 10)
-        context.system.scheduler.scheduleOnce(500 millis, self,  FreeTxIndex(nextIndex, 10))
+        self !  FreeTxIndex(nextIndex, 10)
+        //context.system.scheduler.scheduleOnce(500 millis, self,  FreeTxIndex(nextIndex, 10))
       }
 
     case "EXIT" => Memento("exit").read match {
