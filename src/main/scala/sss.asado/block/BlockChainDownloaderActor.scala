@@ -27,7 +27,7 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
   messageRouter ! Register(ReConfirmTx)
   messageRouter ! Register(CloseBlock)
   messageRouter ! Register(Synced)
-  messageRouter ! Register(NoMoreTxs)
+
 
   private def makeNextLedger(lastHeight: Long) = BlockChainLedger(lastHeight + 1)
 
@@ -60,11 +60,7 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
       }
 
 
-    case NetworkMessage(MessageKeys.EndPageTx, bytes) =>
-      //val getTxPage = bytes.toGetTxPage
-      //val nextPage = GetTxPage(getTxPage.blockHeight, getTxPage.index + getTxPage.pageSize, getTxPage.pageSize)
-      //log.info(s"Downloading next page - $nextPage")
-      sender() ! NetworkMessage(MessageKeys.GetPageTx, bytes)
+    case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.GetPageTx, bytes)
 
     case CommitBlock(serverRef, blockId, reTryCount) if reTryCount > 5 => log.error(s"Ledger cannot sync retry, giving up.")
 
@@ -92,15 +88,6 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
     case NetworkMessage(CloseBlock, bytes) =>
       val sendr = sender()
       decode(CloseBlock, bytes.toBlockId)(blockId => self ! CommitBlock(sendr, blockId))
-
-
-    case NetworkMessage(NoMoreTxs, bytes) =>
-      decode(NoMoreTxs, bytes.toGetTxPage) { getTxPage =>
-        log.info(s"No more txs right now, try later. ($getTxPage)")
-        context.system.scheduler.scheduleOnce(1 minutes, sender(), NetworkMessage(GetPageTx, bytes))
-      }
-
-
 
     case NetworkMessage(Synced, bytes) =>
       synced = true;

@@ -2,7 +2,7 @@ package sss.asado.block
 
 import java.util.Date
 
-import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import block.{BlockId, DistributeClose, ReDistributeTx}
 import sss.db.Db
@@ -22,8 +22,13 @@ trait BlockChainSettings {
   val maxBlockOpenSecs: Int
 }
 
-case class BlockLedger(ref: ActorRef, blockLedger: BlockChainLedger)
+case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])
 case object MaxBlockOpenTimeElapsed
+case class StartBlockChain(refToInform: ActorRef, something: Any)
+case class BlockChainStarted(something: Any)
+case class StopBlockChain(refToInform: ActorRef, something: Any)
+case class CommandFailed(something: Any)
+case class BlockChainStopped(something: Any)
 case object TryCloseBlock
 case object AcknowledgeNewLedger
 
@@ -50,13 +55,13 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
   override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
-  writersRouterRef ! GetRoutees
 
+  private var cancellable: Option[Cancellable] = None
 
   private def startTimer(secs: Long) = {
-    context.system.scheduler.scheduleOnce(
+    cancellable = Option(context.system.scheduler.scheduleOnce(
       FiniteDuration(secs, SECONDS ),
-      self, MaxBlockOpenTimeElapsed)
+      self, MaxBlockOpenTimeElapsed))
   }
 
   private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): BlockChainLedger = {
@@ -71,20 +76,83 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     }
   }
 
-  private def awaitAcks(lastClosedBlock: BlockHeader, routees: IndexedSeq[_], action: (BlockHeader) => Unit): Receive = {
+  private var routees: IndexedSeq[_] = _
+
+  private def awaitAcks(message: Any): Receive = {
     case AcknowledgeNewLedger => {
-      val unconfirmedRoutees = routees.filterNot(_ match {
+      routees = routees.filterNot(_ match {
         case r: ActorRefRoutee => r.ref == sender()
         case x => throw new Error(s"Got an unknown routee $x")
       })
 
-      if(unconfirmedRoutees.isEmpty) {
-        log.info(s"New ledger ack'd by all.")
+      if(routees.isEmpty) {
+        log.info(s"New state(ledger| paused) ack'd by all.")
         // TODO Coin base transaction ??
-        action(lastClosedBlock)
+        self ! message
       }
-      else context.become(handleRouterDeath orElse awaitAcks(lastClosedBlock, unconfirmedRoutees, action))
+
     }
+
+  }
+
+
+  // there must be a last closed block or we cannot start up.
+  override def receive: Receive = handleRouterDeath orElse initialize
+
+  private def secondsToWait(lastClosedBlockTime: Date): Long = {
+    val passedTimeSinceLastBlockMs = (new Date().getTime) - lastClosedBlockTime.getTime
+    val nextBlockScheduledClose = (blockChainSettings.maxBlockOpenSecs * 1000) - passedTimeSinceLastBlockMs
+    if(nextBlockScheduledClose > 0) (nextBlockScheduledClose / 1000) else 1
+  }
+
+
+
+  private def startingBlockChain(startMsg : StartBlockChain, lastBlockHeader: BlockHeader): Receive = {
+
+    case Routees(writers: IndexedSeq[_]) =>
+      routees = writers
+      context.become(awaitAcks(BlockChainStarted(startMsg)) orElse startingBlockChain(startMsg, lastBlockHeader))
+      writersRouterRef ! Broadcast(BlockLedger(self, Option(createLedger(lastBlockHeader))))
+
+    case bcs @ BlockChainStarted(StartBlockChain(ref, any)) =>
+      context.become(waiting(lastBlockHeader))
+      ref ! BlockChainStarted(any)
+      startTimer(secondsToWait(lastBlockHeader.time))
+
+    case StartBlockChain(ref, any) => ref ! CommandFailed(any)
+    case StopBlockChain(ref, any) => ref ! CommandFailed(any)
+
+  }
+
+  private def stoppingBlockChain(stopMsg : StopBlockChain, lastBlockHeader: BlockHeader): Receive = {
+
+    case Routees(writers: IndexedSeq[_]) =>
+      routees = writers
+      context.become(awaitAcks(BlockChainStopped(stopMsg)) orElse stoppingBlockChain(stopMsg, lastBlockHeader))
+      writersRouterRef ! Broadcast(BlockLedger(self, None))
+
+    case BlockChainStopped(StopBlockChain(ref, any)) =>
+      ref ! BlockChainStopped(any)
+      context.become(initialize)
+
+    case StartBlockChain(ref, any) => ref ! CommandFailed(any)
+    case StopBlockChain(ref, any) => ref ! CommandFailed(any)
+
+  }
+
+
+  private def initialize: Receive = {
+
+    case sbc @ StartBlockChain(ref, any) =>
+      context.become(handleRouterDeath orElse startingBlockChain(sbc, bc.lastBlockHeader))
+      writersRouterRef ! GetRoutees
+
+    case sbc @ StopBlockChain(ref, any) => ref ! BlockChainStopped(any)
+
+
+  }
+
+  private def waiting(lastClosedBlock: BlockHeader): Receive = {
 
     case TryCloseBlock =>
       // all are writing to new ledger.
@@ -95,9 +163,8 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
         log.info(s"About to close block ${lastClosedBlock.height + 1}")
         Try(bc.closeBlock(lastClosedBlock)) match {
           case Success(newLastBlock) =>
-            log.info(s"Block ${newLastBlock.height} successfully saved.")
+            log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
             blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
-
             context.become(handleRouterDeath orElse waiting(newLastBlock))
             startTimer(secondsToWait(newLastBlock.time))
 
@@ -111,45 +178,22 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
           FiniteDuration(5, SECONDS ),
           self, TryCloseBlock)
       }
-    case MaxBlockOpenTimeElapsed => log.error("Max block open time has elapsed without tx writer acknowledgements...")
-  }
-
-
-  // there must be a last closed block or we cannot start up.
-  override def receive: Receive = handleRouterDeath orElse initializeRoutees(bc.lastBlockHeader)
-
-  private def secondsToWait(lastClosedBlockTime: Date): Long = {
-    val passedTimeSinceLastBlockMs = (new Date().getTime) - lastClosedBlockTime.getTime
-    val nextBlockScheduledClose = (blockChainSettings.maxBlockOpenSecs * 1000) - passedTimeSinceLastBlockMs
-    if(nextBlockScheduledClose > 0) (nextBlockScheduledClose / 1000) else 1
-  }
-
-  private def closeBlock(lastClosedBlock: BlockHeader): Unit = { self ! TryCloseBlock }
-
-  private def startWaiting(lastClosedBlock: BlockHeader): Unit = {
-    // all are writing to correct ledger.
-    context.become(waiting(lastClosedBlock))
-    startTimer(secondsToWait(lastClosedBlock.time))
-  }
-
-  private def initializeRoutees(lastClosedBlock: BlockHeader): Receive = {
-
-    case Routees(routees: IndexedSeq[_]) =>
-      log.info(s"Last known block is ${lastClosedBlock.height}, creating new ledgers...")
-      context.become(awaitAcks(lastClosedBlock, routees, startWaiting))
-      writersRouterRef ! Broadcast(BlockLedger(self, createLedger(lastClosedBlock)))
-
-  }
-
-  private def waiting(lastClosedBlock: BlockHeader): Receive = {
 
     case Routees(writers: IndexedSeq[_]) =>
-      context.become(awaitAcks(lastClosedBlock, writers, closeBlock))
-      writersRouterRef ! Broadcast(BlockLedger(self, createLedger(lastClosedBlock, 2)))
+      routees = writers
+      context.become(handleRouterDeath orElse awaitAcks(TryCloseBlock) orElse waiting(lastClosedBlock))
+      writersRouterRef ! Broadcast(BlockLedger(self, Option(createLedger(lastClosedBlock, 2))))
 
     case MaxBlockOpenTimeElapsed => {
       log.info("Block open time elapsed, begin close process ...")
       writersRouterRef ! GetRoutees
     }
+
+    case StartBlockChain(ref, any) => ref ! BlockChainStarted(any)
+    case sbc @ StopBlockChain(ref, any) =>
+      log.info("Attempting to stop blockchain")
+      cancellable map (_.cancel())
+      context.become(handleRouterDeath orElse stoppingBlockChain(sbc, lastClosedBlock))
+      writersRouterRef ! GetRoutees
   }
 }

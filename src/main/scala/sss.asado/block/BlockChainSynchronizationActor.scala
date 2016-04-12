@@ -4,12 +4,16 @@ package sss.asado.block
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
 import sss.asado.MessageKeys
+import sss.asado.Node.InitWithActorRefs
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol.Synced
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -29,10 +33,14 @@ class BlockChainSynchronizationActor(quorum: Int,
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
 
+  private def init: Receive = {
+    case InitWithActorRefs(blockChainActor) =>
+      context.become(awaitConfirms(blockChainActor,Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil)))
+  }
 
   private case class ClientTx(client : ActorRef, blockChainTxId: BlockChainTxId)
 
-  private def awaitConfirms(updateToDatePeers: Set[ActorRef], awaitGroup: Map[ActorRef, List[ClientTx]]): Receive = {
+  private def awaitConfirms(blockChainActor: ActorRef, updateToDatePeers: Set[ActorRef], awaitGroup: Map[ActorRef, List[ClientTx]]): Receive = {
     case DistributeTx(client, btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {
@@ -40,7 +48,7 @@ class BlockChainSynchronizationActor(quorum: Int,
         upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, btx.toId))
       }
 
-      context.become(awaitConfirms(updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
+      context.become(awaitConfirms(blockChainActor, updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
 
 
     case ReDistributeTx(btx) =>
@@ -63,7 +71,7 @@ class BlockChainSynchronizationActor(quorum: Int,
           case Nil => awaitGroup - sndr
           case remainingList => awaitGroup + (sndr -> remainingList)
         }
-        context.become(awaitConfirms(updateToDatePeers, newMap.withDefaultValue(Nil)))
+        context.become(awaitConfirms(blockChainActor, updateToDatePeers, newMap.withDefaultValue(Nil)))
       } match {
         case Failure(e) => log.error(e, "Didn't handle Nack to client correctly.")
         case Success(_) =>
@@ -86,7 +94,7 @@ class BlockChainSynchronizationActor(quorum: Int,
           case remainingList => awaitGroup + (sndr -> remainingList)
         }
 
-        context.become(awaitConfirms(updateToDatePeers, newMap.withDefaultValue(Nil)))
+        context.become(awaitConfirms(blockChainActor, updateToDatePeers, newMap.withDefaultValue(Nil)))
       } match {
         case Failure(e) => log.error(e, "Didn't handle confirm correctly.")
         case Success(_) =>
@@ -95,19 +103,26 @@ class BlockChainSynchronizationActor(quorum: Int,
     case Terminated(deadClient) =>
       val newAwaitGroup = awaitGroup.filterNot(kv => kv._1 == deadClient).withDefaultValue(Nil)
       val newPeerSet = updateToDatePeers - deadClient
-      context.become(awaitConfirms(newPeerSet, newAwaitGroup))
+      context.become(awaitConfirms(blockChainActor, newPeerSet, newAwaitGroup))
+
+    case CommandFailed(lastTxPage) =>
+      log.error(s"Blockchain FAILED to start up again,try again later")
+      context.system.scheduler.scheduleOnce(5 seconds, blockChainActor, StartBlockChain(self, lastTxPage))
+
+    case BlockChainStarted(lastTxPage) =>
+      log.info(s"Blockchain started up again, client synced to $lastTxPage")
 
     case ClientSynched(clientRef, lastTxPage) =>
-      if(updateToDatePeers.size < quorum) {
-        context watch clientRef
-        val newPeerSet = updateToDatePeers + clientRef
-        context.become(awaitConfirms(newPeerSet, awaitGroup))
-        if (newPeerSet.size == quorum) stateMachine ! Synced
-        clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
-      } else {
-        clientRef ! NetworkMessage(MessageKeys.NoMoreTxs, lastTxPage.toBytes)
-      }
+      context watch clientRef
+      val newPeerSet = updateToDatePeers + clientRef
+      context.become(awaitConfirms(blockChainActor, newPeerSet, awaitGroup))
+      if (newPeerSet.size == quorum) stateMachine ! Synced
+      clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
+      blockChainActor ! StartBlockChain(self, lastTxPage)
+
+
+    case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc
   }
 
-  override def receive: Receive = awaitConfirms(Set.empty, Map.empty[ActorRef, List[ClientTx]].withDefaultValue(Nil))
+  override def receive: Receive = init
 }

@@ -18,6 +18,8 @@ object AsadoStateProtocol {
   case class AcceptTransactions(leader: String)
   case object StopAcceptingTransactions
   case object Connecting
+  case object BlockChainUp
+  case object BlockChainDown
 }
 
 object AsadoState {

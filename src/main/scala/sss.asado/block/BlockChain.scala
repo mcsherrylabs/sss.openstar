@@ -83,7 +83,6 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
   }
 
 
-
   def closeBlock(prevHeader: BlockHeader): BlockHeader = {
 
     val height = prevHeader.height + 1

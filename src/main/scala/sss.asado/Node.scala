@@ -64,6 +64,7 @@ object Node extends Configure {
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
+
     val chainDownloaderRef = actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], ncRef, messageRouter, bc, db))
 
     leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
@@ -71,8 +72,11 @@ object Node extends Configure {
     val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor], quorum, stateMachine, bc, messageRouter, db))
 
     val txRouter: ActorRef = actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], blockChainSyncerActor)), "txRouter")
+    val blockChainActor = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, txRouter, blockChainSyncerActor, db))
 
-    stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor)
+    blockChainSyncerActor ! InitWithActorRefs(blockChainActor)
+
+    stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor)
 
     val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, connectedPeers, db))
     ncRef ! InitWithActorRefs()

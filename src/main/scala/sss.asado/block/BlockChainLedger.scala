@@ -59,12 +59,18 @@ class BlockChainLedger(block: Block, utxo: Ledger) extends Logging {
     require(blockId.blockHeight == block.height, s"Cannot apply txs from block ${block.height} to block ${blockId.blockHeight}")
     val count = block.count
     require(blockId.numTxs == block.entries.size, s"There are $count txs in blocks, but there should be ${blockId.numTxs}, come back later when all are written.")
-    block.entries foreach { entry =>
+    commit(block.entries)
+  }
+
+  def commit: Int = block.inTransaction (commit(block.getUnCommitted))
+
+  private def commit(entries: Seq[BlockTx]): Int = {
+    entries foreach { entry =>
       utxo(entry.signedTx)
       block.commit(entry.index)
     }
+    entries.size
   }
-
   /**
     * Journals and commits a tx at the same time in a transaction.
     *  After this, the tx is irreversible.

@@ -5,8 +5,8 @@ import akka.agent.Agent
 import block._
 import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
-import sss.asado.block.BlockChain
 import sss.asado.block.signature.BlockSignatures
+import sss.asado.block.{BlockChain, BlockChainLedger}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
@@ -15,6 +15,7 @@ import sss.db.Db
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 4/1/16.
@@ -104,9 +105,14 @@ class LeaderActor(thisNodeId: String,
         // I am the leader.
         context.setReceiveTimeout(Duration.Undefined)
         context.become(handle(nc, stateMachine,thisNodeId))
-        log.info(s"The leader is $thisNodeId (me)")
-        stateMachine ! LeaderFound(thisNodeId)
-        nc ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
+        log.info(s"The leader is $thisNodeId (me), closing partial block.")
+        Try(BlockChainLedger(bc.lastBlockHeader.height + 1).commit) match {
+          case Failure(e) => log.error(e, s"Failed to commit outstanding txs in partial block")
+          case Success(numTxs) =>
+            log.info(s"Committed the outstanding txs ($numTxs) in partial block")
+            stateMachine ! LeaderFound(thisNodeId)
+            nc ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
+        }
 
       } else context.become(handleNoLeader(nc, stateMachine, confirms))
 

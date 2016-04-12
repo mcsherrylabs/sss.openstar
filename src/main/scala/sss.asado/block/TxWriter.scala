@@ -51,7 +51,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
 
   def errorNoLedger: Unit = {
-    val msg = "No ledger in play, cannnot handle signed tx message"
+    val msg = "No ledger open, retry later."
     log.error(msg)
     sender() ! NetworkMessage(MessageKeys.SignedTxNack, msg.getBytes)
   }
@@ -64,8 +64,8 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   private def working(blockLedgerOpt: Option[BlockChainLedger]): Receive = {
 
-    case BlockLedger(blockChainActor: ActorRef, blockLedger: BlockChainLedger) => {
-      context.become(working(Some(blockLedger)))
+    case BlockLedger(blockChainActor: ActorRef, blockLedger: Option[BlockChainLedger]) => {
+      context.become(working(blockLedger))
       blockChainActor ! AcknowledgeNewLedger
 
     }

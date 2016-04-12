@@ -71,6 +71,7 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Meme
 
   import block._
 
+  context.system.scheduler.schedule(5 seconds, 5 seconds, self, "EXIT")
   messageRouter ! Register(MessageKeys.SignedTxAck)
   messageRouter ! Register(MessageKeys.SignedTxNack)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
@@ -96,16 +97,22 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Meme
 
     case FreeTxIndex(txIndex, amount) =>
       val newTx = createTx(txIndex, amount)
-      val newPair = TxIndex(newTx.txId, 0)
-      alltransmitted += newPair
-      ncRef ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, newTx.toBytes))
+      val newTxIndx = TxIndex(newTx.txId, 0)
+      alltransmitted += newTxIndx
       freeIndexes.write(DatatypeConverter.printHexBinary(newTx.txId), false)
+      ncRef ! SendToNetwork(NetworkMessage(MessageKeys.SignedTx, newTx.toBytes))
+
 
 
     case CheckConnection =>
       if (connectedPeers().size < peerList.size) peerList foreach (ncRef ! ConnectTo(_))
       context.system.scheduler.scheduleOnce(5 seconds, self, CheckConnection)
-    case NetworkMessage(MessageKeys.SignedTxNack, bytes) => println(new String(bytes))
+
+    case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+      println(new String(bytes))
+      freeIndexes.read map { txIndexStr =>
+        context.system.scheduler.scheduleOnce(500 millis, self,  FreeTxIndex(TxIndex(DatatypeConverter.parseHexBinary(txIndexStr), 0), 10))
+      }
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val confirmed = bytes.toBlockChainIdTx
@@ -116,6 +123,15 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Meme
         context.system.scheduler.scheduleOnce(500 millis, self,  FreeTxIndex(nextIndex, 10))
       }
 
+    case "EXIT" => Memento("exit").read match {
+      case Some(_) =>
+        context stop self
+        context.system.terminate()
+
+      case x =>
+    }
+
+    case x => log.info(s"No idea $x")
   }
 }
 
