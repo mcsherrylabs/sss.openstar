@@ -4,7 +4,7 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.{BlockId, DistributeClose, ReDistributeTx}
+import block.{BlockId, DistributeClose}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,7 +29,8 @@ case class BlockChainStarted(something: Any)
 case class StopBlockChain(refToInform: ActorRef, something: Any)
 case class CommandFailed(something: Any)
 case class BlockChainStopped(something: Any)
-case object TryCloseBlock
+case class TryCloseBlock(height: Long)
+case class OkToCloseBlock(height: Long)
 case object AcknowledgeNewLedger
 
 
@@ -37,7 +38,7 @@ case object AcknowledgeNewLedger
   * This is the actor that cause blocks to be formed.
   * When the time comes it sends all the tx writers a
   * new ledger to use and when they confirm that they are using it
-  * they close the current block.
+  * it closes the current block.
   *
   * @param blockChainSettings
   * @param bc
@@ -102,7 +103,8 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
   private def secondsToWait(lastClosedBlockTime: Date): Long = {
     val passedTimeSinceLastBlockMs = (new Date().getTime) - lastClosedBlockTime.getTime
     val nextBlockScheduledClose = (blockChainSettings.maxBlockOpenSecs * 1000) - passedTimeSinceLastBlockMs
-    if(nextBlockScheduledClose > 0) (nextBlockScheduledClose / 1000) else 1
+    // blocks may not close less than 3 seconds apart to prevent block closes backing up.
+    if(nextBlockScheduledClose > 3000) (nextBlockScheduledClose / 1000) else 3
   }
 
 
@@ -154,35 +156,24 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
 
   private def waiting(lastClosedBlock: BlockHeader): Receive = {
 
-    case TryCloseBlock =>
-      // all are writing to new ledger.
-      // close last block
-      val unconfirmed  = bc.getUnconfirmed(lastClosedBlock.height + 1, 1)
-      if(unconfirmed.isEmpty) {
+    case TryCloseBlock(height) => blockChainSyncingActor ! EnsureConfirms(self, height, OkToCloseBlock(height))
 
-        log.info(s"About to close block ${lastClosedBlock.height + 1}")
-        Try(bc.closeBlock(lastClosedBlock)) match {
-          case Success(newLastBlock) =>
-            log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
-            blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
-            context.become(handleRouterDeath orElse waiting(newLastBlock))
-            startTimer(secondsToWait(newLastBlock.time))
-
-          case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
-
-        }
-        //TODO Fix Redistribute
-      } else {
-        log.warning(s"there were ${unconfirmed.size} unconfirmed txs, retrying....")
-        unconfirmed.foreach (unconfirmedTx => blockChainSyncingActor ! ReDistributeTx(unconfirmedTx))
-        context.system.scheduler.scheduleOnce(
-          FiniteDuration(5, SECONDS ),
-          self, TryCloseBlock)
+    case OkToCloseBlock(height) =>
+      // all are writing to new ledger, all are confirmed, close last block
+      require(height == lastClosedBlock.height + 1, "Trying to close a block height that does not match the confirmed block")
+      log.info(s"About to close block ${lastClosedBlock.height + 1}")
+      Try(bc.closeBlock(lastClosedBlock)) match {
+        case Success(newLastBlock) =>
+          log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
+          blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
+          context.become(handleRouterDeath orElse waiting(newLastBlock))
+          startTimer(secondsToWait(newLastBlock.time))
+        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
       }
 
     case Routees(writers: IndexedSeq[_]) =>
       routees = writers
-      context.become(handleRouterDeath orElse awaitAcks(TryCloseBlock) orElse waiting(lastClosedBlock))
+      context.become(handleRouterDeath orElse awaitAcks(TryCloseBlock(lastClosedBlock.height + 1)) orElse waiting(lastClosedBlock))
       writersRouterRef ! Broadcast(BlockLedger(self, Option(createLedger(lastClosedBlock, 2))))
 
     case MaxBlockOpenTimeElapsed => {

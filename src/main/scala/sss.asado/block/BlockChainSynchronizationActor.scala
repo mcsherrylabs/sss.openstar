@@ -20,7 +20,7 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 3/24/16.
   */
 case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
-
+case class EnsureConfirms[T](ref: ActorRef, height: Long, t: T, retryCount: Int = 1)
 
 class BlockChainSynchronizationActor(quorum: Int,
                                      stateMachine: ActorRef,
@@ -50,6 +50,19 @@ class BlockChainSynchronizationActor(quorum: Int,
 
       context.become(awaitConfirms(blockChainActor, updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
 
+    case ensuresConfirms @ EnsureConfirms(replyTo, height, msg, retryCount) =>
+      bc.getUnconfirmed(height, updateToDatePeers.size) match {
+        case unconfirmedEmpty if unconfirmedEmpty.isEmpty => replyTo ! msg
+        case unconfirmed =>
+          log.warning(s"There were ${unconfirmed.size} unconfirmed txs, retry ${retryCount}...")
+          if(retryCount % 2 == 0)  unconfirmed.foreach (unconfirmedTx => self ! ReDistributeTx(unconfirmedTx))
+
+          context.system.scheduler.scheduleOnce(
+            FiniteDuration(retryCount * 2, SECONDS ),
+            self, ensuresConfirms.copy(retryCount = retryCount + 1))
+
+
+      }
 
     case ReDistributeTx(btx) =>
       updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes))
