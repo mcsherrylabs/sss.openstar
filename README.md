@@ -5,7 +5,7 @@ A Scala Based Distributed Ledger
 
 ## A functioning blockchain with near instant confirmation.
 
-Consensus? What consensus? This is a decentralised network ledger with cooperating nodes. There is no spoon.
+Consensus? What consensus? This is a centralised but replicated network ledger with cooperating nodes. There is no spoon.
 
 Nodes have peers, when over half the peers are connected, a leader is elected based on who has the latest transactions.When the other nodes in the cluster are synched transactions are accepted.
 
