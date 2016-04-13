@@ -51,4 +51,4 @@ There are automated tests for the non reactive code and the state machine at the
 
 Depends on -> https://github.com/ScorexProject/scrypto
 
-Totally inspired by Scorex -> https://github.com/ScorexProject/Scorex
+Inspired by Scorex (although has nothing in common now) -> https://github.com/ScorexProject/Scorex
