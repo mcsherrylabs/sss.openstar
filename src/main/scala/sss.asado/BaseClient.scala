@@ -5,7 +5,6 @@ import akka.agent.Agent
 import com.typesafe.config.Config
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.Node.InitWithActorRefs
-import sss.asado.console.ConsolePattern
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 
@@ -17,7 +16,7 @@ import scala.language.postfixOps
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-trait BaseClient extends Configure with ConsolePattern {
+trait BaseClient extends Configure  {
 
 
   def main(args: Array[String]) {

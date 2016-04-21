@@ -5,11 +5,12 @@ import akka.agent.Agent
 import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.block._
-import sss.asado.console.ConsoleActor
+import sss.asado.console.ConsoleServlet
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
+import sss.asado.util.{InitServlet, ServerLauncher}
 import sss.db.Db
 
 import scala.collection.JavaConversions._
@@ -78,12 +79,16 @@ object Node extends Configure {
 
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor)
 
-    val ref = actorSystem.actorOf(Props(classOf[ConsoleActor], args, messageRouter, ncRef, connectedPeers, db))
     ncRef ! InitWithActorRefs()
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
-    ref ! "init"
+    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, db)
+
+    val webServer = ServerLauncher(InitServlet(console, "/console/*"))
+    webServer.start
+
+    sys addShutdownHook( webServer stop )
 
   }
 

@@ -1,12 +1,12 @@
-package sss.asado.util
+package sss.asado.account
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.{Account, PrivateKeyAccount}
+import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 
 /**
   * Created by alan on 2/11/16.
   */
-class UtilTest extends FlatSpec with Matchers {
+class AccountTest extends FlatSpec with Matchers {
 
   lazy val pkPair = PrivateKeyAccount(SeedBytes(20))
 
@@ -28,8 +28,5 @@ class UtilTest extends FlatSpec with Matchers {
 
   }
 
-  it should "be able to receive a byte stream and verify the tx was signed " in {
-
-  }
 
 }

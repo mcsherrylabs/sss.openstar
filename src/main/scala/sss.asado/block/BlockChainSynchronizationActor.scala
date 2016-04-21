@@ -7,7 +7,7 @@ import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.Synced
+import sss.asado.state.AsadoStateProtocol.{QuorumLost, Synced}
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -116,6 +116,7 @@ class BlockChainSynchronizationActor(quorum: Int,
     case Terminated(deadClient) =>
       val newAwaitGroup = awaitGroup.filterNot(kv => kv._1 == deadClient).withDefaultValue(Nil)
       val newPeerSet = updateToDatePeers - deadClient
+      if (newPeerSet.size < quorum) stateMachine ! QuorumLost
       context.become(awaitConfirms(blockChainActor, newPeerSet, newAwaitGroup))
 
     case CommandFailed(lastTxPage) =>
