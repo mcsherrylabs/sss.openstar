@@ -3,7 +3,7 @@ package sss.asado.block
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block.{BlockChainTx, BlockTx, DistributeTx}
 import com.google.common.primitives.Longs
-import ledger._
+import ledger.{SignedTx, _}
 import sss.asado.MessageKeys
 import sss.asado.network.NetworkMessage
 
@@ -82,7 +82,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
     case NetworkMessage(MessageKeys.SignedTx, bytes) =>
 
-      bytes.toSignedTxTry match {
+      Try(bytes.toSignedTx) match {
         case Success(stx) => blockLedgerOpt match {
           case Some(blockLedger) => writeStx(blockLedger, stx)
           case None => errorNoLedger

@@ -8,7 +8,7 @@ import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, OrderAsc, Row, Where}
 
 import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 
 object Block extends Logging {
@@ -27,7 +27,7 @@ object Block extends Logging {
         case _ => count
       }
     }
-    hasNext(candidates, 0)
+    hasNext(candidates, -1)
   }
 }
 
@@ -68,7 +68,14 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     }
   }
 
-  def maxMonotonicIndex: Long = {
+  /**
+    *
+    * @return the index of the last tx committed in order (0,1,2..)
+    *         if NO tx has been committed -1 is returned
+    *         if the zero'th Tx has NOT been committed, the smallest is -1
+    *         if the zero'th Tx has been committed, the smallest is 0
+    */
+  def maxMonotonicCommittedIndex: Long = {
     val allIds = blockTxTable.map(r => (r[Long](id), r[Boolean](committed)), OrderAsc(id)).filter(_._2).map(_._1)
     findSmallestMissing(allIds)
   }
@@ -81,9 +88,9 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where(s"$txid = ?", id.toVarChar)).map(toBlockTx)
 
-  def write(index: Long, k: TxId, le: SignedTx): Long = {
+  def journal(index: Long, le: SignedTx): Long = {
     val bs = le.toBytes
-    val hexStr = k.toVarChar
+    val hexStr = le.txId.toVarChar
     val row = blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs))
     row(id)
   }
@@ -94,32 +101,25 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     blockTxTable.update(Map(id -> index, committed -> true))
   }
 
-  def writeCommitted(k: TxId, le: SignedTx): Long = {
+  def write(le: SignedTx): Long = {
     val bs = le.toBytes
-    val hexStr = k.toVarChar
+    val hexStr = le.txId.toVarChar
     val row = blockTxTable.persist(Map(txid -> hexStr, entry -> bs, committed -> true))
     row(id)
   }
 
   def getUnconfirmed(requiredConfirms: Int): Seq[(Int, BlockTx)] = {
-    val all = blockTxTable.filter(Where("confirm < ?", requiredConfirms)) map (row => (row[Int]("confirm"), toBlockTx(row)))
-    if(all.size > 0) {
-      log.info(s"Print ALL unconfirmed ${all.size}, required($requiredConfirms)")
-      all.foreach {case (conf: Int, btx: BlockTx) => log.info(s"Not enough confirms:$conf ${btx.toString}")}
-    }
-
-    all
+    blockTxTable.filter(Where("confirm < ?", requiredConfirms)) map (row => (row[Int]("confirm"), toBlockTx(row)))
   }
 
-  def confirm(blockTxId: BlockTxId): Unit = {
+  def confirm(blockTxId: BlockTxId): Try[Int] = {
     Try {
       val hex = blockTxId.txId.toVarChar
       val rowsUpdated = blockTxTable.update("confirm = confirm + 1", s"txid = '$hex'")
       require(rowsUpdated == 1, s"Must update 1 row, by confirming the tx, not $rowsUpdated rows")
-
-    } match {
-      case Failure(e) => log.error(s"FAILED to add confirmation!", e)
-      case Success(r) => log.info(s"Tx confirmed. $r")
+      rowsUpdated
+    } recover {
+      case e => log.error(s"FAILED to add confirmation!", e); throw e
     }
   }
 }

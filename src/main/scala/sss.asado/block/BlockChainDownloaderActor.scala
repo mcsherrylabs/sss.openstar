@@ -44,7 +44,7 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
         val getTxs = {
             val lb = bc.lastBlockHeader
             val blockStorage = Block(lb.height + 1)
-            val lastIndexOfRow = blockStorage.maxMonotonicIndex
+            val lastIndexOfRow = blockStorage.maxMonotonicCommittedIndex
             GetTxPage(lb.height + 1, lastIndexOfRow, 50)
         }
 

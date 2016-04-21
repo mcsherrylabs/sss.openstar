@@ -14,9 +14,11 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 packageSummary in Linux := "asado node"
 
-libraryDependencies += "org.scalactic" %% "scalactic" % "2.2.6"
+libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % "test"
+libraryDependencies += "com.typesafe.akka" %% "akka-testkit"  % "2.4.+" % Test
+
+libraryDependencies += "org.scalactic" %% "scalactic" % "2.2.6"
 
 libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.+"
 
@@ -33,8 +35,6 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.1"
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-agent" % "2.4.+"
-
-libraryDependencies += "com.typesafe.akka" %% "akka-testkit"  % "2.4.+" % "test"
 
 libraryDependencies += "org.bitlet" % "weupnp" % "0.1.+"
 

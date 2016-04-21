@@ -32,6 +32,7 @@ class SignedTxTest extends FlatSpec with Matchers {
   val tx = StandardTx(Seq(txInput, txInput, txInput), Seq(txOutput, txOutput, txOutput))
   val sig = tx.sign(pkPair)
   val stx = SignedTx(tx, Seq(sig))
+  val otherStxWithoutSig = SignedTx(tx)
 
   "A Signed Tx" should " be parseable to bytes " in {
     val bytes: Array[Byte] = stx.toBytes
@@ -46,4 +47,9 @@ class SignedTxTest extends FlatSpec with Matchers {
 
   }
 
+  it should " be not equal to a different instance " in {
+    assert(stx !== otherStxWithoutSig)
+    assert(stx.hashCode !== otherStxWithoutSig.hashCode)
+
+  }
 }

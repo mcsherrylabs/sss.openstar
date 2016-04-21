@@ -8,8 +8,6 @@ import sss.asado.ledger.serialize._
 import sss.asado.util.Serialize._
 import sss.asado.util.{ByteArrayComparisonOps, EllipticCurveCrypto}
 
-import scala.util.Try
-
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/3/16.
@@ -99,14 +97,12 @@ package object ledger extends ByteArrayComparisonOps {
   }
   implicit class SignedTxFrom(b: Array[Byte]) {
     def toSignedTx: SignedTx = SignedTxSerializer.fromBytes(b)
-    def toSignedTxTry = Try(toSignedTx)
   }
   implicit class SeqSignedTxTo(t: SeqSignedTx)  extends ToBytes[SeqSignedTx] {
     override def toBytes: Array[Byte] = SeqSignedTxSerializer.toBytes(t)
   }
   implicit class SeqSignedTxFrom(b: Array[Byte]) {
     def toSeqSignedTx: SeqSignedTx = SeqSignedTxSerializer.fromBytes(b)
-    def toSeqSignedTxTry = Try(toSeqSignedTx)
   }
 
 

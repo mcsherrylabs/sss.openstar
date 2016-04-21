@@ -38,6 +38,13 @@ class TxIndexTest extends FlatSpec with Matchers   {
     assert(a.txId.isSame(b.txId))
   }
 
+  " TxIndex case classes created from different elements " should " not be equal " in {
+    val a = TxIndex(randomTxId, 341)
+    val b = TxIndex(copyRandomTxId, 342)
+    assert(a !== b)
+
+  }
+
   " TxIndex case classes created from same elements " should " have the same hashcode " in {
     val a = TxIndex(randomTxId, 342)
     val b = TxIndex(copyRandomTxId, 342)

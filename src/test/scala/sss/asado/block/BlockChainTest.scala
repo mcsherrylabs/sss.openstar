@@ -21,7 +21,6 @@ class BlockChainTest extends FlatSpec with Matchers {
   Block(height).truncate
   Block(newHeight).truncate
 
-  //bc.blockHeaderTable.insert(height, numTxs, prevHash, merkleRoot, time)
 
   "A block header in the chain " should " have it's hash in the following block header " in {
 
@@ -66,7 +65,7 @@ class BlockChainTest extends FlatSpec with Matchers {
     val lastBlock = bc.lastBlockHeader
     val txWriter = Block(newHeight)
     val stx = BlockTestSpec.createSignedTx(BlockTestSpec.createGenesis)
-    txWriter.writeCommitted(stx.txId, stx)
+    txWriter.write(stx)
     bc.closeBlock(lastBlock)
 
     matchSecondBlock(bc.lastBlockHeader, lastBlock.hash)

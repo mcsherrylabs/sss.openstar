@@ -1,19 +1,18 @@
 package sss.asado.account
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
+import sss.asado.util.EllipticCurveCrypto
 
 /**
   * Created by alan on 2/11/16.
   */
 class AccountTest extends FlatSpec with Matchers {
 
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(20))
+  lazy val pkPair = PrivateKeyAccount()
 
   "A util " should " generate a new public and private key " in {
 
-    println(s"Address is ${pkPair.address}")
-    println(s"Is Valid? ${Account.isValidAddress(pkPair.address)}")
+    assert(Account.isValidAddress(pkPair.address))
 
   }
 
@@ -28,5 +27,17 @@ class AccountTest extends FlatSpec with Matchers {
 
   }
 
+
+  it should " consistently generate addresses from public keys (even if addresses are never used)" in {
+
+    val addr = pkPair.address
+    assert(Account.isValidAddress(addr))
+
+    val address = Account.fromPubkey(pkPair.publicKey)
+    assert(Account.isValidAddress(address))
+
+    val pkAgain = new PublicKeyAccount(pkPair.publicKey)
+    assert(address === Account.fromPubkey(pkAgain.publicKey))
+  }
 
 }

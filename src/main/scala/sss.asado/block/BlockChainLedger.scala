@@ -25,7 +25,7 @@ class BlockChainLedger(block: Block, utxo: Ledger) extends Logging {
           case Some(s) => BlockChainTx(block.height, BlockTx(s.index, s.signedTx))
           case None =>
             utxo.genesis(genesisTx)
-            val index = block.writeCommitted(genesisTx.txId, SignedTx(genesisTx))
+            val index = block.write(SignedTx(genesisTx))
             BlockChainTx(block.height, BlockTx(index, SignedTx(genesisTx)))
         }
       }
@@ -39,7 +39,7 @@ class BlockChainLedger(block: Block, utxo: Ledger) extends Logging {
     * @return
     */
   def journal(blockTx: BlockTx): BlockChainTx = block.inTransaction[BlockChainTx] {
-      Try(block.write(blockTx.index, blockTx.signedTx.txId, blockTx.signedTx)) match {
+      Try(block.journal(blockTx.index, blockTx.signedTx)) match {
         case Failure(e: SQLIntegrityConstraintViolationException) =>
           val blck = block.get(blockTx.signedTx.txId).getOrElse(throw e)
           BlockChainTx(block.height, BlockTx(blck.index, blck.signedTx))
@@ -80,7 +80,7 @@ class BlockChainLedger(block: Block, utxo: Ledger) extends Logging {
     */
   def apply(stx: SignedTx): BlockChainTx = block.inTransaction[BlockChainTx] {
       utxo(stx)
-      val index = block.writeCommitted(stx.txId, stx)
+      val index = block.write(stx)
       BlockChainTx(block.height, BlockTx(index, stx))
   }
 }

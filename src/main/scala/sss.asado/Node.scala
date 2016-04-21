@@ -23,12 +23,6 @@ import scala.language.postfixOps
   */
 object Node extends Configure {
 
-
-  /*trait ActorRefMarker {
-    val ref : ActorRef
-  }
-  case class NetworkControllerRef(ref : ActorRef) extends ActorRefMarker*/
-
   case class InitWithActorRefs(refs : ActorRef *)
 
   def main(args: Array[String]) {
@@ -38,8 +32,6 @@ object Node extends Configure {
     val nodeConfig = config(args(0))
     val dbConfig = nodeConfig.getConfig("database")
     implicit val db = Db(dbConfig)
-
-    db.table("utxo").map { println(_) }
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](nodeConfig.getConfig("bind"))
 

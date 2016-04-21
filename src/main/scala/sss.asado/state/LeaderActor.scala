@@ -33,7 +33,7 @@ class LeaderActor(thisNodeId: String,
 
   private def makeFindLeaderNetMsg: FindLeader = {
     val blockHeader = bc.lastBlockHeader
-    val biggestCommittedTxIndex = bc.block(blockHeader.height + 1).maxMonotonicIndex
+    val biggestCommittedTxIndex = bc.block(blockHeader.height + 1).maxMonotonicCommittedIndex
     val sigIndex = BlockSignatures(blockHeader.height).indexOfBlockSignature(thisNodeId).getOrElse(Int.MaxValue)
     FindLeader(blockHeader.height, biggestCommittedTxIndex, sigIndex, thisNodeId)
   }
