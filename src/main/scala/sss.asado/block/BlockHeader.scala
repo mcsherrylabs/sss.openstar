@@ -40,9 +40,10 @@ case class BlockHeader(
   }
 
   override def hashCode(): Int = {
-    println("HASHCODE " + Longs.hashCode(height))
-    println(s"$numTxs + ${util.Arrays.hashCode(hashPrevBlock)} + ${util.Arrays.hashCode(merkleRoot)} + ${time.hashCode}")
-    (17 + Longs.hashCode(height)) * (numTxs + util.Arrays.hashCode(hashPrevBlock) + util.Arrays.hashCode(merkleRoot) + time.hashCode)
+    (17 + Longs.hashCode(height)) *
+      (numTxs + util.Arrays.hashCode(hashPrevBlock) +
+        util.Arrays.hashCode(merkleRoot) +
+        time.hashCode)
   }
 }
 

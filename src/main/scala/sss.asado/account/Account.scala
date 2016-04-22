@@ -5,8 +5,6 @@ import sss.asado.hash.SecureCryptographicHash._
 
 class Account(val address: String) extends Serializable {
 
-  //lazy val bytes = Base58.decode(address).get
-
   override def toString: String = address
 
   override def equals(b: Any): Boolean = b match {

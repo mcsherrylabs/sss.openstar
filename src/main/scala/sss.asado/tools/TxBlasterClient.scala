@@ -8,11 +8,11 @@ import block._
 import com.google.common.primitives.Longs
 import com.typesafe.config.Config
 import ledger.{SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
+import sss.asado.account.ClientKey
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, SendToNetwork}
 import sss.asado.network._
-import sss.asado.util.ClientKey
 import sss.asado.{BaseClient, MessageKeys}
 
 import scala.language.postfixOps

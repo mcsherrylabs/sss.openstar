@@ -6,7 +6,7 @@ import sss.asado.util.EllipticCurveCrypto
 /**
   * Created by alan on 2/11/16.
   */
-class AccountTest extends FlatSpec with Matchers {
+class AccountSpec extends FlatSpec with Matchers {
 
   lazy val pkPair = PrivateKeyAccount()
 

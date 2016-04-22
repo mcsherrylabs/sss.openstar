@@ -16,7 +16,7 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 
-class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain)(implicit db: Db) extends Actor with ActorLogging {
+class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain with BlockChainSignatures)(implicit db: Db) extends Actor with ActorLogging {
 
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
@@ -75,10 +75,10 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
               log.info(s"Synching - commited block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
-
+              val sig = bc.sign(blockHeader)
+              //serverRef ! NetworkMessage(MessageKeys.BlockSig, Signature(MasterKey.account.publicKey,sig).toBytes)
               if (!synced) {
                 val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
-                // TODO SIGN THE BLOCK
                 serverRef ! NetworkMessage(MessageKeys.GetPageTx, nextBlockPage.toBytes)
               }
           }

@@ -2,6 +2,7 @@
 import akka.actor.ActorRef
 import com.google.common.primitives.Longs
 import ledger.{SignedTx, TxId}
+import scorex.crypto.signatures.SigningFunctions.{PublicKey, Signature => Sig}
 import sss.asado.block.serialize._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.ByteArrayVarcharOps.ByteArrayToVarChar
@@ -18,6 +19,7 @@ package object block {
     def toId: BlockChainTxId = BlockChainTxId(height, BlockTxId(blockTx.signedTx.txId, blockTx.index))
   }
 
+  case class Signature(publicKey: PublicKey, signature: Sig)
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
 
   case class VoteLeader(nodeId: String)

@@ -1,9 +1,8 @@
-package sss.asado.util
+package sss.asado.account
 
 import javax.xml.bind.DatatypeConverter
 
 import sss.ancillary.Memento
-import sss.asado.account.{PrivateKeyAccount, PublicKeyAccount}
 
 /**
   * Created by alan on 3/21/16.
@@ -16,8 +15,8 @@ private  class PubPrivAccount(val mementoName: String,
 
   lazy val account = PrivateKeyAccount(privKey, pubKey)
 
-  lazy val privKey: Array[Byte] = loadKey._2
-  lazy val pubKey: Array[Byte] = loadKey._1
+  private lazy val privKey: Array[Byte] = loadKey._2
+  private lazy val pubKey: Array[Byte] = loadKey._1
 
   private def loadKey: (Array[Byte], Array[Byte]) = {
     m.read match {
@@ -36,11 +35,12 @@ private  class PubPrivAccount(val mementoName: String,
 
     }
   }
+
 }
 
 object MasterKey {
   private lazy val impl = new PubPrivAccount("masterKey", false)
-  lazy val account: PublicKeyAccount = impl.account
+  lazy val account: PrivateKeyAccount = impl.account
 }
 
 object ClientKey {

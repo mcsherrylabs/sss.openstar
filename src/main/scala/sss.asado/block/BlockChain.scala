@@ -4,7 +4,9 @@ import java.util.Date
 
 import block.{BlockChainTx, BlockChainTxId}
 import com.twitter.util.SynchronizedLruMap
+import scorex.crypto.signatures.SigningFunctions.{PublicKey, Signature}
 import sss.ancillary.Logging
+import sss.asado.account.{MasterKey, PublicKeyAccount}
 import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
 import sss.asado.block.signature.BlockSignatures
@@ -18,8 +20,9 @@ trait BlockChainGenesis {
 
 trait BlockChainSignatures {
   this : BlockChain =>
-  def sign(blockHeight: Long, nodeId: String): Unit = sign(blockHeader(blockHeight), nodeId)
-  def sign(blockHeader: BlockHeader, nodeId: String): Unit
+  def sign(blockHeight: Long): Unit = sign(blockHeader(blockHeight))
+  def sign(blockHeader: BlockHeader): Signature
+  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String): Unit
   def indexOfBlockSignature(height: Long, nodeId: String): Option[Int]
 }
 
@@ -49,7 +52,7 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
 
   import BlockChainImpl._
 
-  private[block] lazy val blockHeaderTable = db.table(tableName)
+  private lazy val blockHeaderTable = db.table(tableName)
 
   private def lookupBlockHeader(sql: String): Option[BlockHeader] = {
     blockHeaderTable.find(Where(sql)) map (BlockHeader(_))
@@ -109,9 +112,20 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
     }
   }
 
-  def sign(blockHeader: BlockHeader, nodeId: String): Unit = {
-    BlockSignatures(blockHeader.height).add(nodeId)
+  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String): Unit = {
+    blockHeaderOpt(height) match {
+      case None => throw new IllegalArgumentException(s"No block exists of height $height")
+      case Some(bh) => {
+        if(!PublicKeyAccount(signersPublicKey).verify(signature, bh.hash)) {
+          throw new IllegalArgumentException(s"The signature does not match the blockheader (height-$height)")
+        }
+        BlockSignatures(height).add(signature, signersPublicKey, nodeId)
+      }
+    }
+
   }
+
+  def sign(blockHeader: BlockHeader) = MasterKey.account.sign(blockHeader.hash)
 
   def indexOfBlockSignature(height: Long, nodeId: String): Option[Int] = BlockSignatures(height).indexOfBlockSignature(nodeId)
 

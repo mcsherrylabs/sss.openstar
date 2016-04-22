@@ -8,11 +8,11 @@ import com.google.common.primitives.Longs
 import com.typesafe.config.Config
 import ledger.{SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
 import sss.ancillary.Memento
+import sss.asado.account.ClientKey
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, ConnectTo, SendToNetwork}
 import sss.asado.network._
-import sss.asado.util.ClientKey
 import sss.asado.{BaseClient, MessageKeys}
 
 import scala.concurrent.ExecutionContext.Implicits.global
