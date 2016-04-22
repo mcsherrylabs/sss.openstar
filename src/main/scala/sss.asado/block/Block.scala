@@ -72,8 +72,8 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     *
     * @return the index of the last tx committed in order (0,1,2..)
     *         if NO tx has been committed -1 is returned
-    *         if the zero'th Tx has NOT been committed, the smallest is -1
-    *         if the zero'th Tx has been committed, the smallest is 0
+    *         if only the first Tx has been committed, the smallest index is 0
+    *         if the first Tx has NOT been committed, the smallest is -1
     */
   def maxMonotonicCommittedIndex: Long = {
     val allIds = blockTxTable.map(r => (r[Long](id), r[Boolean](committed)), OrderAsc(id)).filter(_._2).map(_._1)

@@ -35,7 +35,8 @@ class BlockChainTest extends FlatSpec with Matchers {
     val header1 = BlockHeader(height, numTxs, prevHash, merkleRoot, time)
     val retrieved = bc.blockHeaderTable.insert(header1.asMap)
     assert(BlockHeader(retrieved) === header1)
-
+    assert(BlockHeader(retrieved).hashCode === header1.hashCode)
+    assert(header1 !== retrieved)
   }
 
   private def matchFirstBlock(block: BlockHeader): Unit = {
@@ -78,6 +79,17 @@ class BlockChainTest extends FlatSpec with Matchers {
     matchFirstBlock(firstBlock)
     matchSecondBlock(bc.blockHeader(height + 1), firstBlock.hash)
 
+  }
+
+  it should " create a genesis block " in {
+    val firstBlock = bc.genesisBlock()
+    assert(firstBlock.height === 0)
+    assert(firstBlock.numTxs === 0)
+
+  }
+
+  it should " prevent a second genesis block " in {
+    intercept[Exception]{bc.genesisBlock()}
   }
 
 

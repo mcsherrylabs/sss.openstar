@@ -1,5 +1,6 @@
 package sss.asado.block
 
+import java.util
 import java.util.Date
 
 import com.google.common.primitives.Longs
@@ -38,7 +39,11 @@ case class BlockHeader(
     case _ => false
   }
 
-  override def hashCode(): Int = (17 + Longs.hashCode(height)) * (numTxs + hashPrevBlock.hashCode() + merkleRoot.hashCode() + time.hashCode)
+  override def hashCode(): Int = {
+    println("HASHCODE " + Longs.hashCode(height))
+    println(s"$numTxs + ${util.Arrays.hashCode(hashPrevBlock)} + ${util.Arrays.hashCode(merkleRoot)} + ${time.hashCode}")
+    (17 + Longs.hashCode(height)) * (numTxs + util.Arrays.hashCode(hashPrevBlock) + util.Arrays.hashCode(merkleRoot) + time.hashCode)
+  }
 }
 
 object BlockHeader {

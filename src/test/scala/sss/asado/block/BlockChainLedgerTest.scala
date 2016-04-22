@@ -1,5 +1,6 @@
 package sss.asado.block
 
+import block.{BlockId, BlockTx}
 import contract.{NullDecumbrance, NullEncumbrance}
 import ledger.{GenisesTx, SignedTx, StandardTx, TxIndex, TxInput, TxOutput}
 import org.scalatest.{FlatSpec, Matchers}
@@ -47,6 +48,10 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
       case Failure(e: IllegalArgumentException) =>
       case x => fail(msg)
     }
+  }
+
+  it should " genesis to be applied twice " in {
+    ledger.genesis(genesisTx)
   }
 
   it should " prevent txs with no inputs " in {
@@ -99,5 +104,50 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val nextTx = SignedTx(StandardTx(nextIns, nextOuts))
     ledger(nextTx)
 
+  }
+
+  def resetUTXOBlockAndCreateTx(height: Long): SignedTx = {
+    resetUtxo
+    Block(height).truncate
+    val ledger = BlockChainLedger(height)
+    val r = ledger.genesis(genesisTx)
+    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
+    val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
+    SignedTx(StandardTx(ins, outs))
+  }
+
+  it should "allow journaling of a tx " in {
+    val stx = resetUTXOBlockAndCreateTx(2)
+    val ledger = BlockChainLedger(2)
+    val blkChnTx = ledger.journal(BlockTx(34, stx))
+    assert(blkChnTx.blockTx.index === 34)
+    assert(blkChnTx.blockTx.signedTx === stx)
+    assert(blkChnTx.height === 2)
+  }
+
+  it should "allow repeated journaling of the same tx " in {
+    val stx = resetUTXOBlockAndCreateTx(2)
+    val ledger = BlockChainLedger(2)
+    ledger.journal(BlockTx(34, stx))
+    val blkChnTx = ledger.journal(BlockTx(34, stx))
+    assert(blkChnTx.blockTx.index === 34)
+    assert(blkChnTx.blockTx.signedTx === stx)
+    assert(blkChnTx.height === 2)
+  }
+
+  it should "allow a tx to be committed by BlockId " in {
+    val stx = resetUTXOBlockAndCreateTx(2)
+    val ledger = BlockChainLedger(2)
+    val blkChnTx = ledger.journal(BlockTx(34, stx))
+    ledger.commit(BlockId(2, 2))
+    intercept[IllegalArgumentException] {ledger(stx) }
+  }
+
+  it should "allow a tx to be committed  " in {
+    val stx = resetUTXOBlockAndCreateTx(2)
+    val ledger = BlockChainLedger(2)
+    val blkChnTx = ledger.journal(BlockTx(34, stx))
+    ledger.commit
+    intercept[IllegalArgumentException] {ledger(stx) }
   }
 }

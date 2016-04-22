@@ -18,8 +18,8 @@ object BlockTestSpec {
   lazy val pkPair = PrivateKeyAccount()
 
   implicit val db = Db("DBStorageTest")
-  val someBlock = new Block(99)
-  val block999 = new Block(999)
+  val someBlock = Block(99)
+  val block999 = Block(999)
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
   lazy val createGenesis = {
     someBlock.write(genisis)
