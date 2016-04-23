@@ -1,6 +1,6 @@
 package sss.asado.contract
 
-import contract.{Decumbrance, Encumbrance}
+import contract.{Decumbrance, Encumbrance, NullDecumbrance, NullEncumbrance}
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.util.SeedBytes
@@ -51,5 +51,23 @@ class ContractSerializerTest extends FlatSpec with Matchers {
     val backAgain = ContractSerializer.fromBytes[Decumbrance](bytes)
 
     assert(backAgain === pKeySig)
+  }
+
+  "A NullDecumbrance " should " be correctly serialised and deserialized as a decumbrance" in {
+    val nullDec: Decumbrance = NullDecumbrance
+
+    val bytes = ContractSerializer.toBytes(nullDec)
+    val backAgain = ContractSerializer.fromBytes[Decumbrance](bytes)
+
+    assert(backAgain === nullDec)
+  }
+
+  "A NullEcumbrance " should " be correctly serialised and deserialized as an ecumbrance" in {
+    val nullEnc: Encumbrance = NullEncumbrance
+
+    val bytes = ContractSerializer.toBytes(nullEnc)
+    val backAgain = ContractSerializer.fromBytes[Encumbrance](bytes)
+
+    assert(backAgain === nullEnc)
   }
 }

@@ -44,6 +44,6 @@ object MasterKey {
 }
 
 object ClientKey {
-  private lazy val impl = new PubPrivAccount("clientKey", true)
-  lazy val account: PrivateKeyAccount = impl.account
+  def apply(tag: String = "clientKey"): PrivateKeyAccount = new PubPrivAccount(tag, true).account
+
 }

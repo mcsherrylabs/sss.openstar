@@ -1,14 +1,18 @@
 package sss.asado.contract
 
+import contract.{NullDecumbrance, NullEncumbrance}
+import ledger.{GenisesTx, SignedTx, TxOutput}
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.account.PrivateKeyAccount
+import sss.asado.util.{ByteArrayComparisonOps, SeedBytes}
 
 /**
   * Created by alan on 2/15/16.
   */
-class ContractTest extends FlatSpec with Matchers {
+class ContractTest extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
-  /*lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
+  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
 
 
   val genisis = SignedTx(GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance))))
@@ -16,62 +20,66 @@ class ContractTest extends FlatSpec with Matchers {
 
   "A single sig " should " unlock a single key contract " in {
 
-    val ledger = new UTXOLedger(new UTXODBStorage(genisis))
+    val enc = SinglePrivateKey(pkPair.publicKey)
+    assert(enc.pKey.isSame(pkPair.publicKey))
 
-    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
-    val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-    val tx = StandardTx(ins, outs)
-    ledger(SignedTx(tx))
+    val msg = "sfsfsdfsdfsdf"
+    val sig = pkPair.sign(msg.getBytes)
 
-    val ins2 = Seq(TxInput(TxIndex(tx.txId, 0), 100,  PrivateKeySig))
-    val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-    val tx2 = StandardTx(ins2, outs2)
+    assert(enc.decumber(Seq(msg.getBytes(), sig), PrivateKeySig))
+  }
 
-    val sig = EllipticCurveCrypto.sign(pkPair.privateKey, tx2.txId)
-    ledger(SignedTx(tx2,Seq(sig)))
+  it  should " correctly support equality and hashcode " in {
+
+    val otherPkPair = PrivateKeyAccount(SeedBytes(32))
+    val enc = SinglePrivateKey(pkPair.publicKey)
+    val enc2 = SinglePrivateKey(pkPair.publicKey)
+    val enc3 = SinglePrivateKey(otherPkPair.publicKey)
+    assert(enc == enc2)
+    assert(enc.hashCode() == enc2.hashCode())
+    assert(enc != enc3)
+    assert(enc2 != enc3)
 
   }
 
+  it  should " fail if the wrong decumbrance is used " in {
 
-  "A ledger " should " not accept a contract using a bad txId " in {
+    val enc = SinglePrivateKey(pkPair.publicKey)
+    assert(enc.pKey.isSame(pkPair.publicKey))
 
-    val ledger = new UTXOLedger(new MemoryStorage(genisis))
+    val msg = "sfsfsdfsdfsdf"
+    val sig = pkPair.sign(msg.getBytes)
 
-    val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
-    val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-    val tx = StandardTx(ins, outs)
-    ledger(SignedTx(tx))
-
-    val ins2 = Seq(TxInput(TxIndex(tx.txId, 0), 100,  PrivateKeySig))
-    val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-    val tx2 = StandardTx(ins2, outs2)
-
-    val sig = EllipticCurveCrypto.sign(pkPair.privateKey, SeedBytes(10))
-    intercept[IllegalArgumentException] {
-      ledger(SignedTx(tx2, Seq(sig)))
-    }
-
+    assert(!enc.decumber(Seq((msg.getBytes()), sig), NullDecumbrance))
   }
 
-  it should "not accept a contract using a bad key sig" in {
+  it  should " fail if the msg is different  " in {
 
-    val ledger = new UTXOLedger(new MemoryStorage(genisis))
+    val enc = SinglePrivateKey(pkPair.publicKey)
+    assert(enc.pKey.isSame(pkPair.publicKey))
 
-  val wrongPkPair = PrivateKeyAccount(SeedBytes(20))
+    val msg = "sfsfsdfsdfsdf"
+    val sig = pkPair.sign(msg.getBytes)
 
-  val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
-  val outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-  val tx = StandardTx(ins, outs)
-  ledger(SignedTx(tx))
-
-  val ins2 = Seq(TxInput(TxIndex(tx.txId, 0), 100,  PrivateKeySig))
-  val outs2 = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)))
-  val tx2 = StandardTx(ins2, outs2)
-
-  val sig = EllipticCurveCrypto.sign(wrongPkPair.privateKey, tx2.txId)
-  intercept[IllegalArgumentException] {
-    ledger(SignedTx(tx2, Seq(sig)))
+    assert(!enc.decumber(Seq((msg.getBytes() ++ Array[Byte](0)), sig), PrivateKeySig))
   }
 
-}*/
+  it  should " fail if the sig is different  " in {
+
+    val enc = SinglePrivateKey(pkPair.publicKey)
+    assert(enc.pKey.isSame(pkPair.publicKey))
+
+    val msg = "sfsfsdfsdfsdf"
+    val sig = pkPair.sign(msg.getBytes)
+
+    assert(!enc.decumber(Seq((msg.getBytes()), sig ++ Array[Byte](0)), PrivateKeySig))
+  }
+
+  "A null ecumbrance" should " be decumbered by Null decumbrance " in {
+    assert(NullEncumbrance.decumber(Seq(), NullDecumbrance))
+  }
+
+  it should " not be decumbered by other decumbrances " in {
+    assert(!NullEncumbrance.decumber(Seq(), PrivateKeySig))
+  }
 }

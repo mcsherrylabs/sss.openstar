@@ -90,6 +90,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
   }
 
+
   it should " allow spending from a tx out that was also a tx " in {
 
     resetUtxo
@@ -150,4 +151,18 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     ledger.commit
     intercept[IllegalArgumentException] {ledger(stx) }
   }
+
+
+  it should " prevent commit non existent block " in {
+
+    val ledger = BlockChainLedger(2)
+    val stx = resetUTXOBlockAndCreateTx(2)
+
+    val nonExistentBlockOrNumTxs = 999
+    expectIllegalArgument( ledger.commit(BlockId(nonExistentBlockOrNumTxs, 5)))
+
+    val blkChnTx = ledger.journal(BlockTx(34, stx))
+    expectIllegalArgument( ledger.commit(BlockId(2, nonExistentBlockOrNumTxs)))
+  }
+
 }

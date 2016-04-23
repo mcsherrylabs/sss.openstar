@@ -37,7 +37,7 @@ object TxClient extends BaseClient {
                              args: Array[String]
                             ): Unit = {
 
-    val pka = ClientKey.account
+    val pka = ClientKey()
     val firstTxIdHex = args(1)
     val index = args(2).toInt
     val firstAmount = args(3).toInt
@@ -77,7 +77,7 @@ class TxClientActor(args: Array[String],peerList: Set[NodeId], freeIndexes: Meme
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! Register(MessageKeys.NackConfirmTx)
 
-  val pka = ClientKey.account
+  val pka = ClientKey()
 
   var alltransmitted : Set[TxIndex] = Set()
 

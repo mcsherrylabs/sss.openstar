@@ -24,6 +24,13 @@ class MerkleTest extends FlatSpec with Matchers {
     assert(mt.path(10) === Seq(20))
   }
 
+  "A single element merkle seq " should " work " in {
+
+    val mt = MerkleTree[Int](IndexedSeq(10))
+    assert(mt.root === 20)
+    assert(mt.path(10) === Seq(10))
+  }
+
   "Two merkle trees " should " add together " in {
 
     val mt = MerkleTree[Int](10, 20)
