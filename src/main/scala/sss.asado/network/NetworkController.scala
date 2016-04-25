@@ -133,6 +133,7 @@ class NetworkController(messageRouter: ActorRef,
       context stop self
 
     case cf@CommandFailed(c: Connect) =>
+      log.info(s"Failed to connect to $c, retry in ${netInf.connectionRetryInterval}")
       peersList.find(_.inetSocketAddress == c.remoteAddress) map { found =>
         context.system.scheduler.scheduleOnce(netInf.connectionRetryInterval, self, ConnectTo(found))
       }
