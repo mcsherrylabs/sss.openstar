@@ -72,7 +72,7 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
   def block(blockHeight: Long): Block = Block(blockHeight)
 
   // use id > 0 to satisfy the where clause. No other reason.
-  def lastBlockHeader: BlockHeader = lookupBlockHeader(" id > 0 ORDER BY height DESC LIMIT 1").get
+  def lastBlockHeader: BlockHeader = lookupBlockHeader(" id > 0 ORDER BY height DESC LIMIT 1").getOrElse(genesisBlock())
 
   def blockHeaderOpt(height: Long): Option[BlockHeader] = {
     blockHeaderCache.get(height) match {
