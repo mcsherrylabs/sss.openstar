@@ -43,7 +43,8 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
         Block(params.head.toLong).entries.map(_.toString)
       }
     },
-    "connect" -> new Cmd {
+    "connectpeer" -> new Cmd {
+      override def help: String = s"nodeId ip port"
       override def apply(params: Seq[String]): Seq[String] = {
         val socketAddr = new InetSocketAddress(params(1), params(2).toInt)
         val n = NodeId(params(0), socketAddr)
