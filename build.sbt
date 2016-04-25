@@ -1,4 +1,10 @@
-enablePlugins(JavaAppPackaging)
+enablePlugins(JavaAppPackaging, DockerPlugin)
+
+import com.typesafe.sbt.packager.docker._
+
+dockerEntrypoint := Seq("/opt/docker/bin/node")
+
+dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079)
 
 scalacOptions += "-target:jvm-1.8"
 
@@ -47,3 +53,4 @@ libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 libraryDependencies += "org.eclipse.jetty.aggregate" % "jetty-all-server" % "8.1.18.v20150929"
 
 mainClass in Compile := Some("sss.asado.Node")
+
