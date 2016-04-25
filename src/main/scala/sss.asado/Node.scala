@@ -75,10 +75,11 @@ object Node extends Configure {
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
-    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, db)
+    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, db)
 
     val webServer = ServerLauncher(InitServlet(console, "/console/*"))
     webServer.start
+    println("Http console started...")
 
     sys addShutdownHook( webServer stop )
 

@@ -1,10 +1,13 @@
 package sss.asado.console
 
+import java.net.InetSocketAddress
+
 import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
 import sss.asado.block.Block
 import sss.asado.ledger.Ledger
-import sss.asado.network.Connection
+import sss.asado.network.NetworkController.ConnectTo
+import sss.asado.network.{Connection, NodeId}
 import sss.db.{Db, Where}
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
 
@@ -21,6 +24,7 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
                      nc: ActorRef,
                      peerList: Agent[Set[Connection]],
                      system: ActorSystem,
+                     ncRef: ActorRef,
                      implicit val db: Db) extends BaseConsoleServlet {
 
   val remote = system.actorSelection("akka.tcp://default@127.0.0.1:2577/user/uiReactorBroadcastEndpoint")
@@ -39,6 +43,15 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
         Block(params.head.toLong).entries.map(_.toString)
       }
     },
+    "connect" -> new Cmd {
+      override def apply(params: Seq[String]): Seq[String] = {
+        val socketAddr = new InetSocketAddress(params(1), params(2).toInt)
+        val n = NodeId(params(0), socketAddr)
+        ncRef ! ConnectTo(n)
+        Seq(s"$n")
+      }
+    },
+
     "blockheader" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = {
         blocks.filter(Where("height = ?", params.head.toLong)).map(_.toString)

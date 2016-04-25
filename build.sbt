@@ -1,10 +1,13 @@
 enablePlugins(JavaAppPackaging, DockerPlugin)
 
-import com.typesafe.sbt.packager.docker._
-
 dockerEntrypoint := Seq("/opt/docker/bin/node")
 
 dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079)
+
+import com.typesafe.sbt.packager.docker._
+
+dockerCommands += ExecCmd(ENTRYPOINT,List("bin/node"))
+
 
 scalacOptions += "-target:jvm-1.8"
 

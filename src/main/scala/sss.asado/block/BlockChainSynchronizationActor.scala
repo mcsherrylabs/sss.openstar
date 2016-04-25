@@ -67,7 +67,7 @@ class BlockChainSynchronizationActor(quorum: Int,
     case ReDistributeTx(btx) =>
       updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes))
 
-    case DistributeClose(bId @ BlockId(blockheight, numTxs)) =>
+    case DistributeClose(sig, bId @ BlockId(blockheight, numTxs)) =>
       updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, bId.toBytes))
 
     case NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>

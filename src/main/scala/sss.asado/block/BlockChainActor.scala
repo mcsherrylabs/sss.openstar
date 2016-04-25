@@ -4,7 +4,8 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.{BlockId, DistributeClose}
+import block.{BlockId, DistributeClose, Signature}
+import sss.asado.account.MasterKey
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -47,7 +48,7 @@ case object AcknowledgeNewLedger
   * @param db
   */
 class BlockChainActor(blockChainSettings: BlockChainSettings,
-                      bc: BlockChain with BlockChainTxConfirms,
+                      bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef
                       )(implicit db: Db) extends Actor with ActorLogging {
@@ -164,8 +165,9 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
       log.info(s"About to close block ${lastClosedBlock.height + 1}")
       Try(bc.closeBlock(lastClosedBlock)) match {
         case Success(newLastBlock) =>
+          val sig = Signature(MasterKey.account.publicKey,bc.sign(newLastBlock))
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
-          blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
+          blockChainSyncingActor ! DistributeClose(sig, BlockId(newLastBlock.height, newLastBlock.numTxs))
           context.become(handleRouterDeath orElse waiting(newLastBlock))
           startTimer(secondsToWait(newLastBlock.time))
         case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)

@@ -28,7 +28,7 @@ package object block {
 
   case class ReDistributeTx(blockChainTx: BlockChainTx)
   case class DistributeTx(client: ActorRef, blockChainTx: BlockChainTx)
-  case class DistributeClose(blockId: BlockId)
+  case class DistributeClose(isg: Signature, blockId: BlockId)
 
 
   case class BlockTxId(txId: TxId, index: Long) extends ByteArrayComparisonOps {

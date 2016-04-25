@@ -132,10 +132,10 @@ class NetworkController(messageRouter: ActorRef,
       self ! Unbind
       context stop self
 
-    /*case cf@CommandFailed(c: Connect) =>
+    case cf@CommandFailed(c: Connect) =>
       peersList.find(_.inetSocketAddress == c.remoteAddress) map { found =>
         context.system.scheduler.scheduleOnce(netInf.connectionRetryInterval, self, ConnectTo(found))
-      }*/
+      }
 
     case CommandFailed(cmd: Tcp.Command) => log.info(s"Failed to execute command : $cmd")
 
