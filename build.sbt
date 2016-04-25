@@ -6,9 +6,6 @@ dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 
 
 import com.typesafe.sbt.packager.docker._
 
-dockerCommands += ExecCmd(ENTRYPOINT,List("bin/node"))
-
-
 scalacOptions += "-target:jvm-1.8"
 
 parallelExecution in Test := false
