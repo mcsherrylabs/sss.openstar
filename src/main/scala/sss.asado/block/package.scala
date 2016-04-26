@@ -2,8 +2,9 @@
 import akka.actor.ActorRef
 import com.google.common.primitives.Longs
 import ledger.{SignedTx, TxId}
-import scorex.crypto.signatures.SigningFunctions.{PublicKey, Signature => Sig}
+import scorex.crypto.signatures.SigningFunctions.{Signature => Sig}
 import sss.asado.block.serialize._
+import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.ByteArrayVarcharOps.ByteArrayToVarChar
 import sss.asado.util.Serialize.ToBytes
@@ -19,7 +20,6 @@ package object block {
     def toId: BlockChainTxId = BlockChainTxId(height, BlockTxId(blockTx.signedTx.txId, blockTx.index))
   }
 
-  case class Signature(publicKey: PublicKey, signature: Sig)
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
 
   case class VoteLeader(nodeId: String)
@@ -28,8 +28,8 @@ package object block {
 
   case class ReDistributeTx(blockChainTx: BlockChainTx)
   case class DistributeTx(client: ActorRef, blockChainTx: BlockChainTx)
-  case class DistributeClose(isg: Signature, blockId: BlockId)
-
+  case class DistributeSig(blockSig: BlockSignature)
+  case class DistributeClose(blockSigs: Seq[BlockSignature], blockId: BlockId)
 
   case class BlockTxId(txId: TxId, index: Long) extends ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = obj match {
@@ -115,5 +115,19 @@ package object block {
   }
   implicit class BlockIdFrom(b: Array[Byte]) {
     def toBlockId: BlockId = BlockIdSerializer.fromBytes(b)
+  }
+
+  implicit class BlockSignatureTo(t: BlockSignature) extends ToBytes[BlockSignature] {
+    override def toBytes: Array[Byte] = BlockSignatureSerializer.toBytes(t)
+  }
+  implicit class BlockSignatureFrom(b: Array[Byte]) {
+    def toBlockSignature: BlockSignature = BlockSignatureSerializer.fromBytes(b)
+  }
+
+  implicit class DistributeCloseTo(t: DistributeClose) extends ToBytes[DistributeClose] {
+    override def toBytes: Array[Byte] = DistributeCloseSerializer.toBytes(t)
+  }
+  implicit class DistributeCloseFrom(b: Array[Byte]) {
+    def toDistributeClose: DistributeClose = DistributeCloseSerializer.fromBytes(b)
   }
 }

@@ -4,8 +4,9 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.{BlockId, DistributeClose, Signature}
-import sss.asado.account.MasterKey
+import block.{BlockId, DistributeClose}
+import sss.asado.account.NodeIdentity
+import sss.asado.block.signature.BlockSignatures
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -21,6 +22,7 @@ trait BlockChainSettings {
   val inflationRatePerBlock: Int
   val maxTxPerBlock: Int
   val maxBlockOpenSecs: Int
+  val maxSignatures: Int
 }
 
 case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])
@@ -47,7 +49,8 @@ case object AcknowledgeNewLedger
   * @param blockChainSyncingActor
   * @param db
   */
-class BlockChainActor(blockChainSettings: BlockChainSettings,
+class BlockChainActor(nodeIdentity: NodeIdentity,
+                      blockChainSettings: BlockChainSettings,
                       bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef
@@ -165,9 +168,15 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
       log.info(s"About to close block ${lastClosedBlock.height + 1}")
       Try(bc.closeBlock(lastClosedBlock)) match {
         case Success(newLastBlock) =>
-          val sig = Signature(MasterKey.account.publicKey,bc.sign(newLastBlock))
+
+          val sig = BlockSignatures(newLastBlock.height).add(
+            nodeIdentity.sign(newLastBlock.hash),
+              nodeIdentity.publicKey,
+            nodeIdentity.id)
+
+          BlockSignatures(newLastBlock.height).signatures(blockChainSettings.maxSignatures)
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
-          blockChainSyncingActor ! DistributeClose(sig, BlockId(newLastBlock.height, newLastBlock.numTxs))
+          blockChainSyncingActor ! DistributeClose(Seq(sig), BlockId(newLastBlock.height, newLastBlock.numTxs))
           context.become(handleRouterDeath orElse waiting(newLastBlock))
           startTimer(secondsToWait(newLastBlock.time))
         case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)

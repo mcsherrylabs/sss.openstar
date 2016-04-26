@@ -2,8 +2,12 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
+import org.joda.time.DateTime
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
+import sss.asado.account.NodeIdentity
+import sss.asado.block.signature.BlockSignatures
+import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.NetworkMessage
@@ -16,7 +20,11 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 
-class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: BlockChain with BlockChainSignatures)(implicit db: Db) extends Actor with ActorLogging {
+class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
+                                nc: ActorRef,
+                                messageRouter: ActorRef,
+                                bc: BlockChain with BlockChainSignatures)
+                               (implicit db: Db) extends Actor with ActorLogging {
 
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
@@ -24,8 +32,8 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
   messageRouter ! Register(PagedTx)
   messageRouter ! Register(EndPageTx)
   messageRouter ! Register(ConfirmTx)
-  messageRouter ! Register(ReConfirmTx)
   messageRouter ! Register(CloseBlock)
+  messageRouter ! Register(BlockSig)
   messageRouter ! Register(Synced)
 
 
@@ -35,8 +43,7 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
 
   override def receive: Receive = syncLedgerWithLeader
 
-
-  var synced = false
+  private var synced = false
 
   private def syncLedgerWithLeader: Receive = {
 
@@ -44,8 +51,9 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
         val getTxs = {
             val lb = bc.lastBlockHeader
             val blockStorage = Block(lb.height + 1)
-            val lastIndexOfRow = blockStorage.maxMonotonicCommittedIndex
-            GetTxPage(lb.height + 1, lastIndexOfRow, 50)
+            val indexOfLastRow = blockStorage.maxMonotonicCommittedIndex
+            val startAtNextIndex = indexOfLastRow + 1
+            GetTxPage(lb.height + 1, startAtNextIndex, 50)
         }
 
         nc ! SendToNetwork(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), (_ filter(_.nodeId.id == leader)) )
@@ -66,6 +74,8 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
+      import sss.asado.util.ByteArrayVarcharOps._
+
       Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
         case Failure(e) =>
           log.error(e, s"Could not commit this block ${blockId}")
@@ -74,9 +84,22 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
-              log.info(s"Synching - commited block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
-              val sig = bc.sign(blockHeader)
-              //serverRef ! NetworkMessage(MessageKeys.BlockSig, Signature(MasterKey.account.publicKey,sig).toBytes)
+              log.info(s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
+              if(BlockSignatures(blockHeader.height).indexOfBlockSignature(nodeIdentity.id).isEmpty) {
+                val sig = nodeIdentity.sign(blockHeader.hash)
+
+                log.info(s"SIGN ${blockHeader.height}")
+                log.info(s"Key ${nodeIdentity.publicKey.toVarChar}")
+                log.info(s"Sig ${sig.toVarChar}")
+                log.info(s"Hash ${blockHeader.hash.toVarChar}")
+
+                val newSig = BlockSignature(0, new DateTime(),
+                  blockHeader.height,
+                  nodeIdentity.id,
+                  nodeIdentity.publicKey, sig)
+
+                serverRef ! NetworkMessage(MessageKeys.BlockSig, newSig.toBytes)
+              }
               if (!synced) {
                 val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
                 serverRef ! NetworkMessage(MessageKeys.GetPageTx, nextBlockPage.toBytes)
@@ -85,19 +108,25 @@ class BlockChainDownloaderActor(nc: ActorRef, messageRouter: ActorRef, bc: Block
       }
     }
 
+
+    case NetworkMessage(BlockSig, bytes) =>
+      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
+        BlockSignatures(blkSig.height).write(blkSig)
+      }
+
     case NetworkMessage(CloseBlock, bytes) =>
-      val sendr = sender()
-      decode(CloseBlock, bytes.toBlockId)(blockId => self ! CommitBlock(sendr, blockId))
+      decode(CloseBlock, bytes.toDistributeClose) { distClose =>
+        val blockSignaturePersistance = BlockSignatures(distClose.blockId.blockHeight)
+        distClose.blockSigs.foreach { sig =>
+          blockSignaturePersistance.write(sig)
+        }
+        self ! CommitBlock(sender(), distClose.blockId)
+      }
 
     case NetworkMessage(Synced, bytes) =>
       synced = true;
       val getTxPage = bytes.toGetTxPage
       log.info(s"Downloader is synced to tx page $getTxPage")
-
-
-    case NetworkMessage(ReConfirmTx, bytes) =>
-      log.error("RECONFIRM IS THE SAME AS CONFIRM????")
-      //context.system.scheduler.scheduleOnce(1 milliseconds, self, _)
 
 
     case NetworkMessage(ConfirmTx, bytes) =>

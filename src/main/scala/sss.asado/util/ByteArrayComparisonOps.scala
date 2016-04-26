@@ -18,3 +18,5 @@ trait ByteArrayComparisonOps {
     def hash: Int = ary.map(_.toSeq.hashCode).sum
   }
 }
+
+object ByteArrayComparisonOps extends ByteArrayComparisonOps

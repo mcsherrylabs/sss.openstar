@@ -2,13 +2,14 @@ package sss.asado.account
 
 import javax.xml.bind.DatatypeConverter
 
+import com.typesafe.config.Config
+import scorex.crypto.signatures.SigningFunctions.{MessageToSign, PublicKey, Signature}
 import sss.ancillary.Memento
 
 /**
   * Created by alan on 3/21/16.
   */
-
-private  class PubPrivAccount(val mementoName: String,
+private  class KeyPersister(val mementoName: String,
         val createIfMissing: Boolean) {
 
   private val m = Memento(mementoName)
@@ -38,12 +39,28 @@ private  class PubPrivAccount(val mementoName: String,
 
 }
 
-object MasterKey {
-  private lazy val impl = new PubPrivAccount("masterKey", false)
-  lazy val account: PrivateKeyAccount = impl.account
+trait NodeIdentity {
+  val id: String
+  val publicKey: PublicKey
+  def sign(msg: MessageToSign): Signature
+  def verify(sig: Signature, msg: Array[Byte]): Boolean
+}
+
+object NodeIdentity {
+  def apply(nodeConfig: Config): NodeIdentity = apply(nodeConfig.getString("bind.nodeId"))
+  def apply(nodeId: String): NodeIdentity = {
+    val nodeKey = new KeyPersister(nodeId, true).account
+    new NodeIdentity {
+      override def verify(sig: Signature, msg: Array[Byte]): Boolean = nodeKey.verify(sig, msg)
+      override def sign(msg: MessageToSign): Signature = nodeKey.sign(msg)
+      override val publicKey: PublicKey = nodeKey.publicKey
+      override val id: String = nodeId
+    }
+  }
+
 }
 
 object ClientKey {
-  def apply(tag: String = "clientKey"): PrivateKeyAccount = new PubPrivAccount(tag, true).account
+  def apply(tag: String = "clientKey"): PrivateKeyAccount = new KeyPersister(tag, true).account
 
 }

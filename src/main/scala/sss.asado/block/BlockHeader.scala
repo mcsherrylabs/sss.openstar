@@ -27,7 +27,7 @@ case class BlockHeader(
     BlockHeader.merkleRootStr -> merkleRoot,
     BlockHeader.mineTimeStr -> time)
 
-  lazy val hash: Array[Byte] = SecureCryptographicHash.hash(Longs.toByteArray(height) ++ hashPrevBlock ++ merkleRoot ++ Longs.toByteArray(time.getTime))
+  lazy val hash: Array[Byte] = SecureCryptographicHash.hash(Longs.toByteArray(height) ++ hashPrevBlock ++ merkleRoot)
 
   override def equals(obj: scala.Any): Boolean = obj match {
     case header: BlockHeader =>

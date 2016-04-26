@@ -17,7 +17,7 @@ object MessageKeys extends Logging {
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
   val NackConfirmTx: Byte = 106
-  val ReConfirmTx: Byte = 107
+
 
 
   val MalformedMessage: Byte = 20
@@ -32,7 +32,7 @@ object MessageKeys extends Logging {
   val CloseBlock: Byte = 43
   val Synced: Byte = 44
   val BlockSig: Byte = 45
-
+  val NextBlockSig: Byte = 46
 
 
 
@@ -41,7 +41,10 @@ object MessageKeys extends Logging {
       f
     } match {
       case Failure(e) => log.error(s"Unable to decoode a request of type $msgCode", e)
-      case Success(s) => t(s)
+      case Success(s) => Try(t(s)) match {
+        case Failure(e) => log.error(s"Problem handling message of type $msgCode", e)
+        case _ =>
+      }
     }
   }
 

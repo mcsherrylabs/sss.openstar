@@ -4,7 +4,7 @@ import java.util.Date
 
 import block.{BlockChainTxId, BlockTxId}
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.MasterKey
+import sss.asado.account.ClientKey
 import sss.db.Db
 
 /**
@@ -30,19 +30,19 @@ class BlockChainSpec extends FlatSpec with Matchers {
     assert(header2.hashPrevBlock === header1.hash)
   }
 
+
   "A block chain " should " create a genesis block " in {
     genBlk = bc.genesisBlock()
     assert(genBlk.height === 1)
     assert(genBlk.numTxs === 0)
-
   }
 
   it should " be able to sign a block header " in {
 
     val someNodeId = "whoareyou"
-
-    val signed = bc.sign(genBlk)
-    bc.addSignature(1, signed, MasterKey.account.publicKey, someNodeId)
+    val ck = ClientKey()
+    val signed = ck.sign(genBlk.hash)
+    bc.addSignature(1, signed, ClientKey().publicKey, someNodeId)
     assert(bc.indexOfBlockSignature(1, someNodeId).isDefined)
     assert(bc.indexOfBlockSignature(1, someNodeId).get == 1)
 
@@ -55,15 +55,16 @@ class BlockChainSpec extends FlatSpec with Matchers {
 
     val header2 = BlockHeader(1, 0, genBlk.hash, merkleRoot, new Date())
 
-    val signed = bc.sign(header2)
+    val ck = ClientKey()
+    val signed = ck.sign(genBlk.hash)
 
     intercept[Exception] {
-      bc.addSignature(1, signed, MasterKey.account.publicKey, someNodeId)
+      bc.addSignature(1, signed, ck.publicKey, someNodeId)
     }
 
     // check non existant block...
     intercept[Exception] {
-      bc.addSignature(Long.MaxValue, signed, MasterKey.account.publicKey, someNodeId)
+      bc.addSignature(Long.MaxValue, signed, ck.publicKey, someNodeId)
     }
 
   }

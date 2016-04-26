@@ -5,6 +5,7 @@ import java.net.InetSocketAddress
 import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
 import sss.asado.block.Block
+import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger.Ledger
 import sss.asado.network.NetworkController.ConnectTo
 import sss.asado.network.{Connection, NodeId}
@@ -37,6 +38,13 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
   val cmds: Map[String, Cmd] = Map (
     "peers" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = peerList.get.map(_.nodeId.toString).toSeq
+    },
+    "signatures" -> new Cmd {
+      override def help: String = s"signatures <blockheight> <num_sigs>"
+      override def apply(params: Seq[String]): Seq[String] = {
+        val sigs = BlockSignatures(params.head.toLong).signatures(params(1).toInt).map(_.toString)
+        Seq(s"Num sigs is ${sigs.size}") ++ sigs
+      }
     },
     "block" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = {

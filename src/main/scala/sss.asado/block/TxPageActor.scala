@@ -4,7 +4,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
 import ledger._
 import sss.asado.MessageKeys
+import sss.asado.MessageKeys._
+import sss.asado.block.signature.BlockSignatures
 import sss.asado.network.NetworkMessage
+import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -15,7 +18,8 @@ import scala.language.postfixOps
   *
   * Created by alan on 3/24/16.
   */
-class TxPageActor(bc: BlockChain) extends Actor with ActorLogging {
+class TxPageActor(maxSignatures: Int,
+                  bc: BlockChain with BlockChainSignatures)(implicit db: Db) extends Actor with ActorLogging {
 
   private case class GetTxPageWithRef(ref: ActorRef, servicePaused: Boolean, getTxPage: GetTxPage)
   private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
@@ -25,9 +29,10 @@ class TxPageActor(bc: BlockChain) extends Actor with ActorLogging {
   override def receive: Receive = {
 
     case EndOfBlock(ref, blockId) =>
-      ref ! NetworkMessage(MessageKeys.CloseBlock, blockId.toBytes)
+      val closeBytes = DistributeClose(BlockSignatures(blockId.blockHeight).signatures(maxSignatures), blockId).toBytes
+      ref ! NetworkMessage(CloseBlock, closeBytes)
 
-    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(MessageKeys.EndPageTx, getTxPageBytes)
+    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(EndPageTx, getTxPageBytes)
 
     case TxToReturn(ref, blockChainTx) =>
       ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
@@ -59,10 +64,29 @@ class TxPageActor(bc: BlockChain) extends Actor with ActorLogging {
         } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
       }
 
-    case netTxPage@NetworkMessage(MessageKeys.GetPageTx, bytes) =>
-      val getTxPage: GetTxPage = bytes.toGetTxPage
-      val sendr = sender()
-      self ! GetTxPageWithRef(sendr, false, getTxPage)
+    case netTxPage@NetworkMessage(GetPageTx, bytes) =>
+      decode(GetPageTx, bytes.toGetTxPage) { getTxPage =>
+        val sendr = sender()
+        self ! GetTxPageWithRef(sendr, false, getTxPage)
+      }
+
+    case NetworkMessage(BlockSig, bytes) =>
+      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
+          val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
+          context.parent ! DistributeSig(newSig)
+      }
+    /*case NetworkMessage(BlockSig, bytes) =>
+      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
+        bc.indexOfBlockSignature(blkSig.height, blkSig.nodeId) match {
+          case None =>
+            val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
+            context.parent ! DistributeSig(newSig)
+          case Some(indx) =>
+            log.warning(s"Already have sig from ${blkSig.nodeId} at index $indx")
+        }
+
+      }
+      */
 
   }
 }
