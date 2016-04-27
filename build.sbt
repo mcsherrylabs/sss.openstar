@@ -4,8 +4,6 @@ dockerEntrypoint := Seq("/opt/docker/bin/node")
 
 dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079)
 
-import com.typesafe.sbt.packager.docker._
-
 scalacOptions += "-target:jvm-1.8"
 
 parallelExecution in Test := false
@@ -37,6 +35,8 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.6"
 libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.21"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.1"
+
+libraryDependencies += "mcsherrylabs.com" %% "sss-asado-network" % "0.6"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

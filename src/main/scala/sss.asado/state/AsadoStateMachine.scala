@@ -1,15 +1,14 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, FSM}
-import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost}
+import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, QuorumGained, QuorumLost}
 
 
 /**
   * Created by alan on 4/1/16.
   */
 object AsadoStateProtocol {
-  case object QuorumLost
-  case object QuorumGained
+
   case class LeaderFound(leaderId: String)
   case object Synced
   case object NotSynced

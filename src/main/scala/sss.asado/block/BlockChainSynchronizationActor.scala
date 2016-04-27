@@ -7,8 +7,9 @@ import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.network.NetworkController.QuorumLost
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.{QuorumLost, Synced}
+import sss.asado.state.AsadoStateProtocol.Synced
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 

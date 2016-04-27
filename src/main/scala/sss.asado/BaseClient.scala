@@ -4,9 +4,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import com.typesafe.config.Config
 import sss.ancillary.{Configure, DynConfig}
-import sss.asado.Node.InitWithActorRefs
-import sss.asado.network.NetworkController.BindControllerSettings
+import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
+import sss.db.Db
 
 import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -25,7 +25,7 @@ trait BaseClient extends Configure  {
 
     val nodeConfig = config(args(0))
     val dbConfig = s"${args(0)}.database"
-    //implicit val db = Db(dbConfig)
+    implicit val db = Db(dbConfig)
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](s"${args(0)}.bind")
 
@@ -44,9 +44,9 @@ trait BaseClient extends Configure  {
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
-    ncRef ! InitWithActorRefs()
+    ncRef ! StartNetwork
 
-    run(settings, actorSystem, peersList, connectedPeers, messageRouter, ncRef, nodeConfig, args)
+    run(settings, actorSystem, peersList, connectedPeers, messageRouter, ncRef, nodeConfig, args, db)
 
   }
 
@@ -57,7 +57,8 @@ trait BaseClient extends Configure  {
                     messageRouter: ActorRef,
                     ncRef: ActorRef,
                     nodeConfig: Config,
-                    args: Array[String])
+                    args: Array[String],
+                    db: Db)
 }
 
 class DumbMachine extends Actor with ActorLogging {

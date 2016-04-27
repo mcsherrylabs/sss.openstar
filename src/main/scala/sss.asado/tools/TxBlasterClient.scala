@@ -14,6 +14,7 @@ import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.{BindControllerSettings, SendToNetwork}
 import sss.asado.network._
 import sss.asado.{BaseClient, MessageKeys}
+import sss.db.Db
 
 import scala.language.postfixOps
 
@@ -31,7 +32,8 @@ object TxBlasterClient extends BaseClient {
                              messageRouter: ActorRef,
                              ncRef: ActorRef,
                              nodeConfig: Config,
-                             args: Array[String]
+                             args: Array[String],
+                             db:Db
                             ): Unit = {
 
     val pka = ClientKey()

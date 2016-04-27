@@ -7,7 +7,7 @@ import sss.ancillary.{Configure, DynConfig}
 import sss.asado.account.NodeIdentity
 import sss.asado.block._
 import sss.asado.console.ConsoleServlet
-import sss.asado.network.NetworkController.BindControllerSettings
+import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
@@ -79,7 +79,7 @@ object Node extends Configure {
 
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor)
 
-    ncRef ! InitWithActorRefs()
+    ncRef ! StartNetwork
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
