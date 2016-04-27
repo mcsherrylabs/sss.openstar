@@ -193,6 +193,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
     }
 
     case StartBlockChain(ref, any) => ref ! BlockChainStarted(any)
+
     case sbc @ StopBlockChain(ref, any) =>
       log.info("Attempting to stop blockchain")
       cancellable map (_.cancel())

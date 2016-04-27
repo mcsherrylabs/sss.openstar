@@ -112,15 +112,10 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
   }
 
   def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {
-    import sss.asado.util.ByteArrayVarcharOps._
     blockHeaderOpt(height) match {
       case None => throw new IllegalArgumentException(s"No block exists of height $height")
       case Some(bh) =>
         if(!PublicKeyAccount(signersPublicKey).verify(signature, bh.hash)) {
-          log.info(s"VERIFY ${bh.height}")
-          log.info(s"Key ${signersPublicKey.toVarChar}")
-          log.info(s"Sig ${signature.toVarChar}")
-          log.info(s"Hash ${bh.hash.toVarChar}")
           throw new IllegalArgumentException(s"The signature does not match the blockheader (height-$height)")
         }
         BlockSignatures(height).indexOfBlockSignature(nodeId) match {

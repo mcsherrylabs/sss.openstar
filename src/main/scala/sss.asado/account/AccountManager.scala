@@ -36,7 +36,7 @@ object AccountManager {
           |$nodeIdStr VARCHAR(100),
           |$publicKeyStr VARCHAR(100),
           |$createdStr BIGINT,
-          |PRIMARY KEY($nodeIdStr, $publicKeyStr))
+          |PRIMARY KEY($nodeIdStr, $publicKeyStr));
           |""".stripMargin
 
     private lazy val table = {

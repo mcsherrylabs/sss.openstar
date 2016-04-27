@@ -34,7 +34,7 @@ class BlockChainSynchronizationActor(quorum: Int,
   messageRouter ! Register(MessageKeys.NackConfirmTx)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
-  messageRouter ! RegisterRef(MessageKeys.BlockSig, pageResponder)
+  messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)
 
   private def init: Receive = {
     case InitWithActorRefs(blockChainActor) =>

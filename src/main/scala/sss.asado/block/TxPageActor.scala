@@ -70,23 +70,12 @@ class TxPageActor(maxSignatures: Int,
         self ! GetTxPageWithRef(sendr, false, getTxPage)
       }
 
-    case NetworkMessage(BlockSig, bytes) =>
-      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
+    case NetworkMessage(BlockNewSig, bytes) =>
+      decode(BlockNewSig, bytes.toBlockSignature) { blkSig =>
           val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
           context.parent ! DistributeSig(newSig)
       }
-    /*case NetworkMessage(BlockSig, bytes) =>
-      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
-        bc.indexOfBlockSignature(blkSig.height, blkSig.nodeId) match {
-          case None =>
-            val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
-            context.parent ! DistributeSig(newSig)
-          case Some(indx) =>
-            log.warning(s"Already have sig from ${blkSig.nodeId} at index $indx")
-        }
 
-      }
-      */
 
   }
 }

@@ -32,7 +32,7 @@ object MessageKeys extends Logging {
   val CloseBlock: Byte = 43
   val Synced: Byte = 44
   val BlockSig: Byte = 45
-  val NextBlockSig: Byte = 46
+  val BlockNewSig: Byte = 46
 
 
 

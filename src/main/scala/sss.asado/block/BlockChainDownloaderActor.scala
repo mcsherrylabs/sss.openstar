@@ -74,8 +74,6 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
-      import sss.asado.util.ByteArrayVarcharOps._
-
       Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
         case Failure(e) =>
           log.error(e, s"Could not commit this block ${blockId}")
@@ -87,18 +85,12 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
               log.info(s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
               if(BlockSignatures(blockHeader.height).indexOfBlockSignature(nodeIdentity.id).isEmpty) {
                 val sig = nodeIdentity.sign(blockHeader.hash)
-
-                log.info(s"SIGN ${blockHeader.height}")
-                log.info(s"Key ${nodeIdentity.publicKey.toVarChar}")
-                log.info(s"Sig ${sig.toVarChar}")
-                log.info(s"Hash ${blockHeader.hash.toVarChar}")
-
                 val newSig = BlockSignature(0, new DateTime(),
                   blockHeader.height,
                   nodeIdentity.id,
                   nodeIdentity.publicKey, sig)
 
-                serverRef ! NetworkMessage(MessageKeys.BlockSig, newSig.toBytes)
+                serverRef ! NetworkMessage(MessageKeys.BlockNewSig, newSig.toBytes)
               }
               if (!synced) {
                 val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
@@ -116,9 +108,9 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
     case NetworkMessage(CloseBlock, bytes) =>
       decode(CloseBlock, bytes.toDistributeClose) { distClose =>
-        val blockSignaturePersistance = BlockSignatures(distClose.blockId.blockHeight)
+        val blockSignaturePersistence = BlockSignatures(distClose.blockId.blockHeight)
         distClose.blockSigs.foreach { sig =>
-          blockSignaturePersistance.write(sig)
+          blockSignaturePersistence.write(sig)
         }
         self ! CommitBlock(sender(), distClose.blockId)
       }
