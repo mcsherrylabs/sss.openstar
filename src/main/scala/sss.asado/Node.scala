@@ -10,7 +10,7 @@ import sss.asado.console.ConsoleServlet
 import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
-import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
+import sss.asado.state.{AsadoStateMachineActor, LeaderActor, TxForwarderActor}
 import sss.asado.util.{InitServlet, ServerLauncher}
 import sss.db.Db
 
@@ -75,9 +75,15 @@ object Node extends Configure {
     val txRouter: ActorRef = actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], blockChainSyncerActor)), "txRouter")
     val blockChainActor = actorSystem.actorOf(Props(classOf[BlockChainActor], nodeIdentity, blockChainSettings, bc, txRouter, blockChainSyncerActor, db))
 
+    val txForwarder = actorSystem.actorOf(Props(classOf[TxForwarderActor],
+      nodeIdentity.id,
+      connectedPeers,
+      messageRouter,
+      nodeConfig.getInt("clientRefCacheSize")))
+
     blockChainSyncerActor ! InitWithActorRefs(blockChainActor)
 
-    stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor)
+    stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor, txForwarder)
 
     ncRef ! StartNetwork
 

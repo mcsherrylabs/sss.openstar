@@ -9,13 +9,14 @@ import sss.asado.MessageKeys
 import sss.asado.MessageKeys.decode
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.{Connection, NetworkMessage}
+import sss.asado.state.AsadoStateProtocol.StopAcceptingTransactions
 import sss.asado.util.ByteArrayVarcharOps._
 
 /**
   * Created by alan on 4/1/16.
   */
 case class Forward(leader: String)
-case object CancelForward
+
 
 class TxForwarderActor(thisNodeId: String,
                        connectedPeers: Agent[Set[Connection]],
@@ -44,9 +45,9 @@ class TxForwarderActor(thisNodeId: String,
   }
   private def forwardMode(leaderRef: ActorRef): Receive = {
 
-    case Terminated(leaderRef) => self ! CancelForward
+    case Terminated(leaderRef) => self ! StopAcceptingTransactions
 
-    case CancelForward =>
+    case StopAcceptingTransactions =>
       messageRouter ! UnRegister(MessageKeys.SignedTx)
       messageRouter ! UnRegister(MessageKeys.SeqSignedTx)
       messageRouter ! UnRegister(MessageKeys.SignedTxAck)

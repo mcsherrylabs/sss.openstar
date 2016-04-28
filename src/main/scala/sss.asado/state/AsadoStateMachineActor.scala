@@ -29,8 +29,22 @@ class AsadoStateMachineActor(thisNodeId: String,
   final override def receive = init orElse super.receive
 
   private def init: Receive = {
-    case InitWithActorRefs(chainDownloaderRef, leaderRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor) =>
-      context.become(stateTransitionTasks(chainDownloaderRef, leaderRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor) orElse super.receive)
+    case InitWithActorRefs(chainDownloaderRef,
+                              leaderRef,
+                              messageRouter,
+                              txRouter,
+                              blockChainSyncerActor,
+                              blockChainActor,
+                              txForwarder) =>
+
+      context.become(stateTransitionTasks(chainDownloaderRef,
+        leaderRef,
+        messageRouter,
+        txRouter,
+        blockChainSyncerActor,
+        blockChainActor,
+        txForwarder) orElse super.receive)
+
   }
 
 
@@ -39,11 +53,13 @@ class AsadoStateMachineActor(thisNodeId: String,
                            messageRouter: ActorRef,
                            txRouter: ActorRef,
                            blockChainSyncerActor: ActorRef,
-                           blockChainActor: ActorRef): Receive = {
+                           blockChainActor: ActorRef,
+                           txForwarder: ActorRef): Receive = {
 
     case  FindTheLeader =>
       log.info("We need to find the leader ...")
       leaderRef ! FindTheLeader
+      txForwarder ! StopAcceptingTransactions
 
     case  swl @ SyncWithLeader(leader) =>
       if(thisNodeId == leader) {
@@ -51,6 +67,7 @@ class AsadoStateMachineActor(thisNodeId: String,
       } else {
         log.info(s"Leader is $leader, begin syncing ... ")
         chainDownloaderRef ! swl
+        txForwarder ! Forward(leader)
       }
 
     case BlockChainStarted(BlockChainUp) => messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
@@ -62,14 +79,13 @@ class AsadoStateMachineActor(thisNodeId: String,
       if(thisNodeId == leader) {
         blockChainActor ! StartBlockChain(self, BlockChainUp)
         messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
-      } else {
-        // ignore for now. Eventually forward them.
       }
 
     case  StopAcceptingTransactions =>
       messageRouter ! UnRegisterRef(MessageKeys.SignedTx, txRouter)
       blockChainActor ! StopBlockChain(self, BlockChainDown)
       log.info("Stop Tx Accept!!")
+
 
     case Connecting => log.info("Connecting!!")
   }
