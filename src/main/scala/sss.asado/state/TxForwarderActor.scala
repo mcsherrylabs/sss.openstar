@@ -2,9 +2,14 @@ package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.agent.Agent
+import block._
+import com.twitter.util.SynchronizedLruMap
+import ledger._
 import sss.asado.MessageKeys
-import sss.asado.network.Connection
+import sss.asado.MessageKeys.decode
 import sss.asado.network.MessageRouter.{Register, UnRegister}
+import sss.asado.network.{Connection, NetworkMessage}
+import sss.asado.util.ByteArrayVarcharOps._
 
 /**
   * Created by alan on 4/1/16.
@@ -14,9 +19,12 @@ case object CancelForward
 
 class TxForwarderActor(thisNodeId: String,
                        connectedPeers: Agent[Set[Connection]],
-                       messageRouter: ActorRef
+                       messageRouter: ActorRef,
+                       clientRefCacheSize: Int
                              ) extends Actor with ActorLogging {
 
+
+  private var txs = new SynchronizedLruMap[String, ActorRef](clientRefCacheSize)
 
   private def noForward: Receive = {
     case Forward(leader) =>
@@ -45,6 +53,41 @@ class TxForwarderActor(thisNodeId: String,
       messageRouter ! UnRegister(MessageKeys.SignedTxNack)
       messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
       context.become(noForward)
+
+
+    case NetworkMessage(MessageKeys.SignedTx, bytes) =>
+      decode(MessageKeys.SignedTx, bytes.toSignedTx) { stx =>
+        txs +=  (stx.txId.toVarChar -> sender())
+        leaderRef ! bytes
+      }
+
+    case NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
+      decode(MessageKeys.SeqSignedTx, bytes.toSeqSignedTx) { seqStx =>
+        seqStx.ordered foreach { stx =>
+          txs += (stx.txId.toVarChar -> sender())
+        }
+        leaderRef ! bytes
+      }
+
+    case NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
+      decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
+        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! bytes)
+
+      }
+
+    case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+      decode(MessageKeys.SignedTxNack, bytes.toTxMessage) { txNack =>
+        txs.get(txNack.txId.toVarChar) map (_ ! bytes)
+        txs -= txNack.txId.toVarChar
+      }
+
+
+
+    case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
+      decode(MessageKeys.AckConfirmTx, bytes.toBlockChainIdTx) { txAck =>
+        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! bytes)
+
+      }
   }
 
   final override def receive = noForward
