@@ -1,11 +1,13 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block.{BlockChainTx, BlockTx, DistributeTx}
+import block.{BlockChainTx, BlockChainTxId, BlockTx, DistributeTx, TxMessage}
 import com.google.common.primitives.Longs
 import ledger.{SignedTx, _}
 import sss.asado.MessageKeys
+import sss.asado.block.serialize.BlockChainTxIdSerializer
 import sss.asado.network.NetworkMessage
+import sss.asado.util.ByteArrayVarcharOps._
 
 import scala.util.{Failure, Success, Try}
 /**
@@ -20,11 +22,11 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
       Try(blockLedger(signedTx)) match {
         case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
           val sendr = sender()
-          sendr ! NetworkMessage(MessageKeys.SignedTxAck, Longs.toByteArray(height))
+          sendr ! NetworkMessage(MessageKeys.SignedTxAck, btx.toId.toBytes)
           writeConfirmActor ! DistributeTx(sendr, btx)
         case Failure(e) => {
-          log.error(e, s"Failed to apply tx! ${e.getMessage}")
-          sender() ! NetworkMessage(MessageKeys.SignedTxNack, e.getMessage.getBytes)
+          log.info(s"Failed to ledger tx! ${signedTx.txId.toVarChar} ${e.getMessage}")
+          sender() ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(signedTx.txId, e.getMessage).toBytes)
         }
       }
     }

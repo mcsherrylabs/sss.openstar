@@ -4,9 +4,10 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import akka.routing.RoundRobinPool
 import sss.ancillary.{Configure, DynConfig}
+import sss.asado.account.NodeIdentity
 import sss.asado.block._
 import sss.asado.console.ConsoleServlet
-import sss.asado.network.NetworkController.BindControllerSettings
+import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
@@ -34,6 +35,7 @@ object Node extends Configure {
     implicit val db = Db(dbConfig)
 
     val settings: BindControllerSettings = DynConfig[BindControllerSettings](nodeConfig.getConfig("bind"))
+    val nodeIdentity = NodeIdentity(nodeConfig)
 
     implicit val actorSystem = ActorSystem("asado-network-node")
     val connectedPeers = Agent[Set[Connection]](Set.empty[Connection])
@@ -58,27 +60,34 @@ object Node extends Configure {
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
 
-    val chainDownloaderRef = actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], ncRef, messageRouter, bc, db))
+    val chainDownloaderRef = actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, ncRef, messageRouter, bc, db))
 
     leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
 
-    val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor], quorum, stateMachine, bc, messageRouter, db))
+    val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor],
+      quorum,
+      blockChainSettings.maxSignatures,
+      stateMachine,
+      bc,
+      messageRouter,
+      db))
 
     val txRouter: ActorRef = actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], blockChainSyncerActor)), "txRouter")
-    val blockChainActor = actorSystem.actorOf(Props(classOf[BlockChainActor], blockChainSettings, bc, txRouter, blockChainSyncerActor, db))
+    val blockChainActor = actorSystem.actorOf(Props(classOf[BlockChainActor], nodeIdentity, blockChainSettings, bc, txRouter, blockChainSyncerActor, db))
 
     blockChainSyncerActor ! InitWithActorRefs(blockChainActor)
 
     stateMachine ! InitWithActorRefs(chainDownloaderRef, leaderActorRef, messageRouter, txRouter, blockChainSyncerActor, blockChainActor)
 
-    ncRef ! InitWithActorRefs()
+    ncRef ! StartNetwork
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
-    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, db)
+    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, bc, db)
 
-    val webServer = ServerLauncher(InitServlet(console, "/console/*"))
+    val webServer = ServerLauncher(nodeConfig.getInt("consoleport"), InitServlet(console, "/console/*"))
     webServer.start
+    println("Http console started...")
 
     sys addShutdownHook( webServer stop )
 

@@ -5,9 +5,11 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
 import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
+import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.network.NetworkController.QuorumLost
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.{QuorumLost, Synced}
+import sss.asado.state.AsadoStateProtocol.{NotSynced, Synced}
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -23,15 +25,17 @@ case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
 case class EnsureConfirms[T](ref: ActorRef, height: Long, t: T, retryCount: Int = 1)
 
 class BlockChainSynchronizationActor(quorum: Int,
+                                     maxSignatures: Int,
                                      stateMachine: ActorRef,
                                      bc: BlockChain with BlockChainTxConfirms,
                                      messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging with ByteArrayComparisonOps {
 
-  val pageResponder = context.actorOf(Props(classOf[TxPageActor], bc))
+  val pageResponder = context.actorOf(Props(classOf[TxPageActor], maxSignatures, bc, db))
 
   messageRouter ! Register(MessageKeys.NackConfirmTx)
   messageRouter ! Register(MessageKeys.AckConfirmTx)
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
+  messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)
 
   private def init: Receive = {
     case InitWithActorRefs(blockChainActor) =>
@@ -67,8 +71,11 @@ class BlockChainSynchronizationActor(quorum: Int,
     case ReDistributeTx(btx) =>
       updateToDatePeers.foreach(_ ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes))
 
-    case DistributeClose(bId @ BlockId(blockheight, numTxs)) =>
-      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, bId.toBytes))
+    case distClose @ DistributeClose(allSigs, BlockId(blockheight, numTxs)) =>
+      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock, distClose.toBytes))
+
+    case distSig @ DistributeSig(blockSignature: BlockSignature) =>
+      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.BlockSig, blockSignature.toBytes))
 
     case NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>
       val sndr = sender()
@@ -99,7 +106,7 @@ class BlockChainSynchronizationActor(quorum: Int,
         val newMap = awaitGroup(sndr).filter { ctx =>
           if (ctx.blockChainTxId == confirm) {
             //Yes. side effects.
-            ctx.client ! NetworkMessage(MessageKeys.AckConfirmTx, bytes)
+            ctx.client ! NetworkMessage(MessageKeys.SignedTxAck, bytes)
             false
           } else true
         } match {
@@ -116,7 +123,7 @@ class BlockChainSynchronizationActor(quorum: Int,
     case Terminated(deadClient) =>
       val newAwaitGroup = awaitGroup.filterNot(kv => kv._1 == deadClient).withDefaultValue(Nil)
       val newPeerSet = updateToDatePeers - deadClient
-      if (newPeerSet.size < quorum) stateMachine ! QuorumLost
+      if (newPeerSet.size < quorum) stateMachine ! NotSynced
       context.become(awaitConfirms(blockChainActor, newPeerSet, newAwaitGroup))
 
     case CommandFailed(lastTxPage) =>
@@ -130,9 +137,12 @@ class BlockChainSynchronizationActor(quorum: Int,
       context watch clientRef
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(blockChainActor, newPeerSet, awaitGroup))
-      if (newPeerSet.size == quorum) stateMachine ! Synced
+      if (newPeerSet.size == quorum) {
+        stateMachine ! Synced
+        blockChainActor ! StartBlockChain(self, lastTxPage)
+      }
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
-      blockChainActor ! StartBlockChain(self, lastTxPage)
+
 
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc

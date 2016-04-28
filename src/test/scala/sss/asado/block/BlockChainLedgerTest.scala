@@ -16,7 +16,7 @@ import scala.util.{Failure, Try}
 class BlockChainLedgerTest extends FlatSpec with Matchers {
 
 
-  implicit val db: Db = Db("DBStorageTest")
+  implicit val db: Db = Db()
   def resetUtxo = db.executeSql("TRUNCATE TABLE utxo")
 
   resetUtxo

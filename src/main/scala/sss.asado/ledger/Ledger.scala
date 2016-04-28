@@ -46,7 +46,7 @@ class Ledger(storage: UTXODBStorage) extends Logging {
 
       var totalOut = 0
       outs.foldLeft(0) { (acc, out) =>
-        require(out.amount >= 0)
+        require(out.amount >= 0, "Out amount *must* be greater than 0")
         totalOut += out.amount
         storage.write(TxIndex(txId, acc), out)
         acc + 1

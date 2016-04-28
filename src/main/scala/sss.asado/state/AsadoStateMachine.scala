@@ -1,17 +1,17 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, FSM}
-import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost}
+import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, QuorumGained, QuorumLost}
 
 
 /**
   * Created by alan on 4/1/16.
   */
 object AsadoStateProtocol {
-  case object QuorumLost
-  case object QuorumGained
+
   case class LeaderFound(leaderId: String)
   case object Synced
+  case object NotSynced
 
   case object FindTheLeader
   case class SyncWithLeader(leader: String)
@@ -45,6 +45,8 @@ trait AsadoStateMachine
     case _ -> QuorumState => self ! FindTheLeader
     case QuorumState -> OrderedState => self ! SyncWithLeader(nextStateData.get)
     case OrderedState -> ReadyState => self ! AcceptTransactions(nextStateData.get)
+    case ReadyState -> OrderedState =>
+      self ! StopAcceptingTransactions
     case ReadyState -> ConnectingState =>
       self ! StopAcceptingTransactions
       self ! Connecting
@@ -60,7 +62,7 @@ trait AsadoStateMachine
   }
 
   when(ReadyState) {
-    case Event(QuorumLost, _) => goto(ConnectingState) using None
+    case Event(NotSynced, _) => goto(OrderedState)
   }
 
   whenUnhandled {

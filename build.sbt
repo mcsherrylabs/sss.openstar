@@ -1,4 +1,8 @@
-enablePlugins(JavaAppPackaging)
+enablePlugins(JavaAppPackaging, DockerPlugin)
+
+dockerEntrypoint := Seq("/opt/docker/bin/node")
+
+dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079)
 
 scalacOptions += "-target:jvm-1.8"
 
@@ -32,6 +36,8 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.21"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.1"
 
+libraryDependencies += "mcsherrylabs.com" %% "sss-asado-network" % "0.7"
+
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-agent" % "2.4.+"
@@ -47,3 +53,4 @@ libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 libraryDependencies += "org.eclipse.jetty.aggregate" % "jetty-all-server" % "8.1.18.v20150929"
 
 mainClass in Compile := Some("sss.asado.Node")
+

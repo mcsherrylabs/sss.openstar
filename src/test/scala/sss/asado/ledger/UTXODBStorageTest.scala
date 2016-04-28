@@ -18,7 +18,7 @@ class UTXODBStorageTest extends FlatSpec with Matchers {
   val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey)),
     TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
 
-  implicit val db = Db("DBStorageTest")
+  implicit val db = Db()
   val r = db.executeSql("TRUNCATE TABLE utxo;")
   println(s"Got $r from sql")
   val dbStorage = new UTXODBStorage

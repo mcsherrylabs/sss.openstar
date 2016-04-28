@@ -1,10 +1,14 @@
 package sss.asado.block.serialize
 
 import block._
+import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.ledger.serialize.SignedTxTest
 import sss.asado.util.SeedBytes
+
+import scala.util.Random
 
 /**
   * Created by alan on 2/15/16.
@@ -45,7 +49,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "An Block chain Tx id " should " be corrrectly serialised and deserialized " in {
+  "A Block chain Tx id " should " be corrrectly serialised and deserialized " in {
     val c = BlockChainTxId(height, BlockTxId(stx.txId, 34))
     val asBytes = c.toBytes
     val backAgain = asBytes.toBlockChainIdTx
@@ -116,5 +120,51 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain.index === c.index)
     assert(backAgain.blockHeight === c.blockHeight)
     assert(backAgain === c)
+  }
+
+  "A block signature " should " be corrrectly serialised and deserialized " in {
+    val pk = SeedBytes(Random.nextInt(200))
+    val sig = SeedBytes(Random.nextInt(200))
+    val sig2 = SeedBytes(Random.nextInt(200))
+    val c = BlockSignature(23, new DateTime(), 45, "mycrazynode", pk, sig)
+    val asBytes = c.toBytes
+    val backAgain = asBytes.toBlockSignature
+    assert(backAgain == c)
+    assert(backAgain.index == c.index)
+    assert(backAgain.savedAt == c.savedAt)
+    assert(backAgain.hashCode() === c.hashCode())
+    val c2 = BlockSignature(23, new DateTime(), 45, "mycrazynode", pk, sig2)
+    assert(c !== c2)
+    assert(c.hashCode() !== c2.hashCode())
+    assert(backAgain !== c2)
+  }
+
+  "A tx message " should " be corrrectly serialised and deserialized " in {
+    val txId = SeedBytes(Random.nextInt(50))
+    val msg = TxMessage(txId, "Here we are now, entertain us, here we are now...")
+    val asBytes = msg.toBytes
+    val recovered = asBytes.toTxMessage
+    assert(recovered.msg === msg.msg)
+    assert(recovered.txId === msg.txId)
+    assert(recovered.hashCode() === msg.hashCode())
+    assert(recovered === msg)
+
+  }
+  "A block signature close block " should " be corrrectly serialised and deserialized " in {
+
+    val sig2 = SeedBytes(Random.nextInt(200))
+    val allSigs = (0 to 10) map { i =>
+      val pk = SeedBytes(Random.nextInt(200))
+      val sig = SeedBytes(Random.nextInt(200))
+      BlockSignature(i, new DateTime(), 45 * i, s"${i}mycrazynode", pk, sig)
+    }
+    val bId = BlockId(222, 3433)
+
+    val distClose = DistributeClose(allSigs, bId)
+    val asBytes = distClose.toBytes
+    val backAgain = asBytes.toDistributeClose
+    assert(distClose.blockSigs.size === backAgain.blockSigs.size)
+    assert(distClose.blockId === backAgain.blockId)
+    assert(distClose === backAgain)
   }
 }

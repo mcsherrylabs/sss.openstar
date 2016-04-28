@@ -2,7 +2,7 @@
 <configuration>
 
     <appender name="ERRFILE" class="ch.qos.logback.core.FileAppender">
-        <file>asado.log</file>
+        <file>${nodeId:-node}-asado.log</file>
         <append>true</append>
         <encoder>
             <pattern>%date{MM/dd HH:mm:ss} %-5level[%.15thread] %logger{1} %msg%n</pattern>

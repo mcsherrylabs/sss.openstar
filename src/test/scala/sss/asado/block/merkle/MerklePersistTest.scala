@@ -16,7 +16,7 @@ class MerklePersistTest extends FlatSpec with Matchers {
 //  implicit def hash(a:mutable.WrappedArray[Byte], b: mutable.WrappedArray[Byte]): mutable.WrappedArray[Byte] =
 //    FastCryptographicHash.hash(a.array) ++ FastCryptographicHash.hash(b.array)
 
-  implicit val db: Db = Db("DBStorageTest")
+  implicit val db: Db = Db()
 
   import MerklePersist._
 

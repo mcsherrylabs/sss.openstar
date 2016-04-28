@@ -17,7 +17,7 @@ import sss.db.Db
 object BlockTestSpec {
   lazy val pkPair = PrivateKeyAccount()
 
-  implicit val db = Db("DBStorageTest")
+  implicit val db = Db()
   val someBlock = Block(99)
   val block999 = Block(999)
   lazy val genisis = SignedTx((GenisesTx(outs = Seq(TxOutput(100, SinglePrivateKey(pkPair.publicKey))))))
