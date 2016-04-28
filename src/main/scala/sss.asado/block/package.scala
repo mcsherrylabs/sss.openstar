@@ -1,4 +1,6 @@
 
+import java.util
+
 import akka.actor.ActorRef
 import com.google.common.primitives.Longs
 import ledger.{SignedTx, TxId}
@@ -18,6 +20,18 @@ package object block {
   case class BlockTx(index: Long, signedTx: SignedTx)
   case class BlockChainTx(height: Long, blockTx: BlockTx) {
     def toId: BlockChainTxId = BlockChainTxId(height, BlockTxId(blockTx.signedTx.txId, blockTx.index))
+  }
+
+  case class TxMessage(txId: TxId, msg: String) extends ByteArrayComparisonOps {
+    override def equals(obj: scala.Any): Boolean = obj match {
+      case txMsg: TxMessage => txMsg.msg == msg &&
+        txMsg.txId.isSame(txId)
+
+      case _ => false
+    }
+    override def hashCode(): Int = util.Arrays.hashCode(txId) + msg.hashCode
+
+    override def toString: String = s"${txId.toVarChar} $msg"
   }
 
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
@@ -129,5 +143,12 @@ package object block {
   }
   implicit class DistributeCloseFrom(b: Array[Byte]) {
     def toDistributeClose: DistributeClose = DistributeCloseSerializer.fromBytes(b)
+  }
+
+  implicit class TxMessageTo(t: TxMessage) extends ToBytes[TxMessage] {
+    override def toBytes: Array[Byte] = TxMessageSerializer.toBytes(t)
+  }
+  implicit class TxMessageFrom(b: Array[Byte]) {
+    def toTxMessage: TxMessage = TxMessageSerializer.fromBytes(b)
   }
 }

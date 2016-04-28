@@ -65,8 +65,8 @@ object Node extends Configure {
     leaderActorRef ! InitWithActorRefs(ncRef, stateMachine)
 
     val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor],
-      blockChainSettings.maxSignatures,
       quorum,
+      blockChainSettings.maxSignatures,
       stateMachine,
       bc,
       messageRouter,
@@ -83,7 +83,7 @@ object Node extends Configure {
 
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
-    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, db)
+    val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, bc, db)
 
     val webServer = ServerLauncher(nodeConfig.getInt("consoleport"), InitServlet(console, "/console/*"))
     webServer.start

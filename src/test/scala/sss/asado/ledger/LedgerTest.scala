@@ -12,7 +12,7 @@ import sss.db.Db
 class LedgerTest extends FlatSpec with Matchers {
 
 
-  implicit val db: Db = Db("DBStorageTest")
+  implicit val db: Db = Db()
   db.executeSql("TRUNCATE TABLE utxo ")
   val genisis = GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance), TxOutput(100, NullEncumbrance)))
   val ledger = Ledger()

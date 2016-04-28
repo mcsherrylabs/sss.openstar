@@ -1,56 +1,61 @@
 package sss.asado.client
 
-import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.agent.Agent
-import com.typesafe.config.Config
-import sss.asado.BaseClient
+import sss.asado.{BaseClient, ClientContext}
 import sss.asado.account.ClientKey
-import sss.asado.client.wallet.WalletPersistence
-import sss.asado.network.NetworkController.BindControllerSettings
-import sss.asado.network._
-import sss.db.Db
+import sss.asado.client.wallet.{Wallet}
 
+
+import scala.util.{Try, Failure, Success}
+import scala.annotation.tailrec
+import scala.concurrent.duration._
+import scala.concurrent.Await
 import scala.language.{implicitConversions, postfixOps}
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-
-
 object TxClient extends BaseClient {
 
-  override protected def run(settings: BindControllerSettings,
-                             actorSystem: ActorSystem,
-                             peerList: Set[NodeId],
-                             connectedPeers: Agent[Set[Connection]],
-                             messageRouter: ActorRef,
-                             ncRef: ActorRef,
-                             nodeConfig: Config,
-                             args: Array[String],
-                             db: Db
-                            ): Unit = {
+  override protected def run(context:ClientContext): Unit = {
 
-    val wallet = new WalletPersistence(db)
-
-    val pka = args match {
-      case Array(clientName) => ClientKey(clientName)
+    val (pka, wallet) = context.args match {
+      case Array(clientName) =>
+        val pka = ClientKey(clientName)
+        (pka, Wallet(context, pka))
       case Array(clientName, unspentTxIdVarChar, unspentIndex, amount) =>
-        val added = wallet.addUnspent(unspentTxIdVarChar, unspentIndex.toInt, amount.toInt)
-
-        ClientKey(clientName)
+        val pka = ClientKey(clientName)
+        val w = Wallet(context, pka)
+        import w.toTxIndexFromStrings
+        w.accept((unspentTxIdVarChar, unspentIndex), amount.toInt)
+        (pka, w)
     }
 
-
-    val ref = actorSystem.actorOf(Props(classOf[WalletActor], args,peerList: Set[NodeId],
-      connectedPeers: Agent[Set[Connection]], messageRouter, ncRef))
-
-    while (connectedPeers().size == 0) {
-      println("Waiting for connection...")
-      Thread.sleep(1111)
+    @tailrec
+    def spendAllInOnes(balance: Int): Unit = {
+      log.info(s"Balance is $balance")
+      if(balance > 0) {
+        val f = wallet.send(1, pka.publicKey)
+        Try(Await.result(f, 1 minute)) match {
+          case Failure(e) => log.info("Timeout spending money", e)
+          case Success(s) => log.info(s"successfully spent $s")
+        }
+        spendAllInOnes(balance - 1)
+      }
     }
 
-    peerList.foreach(e => println(s"Connected $e"))
+    def spendAll: Unit = {
+      if(wallet.balance > 0) {
+        spendAllInOnes(wallet.balance)
+        //Thread.sleep(1000)
+        //spendAll
+      } else Thread.sleep(5000)
+    }
+
+    log.info(s"Wallet balance ${wallet.balance}")
+    try {
+      spendAll
+    } finally {wallet.close(5 seconds)}
 
   }
 }

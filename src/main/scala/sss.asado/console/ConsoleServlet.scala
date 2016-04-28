@@ -1,10 +1,13 @@
 package sss.asado.console
 
 import java.net.InetSocketAddress
+import javax.xml.bind.DatatypeConverter
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.agent.Agent
-import sss.asado.block.Block
+import contract.NullEncumbrance
+import ledger.{GenisesTx, TxIndex, TxOutput}
+import sss.asado.block.{Block, BlockChain, BlockChainLedger, BlockChainTxConfirms}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger.Ledger
 import sss.asado.network.NetworkController.ConnectTo
@@ -26,6 +29,7 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
                      peerList: Agent[Set[Connection]],
                      system: ActorSystem,
                      ncRef: ActorRef,
+                     bc: BlockChain with BlockChainTxConfirms,
                      implicit val db: Db) extends BaseConsoleServlet {
 
   val remote = system.actorSelection("akka.tcp://default@127.0.0.1:2577/user/uiReactorBroadcastEndpoint")
@@ -47,8 +51,20 @@ class ConsoleServlet(args: Array[String], msgRouter: ActorRef,
       }
     },
     "block" -> new Cmd {
+      override def help = s"block <block height> <start index> <end index>"
       override def apply(params: Seq[String]): Seq[String] = {
-        Block(params.head.toLong).entries.map(_.toString)
+        Block(params.head.toLong).entries.map(_.toString).slice(params(1).toInt, params(2).toInt) :+ "...End"
+      }
+    },
+    "genesis" -> new Cmd {
+      override def help: String = s"genesis <amount of free money to add in future block>"
+      override def apply(params: Seq[String]): Seq[String] = {
+        val gx = GenisesTx(outs = Seq(TxOutput(params.head.toInt, NullEncumbrance)))
+        val blockChainLedger = BlockChainLedger(bc.lastBlockHeader.height + 3)
+        val txDbId = blockChainLedger.genesis(gx)
+        bc.confirm(txDbId.toId)
+        val gId = utxos.entry(TxIndex(gx.txId, 0)) map (_.toString)
+        Seq(gId.get)
       }
     },
     "connectpeer" -> new Cmd {

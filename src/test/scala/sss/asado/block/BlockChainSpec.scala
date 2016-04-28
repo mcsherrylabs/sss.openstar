@@ -15,7 +15,7 @@ class BlockChainSpec extends FlatSpec with Matchers {
   val merkleRoot= "12345678123456781234567812345678".getBytes
   val prevHash = "12345678123456781234567812345678".getBytes
 
-  implicit val db = Db("DBStorageTest")
+  implicit val db = Db()
   val bc = new BlockChainImpl()
 
   var genBlk: BlockHeader = _

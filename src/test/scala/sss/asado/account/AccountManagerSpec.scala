@@ -9,7 +9,7 @@ import sss.db.Db
   */
 class AccountManagerSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
-  implicit val db = Db("DBStorageTest")
+  implicit val db = Db()
   val myNode= "myNode"
   val key1 = PrivateKeyAccount().publicKey
 

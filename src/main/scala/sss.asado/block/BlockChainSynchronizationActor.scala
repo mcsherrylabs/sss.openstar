@@ -9,7 +9,7 @@ import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
 import sss.asado.network.NetworkController.QuorumLost
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.Synced
+import sss.asado.state.AsadoStateProtocol.{NotSynced, Synced}
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -106,7 +106,7 @@ class BlockChainSynchronizationActor(quorum: Int,
         val newMap = awaitGroup(sndr).filter { ctx =>
           if (ctx.blockChainTxId == confirm) {
             //Yes. side effects.
-            ctx.client ! NetworkMessage(MessageKeys.AckConfirmTx, bytes)
+            ctx.client ! NetworkMessage(MessageKeys.SignedTxAck, bytes)
             false
           } else true
         } match {
@@ -123,7 +123,7 @@ class BlockChainSynchronizationActor(quorum: Int,
     case Terminated(deadClient) =>
       val newAwaitGroup = awaitGroup.filterNot(kv => kv._1 == deadClient).withDefaultValue(Nil)
       val newPeerSet = updateToDatePeers - deadClient
-      if (newPeerSet.size < quorum) stateMachine ! QuorumLost
+      if (newPeerSet.size < quorum) stateMachine ! NotSynced
       context.become(awaitConfirms(blockChainActor, newPeerSet, newAwaitGroup))
 
     case CommandFailed(lastTxPage) =>
@@ -137,9 +137,12 @@ class BlockChainSynchronizationActor(quorum: Int,
       context watch clientRef
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(blockChainActor, newPeerSet, awaitGroup))
-      if (newPeerSet.size == quorum) stateMachine ! Synced
+      if (newPeerSet.size == quorum) {
+        stateMachine ! Synced
+        blockChainActor ! StartBlockChain(self, lastTxPage)
+      }
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
-      blockChainActor ! StartBlockChain(self, lastTxPage)
+
 
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc

@@ -9,7 +9,7 @@ import sss.db.Db
   */
 class BlockSignatureSpec  extends FlatSpec with Matchers {
 
-  implicit val db: Db = Db("DBStorageTest")
+  implicit val db: Db = Db()
 
   "A Block Sig" should " be persisted " in {
     BlockSignatures(2).add(SeedBytes(50), SeedBytes(90), "someNodeId")

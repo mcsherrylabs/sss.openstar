@@ -62,7 +62,7 @@ trait AsadoStateMachine
   }
 
   when(ReadyState) {
-    case Event(NotSynced, _) => goto(OrderedState) using None
+    case Event(NotSynced, _) => goto(OrderedState)
   }
 
   whenUnhandled {

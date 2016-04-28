@@ -139,6 +139,17 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain !== c2)
   }
 
+  "A tx message " should " be corrrectly serialised and deserialized " in {
+    val txId = SeedBytes(Random.nextInt(50))
+    val msg = TxMessage(txId, "Here we are now, entertain us, here we are now...")
+    val asBytes = msg.toBytes
+    val recovered = asBytes.toTxMessage
+    assert(recovered.msg === msg.msg)
+    assert(recovered.txId === msg.txId)
+    assert(recovered.hashCode() === msg.hashCode())
+    assert(recovered === msg)
+
+  }
   "A block signature close block " should " be corrrectly serialised and deserialized " in {
 
     val sig2 = SeedBytes(Random.nextInt(200))

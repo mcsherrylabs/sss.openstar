@@ -3,7 +3,7 @@ package sss.asado
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import com.typesafe.config.Config
-import sss.ancillary.{Configure, DynConfig}
+import sss.ancillary.{Configure, DynConfig, Logging}
 import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.db.Db
@@ -11,12 +11,22 @@ import sss.db.Db
 import scala.collection.JavaConversions._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-trait BaseClient extends Configure  {
+case class ClientContext(  args: Array[String],
+                           actorSystem: ActorSystem,
+                           connectPeers: Agent[Set[Connection]],
+                           peers: Set[NodeId],
+                           messageRouter: ActorRef,
+                           networkController: ActorRef,
+                           nodeConfig: Config,
+                          implicit val db: Db)
+
+trait BaseClient extends Configure with Logging {
 
 
   def main(args: Array[String]) {
@@ -40,25 +50,27 @@ trait BaseClient extends Configure  {
 
     val netInf = new NetworkInterface(settings, uPnp)
 
-    val stateMachine = actorSystem.actorOf(Props[DumbMachine])
+    val stateMachine = createStateMachine(actorSystem, messageRouter, peersList)
 
     val ncRef = actorSystem.actorOf(Props(classOf[NetworkController], messageRouter, netInf, peersList, connectedPeers, stateMachine))
 
     ncRef ! StartNetwork
 
-    run(settings, actorSystem, peersList, connectedPeers, messageRouter, ncRef, nodeConfig, args, db)
+    Try {
+      run(ClientContext(args, actorSystem, connectedPeers, peersList, messageRouter, networkController = ncRef, nodeConfig, db))
+    } match {
+      case Success(_) => log.info("client terminating normally")
+      case Failure(e) => log.error("Client terminating! ", e)
+    }
+    actorSystem.terminate()
 
   }
 
-  protected def run(settings: BindControllerSettings,
-                    actorSystem: ActorSystem,
-                    peersList: Set[NodeId],
-                    connectedPeers :Agent[Set[Connection]],
-                    messageRouter: ActorRef,
-                    ncRef: ActorRef,
-                    nodeConfig: Config,
-                    args: Array[String],
-                    db: Db)
+  protected def createStateMachine(actorSystem: ActorSystem,
+    messageRouterRef: ActorRef,
+    peers: Set[NodeId]): ActorRef =  actorSystem.actorOf(Props[DumbMachine])
+
+  protected def run(context: ClientContext)
 }
 
 class DumbMachine extends Actor with ActorLogging {
