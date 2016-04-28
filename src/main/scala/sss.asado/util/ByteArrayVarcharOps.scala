@@ -7,6 +7,9 @@ import javax.xml.bind.DatatypeConverter
   */
 object ByteArrayVarcharOps {
 
+  //implicit def toByteAry(hex:String): Array[Byte] = DatatypeConverter.parseHexBinary(hex)
+  //implicit def tovarChar(bs: Array[Byte]): String = DatatypeConverter.printHexBinary(bs)
+
   implicit class ByteArrayToVarChar(bs: Array[Byte]) {
     def toVarChar: String = DatatypeConverter.printHexBinary(bs)
   }

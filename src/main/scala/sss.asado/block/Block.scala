@@ -46,7 +46,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     s"txid VARCHAR(64) NOT NULL, entry BLOB, " +
     s"committed BOOLEAN DEFAULT FALSE NOT NULL, " +
     s"confirm INT DEFAULT 0, " +
-    s"PRIMARY KEY(id), UNIQUE(txid))")
+    s"PRIMARY KEY(id), UNIQUE(txid));")
 
 
   private val blockTxTable = db.table(tableName)

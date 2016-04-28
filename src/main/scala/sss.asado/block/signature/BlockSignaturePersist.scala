@@ -1,19 +1,68 @@
 package sss.asado.block.signature
 
+
+import java.sql.SQLIntegrityConstraintViolationException
+import java.util
+
 import org.joda.time.DateTime
-import scorex.crypto.signatures.SigningFunctions.{PublicKey, Signature}
-import sss.db.{Db, Where}
+import scorex.crypto.signatures.SigningFunctions._
+import sss.db.{Db, OrderAsc, Row, Where}
+
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 4/1/16.
   */
-
 trait BlockSignatures {
-  def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String)
+  import BlockSignatures._
+  def signatures(maxToReturn: Int): Seq[BlockSignature]
+  def write(blkSig: BlockSignature): BlockSignature
+  def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String): BlockSignature
   def indexOfBlockSignature(nodeId: String): Option[Int]
 }
 
 object BlockSignatures {
+
+  import sss.asado.util.ByteArrayComparisonOps._
+  import sss.asado.util.ByteArrayVarcharOps._
+
+  case class BlockSignature(index: Int,
+                            savedAt: DateTime,
+                            height: Long,
+                            nodeId: String,
+                            publicKey: PublicKey,
+                            signature: Signature)  {
+    val asMap = Map(id -> index,
+      created_dt_str -> savedAt.getMillis,
+      signature_str -> signature,
+      public_key_str -> publicKey,
+      nodeId_str -> nodeId
+      )
+
+    override def equals(obj: scala.Any): Boolean = obj match {
+      case blkSig: BlockSignature => blkSig.height == height &&
+        blkSig.nodeId == nodeId &&
+        blkSig.index == index &&
+        blkSig.savedAt == savedAt &&
+        blkSig.publicKey.isSame(publicKey) &&
+        blkSig.signature.isSame(signature)
+      case _ => false
+    }
+    override def toString: String = s"Index: $index, " +
+      s"SavedAt: $savedAt, " +
+      s"Height: $height, NodeId: $nodeId, " +
+      s"PK:${publicKey.toVarChar}, " +
+      s"Sig: ${signature.toVarChar}"
+
+
+    override def hashCode(): Int =
+      height.hashCode() +
+        nodeId.hashCode +
+        index.hashCode() +
+        savedAt.hashCode() +
+        util.Arrays.hashCode(publicKey) +
+        util.Arrays.hashCode(signature)
+  }
 
   private val id = "id"
   private val nodeId_str = "nodeId"
@@ -43,17 +92,45 @@ object BlockSignatures {
       db.table(tableName)
     }
 
+    /**
+      *
+      * @param blkSig
+      * @return
+      */
+    override def write(blkSig: BlockSignature): BlockSignature = {
+      require(height == blkSig.height, "Trying to save a signature into the wrong block.")
+      Try(table.insert(blkSig.asMap)) match {
+        case Failure(e : SQLIntegrityConstraintViolationException) => apply(table.get(blkSig.index).get)
+        case Failure(e) => throw e
+        case Success(row) => apply(row)
+      }
+    }
+
     override def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {
-      table.insert(Map(nodeId_str -> nodeId,
+      apply(table.insert(Map(nodeId_str -> nodeId,
         created_dt_str -> DateTime.now.getMillis,
         signature_str -> signature,
         public_key_str -> signersPublicKey
-      ))
+      )))
     }
 
     override def indexOfBlockSignature(nodeId: String): Option[Int] = {
       table.find(Where(s"$nodeId_str = ?", nodeId)) map( r => r[Int](id))
     }
+
+    override def signatures(maxToReturn: Int): Seq[BlockSignature] = {
+      table.page(0, maxToReturn, Seq(OrderAsc(id))) map (apply)
+    }
+
+    def apply(row: Row): BlockSignature =
+      BlockSignature(row[Int](id),
+        new DateTime(row[Long](created_dt_str)),
+        height,
+        row(nodeId_str),
+        row[Array[Byte]](public_key_str),
+        row[Array[Byte]](signature_str)
+      )
+
 
   }
 }

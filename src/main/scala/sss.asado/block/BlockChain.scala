@@ -6,10 +6,11 @@ import block.{BlockChainTx, BlockChainTxId}
 import com.twitter.util.SynchronizedLruMap
 import scorex.crypto.signatures.SigningFunctions.{PublicKey, Signature}
 import sss.ancillary.Logging
-import sss.asado.account.{MasterKey, PublicKeyAccount}
+import sss.asado.account.PublicKeyAccount
 import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
 import sss.asado.block.signature.BlockSignatures
+import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.db.{Db, Where}
 
 import scala.collection.mutable
@@ -20,9 +21,7 @@ trait BlockChainGenesis {
 
 trait BlockChainSignatures {
   this : BlockChain =>
-  def sign(blockHeight: Long): Unit = sign(blockHeader(blockHeight))
-  def sign(blockHeader: BlockHeader): Signature
-  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String): Unit
+  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String): BlockSignature
   def indexOfBlockSignature(height: Long, nodeId: String): Option[Int]
 }
 
@@ -112,20 +111,22 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
     }
   }
 
-  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String): Unit = {
+  def addSignature(height: Long, signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {
     blockHeaderOpt(height) match {
       case None => throw new IllegalArgumentException(s"No block exists of height $height")
-      case Some(bh) => {
+      case Some(bh) =>
         if(!PublicKeyAccount(signersPublicKey).verify(signature, bh.hash)) {
           throw new IllegalArgumentException(s"The signature does not match the blockheader (height-$height)")
         }
-        BlockSignatures(height).add(signature, signersPublicKey, nodeId)
-      }
+        BlockSignatures(height).indexOfBlockSignature(nodeId) match {
+          case None =>
+            BlockSignatures(height).add(signature, signersPublicKey, nodeId)
+          case Some(indx) =>
+            log.warn(s"Already have sig from ${nodeId} at index $indx")
+            BlockSignatures(height).signatures(indx + 1)(indx)
+        }
     }
-
   }
-
-  def sign(blockHeader: BlockHeader) = MasterKey.account.sign(blockHeader.hash)
 
   def indexOfBlockSignature(height: Long, nodeId: String): Option[Int] = BlockSignatures(height).indexOfBlockSignature(nodeId)
 

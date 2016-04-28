@@ -5,6 +5,8 @@ import java.util.Date
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import block.{BlockId, DistributeClose}
+import sss.asado.account.NodeIdentity
+import sss.asado.block.signature.BlockSignatures
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,6 +22,7 @@ trait BlockChainSettings {
   val inflationRatePerBlock: Int
   val maxTxPerBlock: Int
   val maxBlockOpenSecs: Int
+  val maxSignatures: Int
 }
 
 case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])
@@ -46,8 +49,9 @@ case object AcknowledgeNewLedger
   * @param blockChainSyncingActor
   * @param db
   */
-class BlockChainActor(blockChainSettings: BlockChainSettings,
-                      bc: BlockChain with BlockChainTxConfirms,
+class BlockChainActor(nodeIdentity: NodeIdentity,
+                      blockChainSettings: BlockChainSettings,
+                      bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef
                       )(implicit db: Db) extends Actor with ActorLogging {
@@ -164,8 +168,15 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
       log.info(s"About to close block ${lastClosedBlock.height + 1}")
       Try(bc.closeBlock(lastClosedBlock)) match {
         case Success(newLastBlock) =>
+
+          val sig = BlockSignatures(newLastBlock.height).add(
+            nodeIdentity.sign(newLastBlock.hash),
+              nodeIdentity.publicKey,
+            nodeIdentity.id)
+
+          BlockSignatures(newLastBlock.height).signatures(blockChainSettings.maxSignatures)
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
-          blockChainSyncingActor ! DistributeClose(BlockId(newLastBlock.height, newLastBlock.numTxs))
+          blockChainSyncingActor ! DistributeClose(Seq(sig), BlockId(newLastBlock.height, newLastBlock.numTxs))
           context.become(handleRouterDeath orElse waiting(newLastBlock))
           startTimer(secondsToWait(newLastBlock.time))
         case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
@@ -182,6 +193,7 @@ class BlockChainActor(blockChainSettings: BlockChainSettings,
     }
 
     case StartBlockChain(ref, any) => ref ! BlockChainStarted(any)
+
     case sbc @ StopBlockChain(ref, any) =>
       log.info("Attempting to stop blockchain")
       cancellable map (_.cancel())

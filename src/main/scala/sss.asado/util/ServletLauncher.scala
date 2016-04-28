@@ -1,5 +1,6 @@
 package sss.asado.util
 
+import java.net.InetSocketAddress
 import javax.servlet.Servlet
 
 import org.eclipse.jetty.server.Server
@@ -13,19 +14,21 @@ import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
 case class InitServlet(servletCls: Servlet, path: String)
 
 object ServerLauncher {
-  def apply(servletClasses : InitServlet*) : ServerLauncher = new ServerLauncher(7676, "/", "./", servletClasses: _*)
+  def apply(addr: InetSocketAddress, servletClasses : InitServlet*) : ServerLauncher = new ServerLauncher(new Server(addr), "/", "./", servletClasses: _*)
+  def apply(port: Int, servletClasses : InitServlet*) : ServerLauncher = new ServerLauncher(new Server(port), "/", "./", servletClasses: _*)
 }
 
-class ServerLauncher(port: Int, contextPath: String, resourceBase: String, servletClasses : InitServlet*)  {
+class ServerLauncher(server: Server, contextPath: String, resourceBase: String, servletClasses : InitServlet*)  {
 
-  val server: Server = new Server(port)
   private val context: ServletContextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS)
 
   context.setContextPath(contextPath)
   context.setResourceBase(resourceBase)
+
   server.setHandler(context)
 
   servletClasses foreach { init => context.addServlet(new ServletHolder(init.servletCls), init.path) }
+
 
   server.setGracefulShutdown(3000)
   server.setStopAtShutdown(true)

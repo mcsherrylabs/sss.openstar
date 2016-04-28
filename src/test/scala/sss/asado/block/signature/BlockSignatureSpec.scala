@@ -24,6 +24,12 @@ class BlockSignatureSpec  extends FlatSpec with Matchers {
     assert(BlockSignatures(22).indexOfBlockSignature("NEVERADDED").isEmpty)
   }
 
+  it should " re write a sig correctly " in {
+    val sigAdded = BlockSignatures(3).add(SeedBytes(50), SeedBytes(90), "someNodeId")
+    val sigRewritten = BlockSignatures(3).write(sigAdded)
+    assert(sigAdded === sigRewritten)
+  }
+
   it should " retrieve the correct index for signatures " in {
     (0 to 10) foreach  { i =>
       BlockSignatures(4).add(SeedBytes(50), SeedBytes(90), s"nodeId$i")
@@ -34,6 +40,14 @@ class BlockSignatureSpec  extends FlatSpec with Matchers {
       assert(BlockSignatures(4).indexOfBlockSignature(s"nodeId$i").get  === i+1)
     }
 
+  }
 
+  it should " retrieve only the specified number of signatures but in order " in {
+    (0 to 10) foreach  { i =>
+      BlockSignatures(5).add(SeedBytes(50), SeedBytes(90), s"nodeId$i")
+    }
+    val returned = BlockSignatures(5).signatures(5)
+    assert(returned.size === 5)
+    for(i <- returned.indices) {assert(returned(i).index === i+1)}
   }
 }

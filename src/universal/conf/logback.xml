@@ -2,7 +2,7 @@
 <configuration>
 
     <appender name="ERRFILE" class="ch.qos.logback.core.FileAppender">
-        <file>asado.log</file>
+        <file>logs/asado.log</file>
         <append>true</append>
         <encoder>
             <pattern>%date{MM/dd HH:mm:ss} %-5level[%.15thread] %logger{1} %msg%n</pattern>
@@ -12,12 +12,12 @@
         </filter>
     </appender>
 
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <!--appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.out</target>
         <encoder>
             <pattern>[%thread] >> [%-5level] %logger{36} >> %d{HH:mm:ss.SSS} %msg%n</pattern>
         </encoder>
-    </appender>
+    </appender-->
 
     <root>
         <appender-ref ref="ERRFILE"/>

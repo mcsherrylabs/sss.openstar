@@ -9,6 +9,7 @@ import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import org.scalatest._
 import sss.asado.StopSystemAfterAll
+import sss.asado.network.NetworkController.{QuorumGained, QuorumLost}
 import sss.asado.state.AsadoState._
 import sss.asado.state.AsadoStateProtocol._
 

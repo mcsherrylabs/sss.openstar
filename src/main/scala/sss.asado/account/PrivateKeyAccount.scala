@@ -3,8 +3,7 @@ package sss.asado.account
 import scorex.crypto.signatures.SigningFunctions._
 import sss.asado.util.{EllipticCurveCrypto, SeedBytes}
 
-case class PrivateKeyAccount(
-                             privateKey: Array[Byte],
+case class PrivateKeyAccount(privateKey: Array[Byte],
                              override val publicKey: Array[Byte])
   extends PublicKeyAccount(publicKey) {
   override val address = Account.fromPubkey(publicKey)
