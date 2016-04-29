@@ -1,10 +1,11 @@
 # sss.asado
-A Scala Based Distributed Ledger
+Scala Based DLT 
 
 [![Build Status](https://travis-ci.org/mcsherrylabs/sss.asado.svg?branch=master)](https://travis-ci.org/mcsherrylabs/sss.asado)   [![Coverage Status](https://coveralls.io/repos/github/mcsherrylabs/sss.asado/badge.svg?branch=master)](https://coveralls.io/github/mcsherrylabs/sss.asado?branch=master)
 
 ## A functioning blockchain with near instant confirmation.
 
+This documentation is out of date. Sry.
 Consensus? What consensus? This is a centralised but replicated network ledger with cooperating nodes. There is no spoon.
 
 Nodes have peers, when over half the peers are connected, a leader is elected based on who has the latest transactions.When the other nodes in the cluster are synched transactions are accepted.
