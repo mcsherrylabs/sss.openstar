@@ -24,6 +24,7 @@ case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
 case class EnsureConfirms[T](ref: ActorRef, height: Long, t: T, retryCount: Int = 1)
 
 class BlockChainSynchronizationActor(quorum: Int,
+                                     maxTxPerBlock: Int,
                                      maxSignatures: Int,
                                      stateMachine: ActorRef,
                                      bc: BlockChain with BlockChainTxConfirms,
@@ -50,8 +51,8 @@ class BlockChainSynchronizationActor(quorum: Int,
         upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx,btx.toBytes)
         upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, btx.toId))
       }
-
       context.become(awaitConfirms(blockChainActor, updateToDatePeers, updateToDatePeers.map(toMapElement).toMap.withDefaultValue(Nil)))
+      if(index + 1 == maxTxPerBlock) blockChainActor ! MaxBlockSizeOrOpenTimeReached
 
     case ensuresConfirms @ EnsureConfirms(replyTo, height, msg, retryCount) =>
       bc.getUnconfirmed(height, updateToDatePeers.size) match {
@@ -63,7 +64,6 @@ class BlockChainSynchronizationActor(quorum: Int,
           context.system.scheduler.scheduleOnce(
             FiniteDuration(retryCount * 2, SECONDS ),
             self, ensuresConfirms.copy(retryCount = retryCount + 1))
-
 
       }
 

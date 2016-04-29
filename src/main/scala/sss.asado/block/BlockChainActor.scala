@@ -26,7 +26,7 @@ trait BlockChainSettings {
 }
 
 case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])
-case object MaxBlockOpenTimeElapsed
+case object MaxBlockSizeOrOpenTimeReached
 case class StartBlockChain(refToInform: ActorRef, something: Any)
 case class BlockChainStarted(something: Any)
 case class StopBlockChain(refToInform: ActorRef, something: Any)
@@ -66,7 +66,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
   private def startTimer(secs: Long) = {
     cancellable = Option(context.system.scheduler.scheduleOnce(
       FiniteDuration(secs, SECONDS ),
-      self, MaxBlockOpenTimeElapsed))
+      self, MaxBlockSizeOrOpenTimeReached))
   }
 
   private def createLedger(lastClosedBlock: BlockHeader, blockHeightIncrement: Int = 1): BlockChainLedger = {
@@ -164,7 +164,9 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
     case OkToCloseBlock(height) =>
       // all are writing to new ledger, all are confirmed, close last block
-      require(height == lastClosedBlock.height + 1, "Trying to close a block height that does not match the confirmed block")
+      require(height == lastClosedBlock.height + 1,
+        s"Trying to close a block $height that does not match the last confirmed block ${lastClosedBlock.height}")
+
       log.info(s"About to close block ${lastClosedBlock.height + 1}")
       Try(bc.closeBlock(lastClosedBlock)) match {
         case Success(newLastBlock) =>
@@ -187,7 +189,8 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
       context.become(handleRouterDeath orElse awaitAcks(TryCloseBlock(lastClosedBlock.height + 1)) orElse waiting(lastClosedBlock))
       writersRouterRef ! Broadcast(BlockLedger(self, Option(createLedger(lastClosedBlock, 2))))
 
-    case MaxBlockOpenTimeElapsed => {
+    case MaxBlockSizeOrOpenTimeReached => {
+      cancellable map (_.cancel())
       log.info("Block open time elapsed, begin close process ...")
       writersRouterRef ! GetRoutees
     }

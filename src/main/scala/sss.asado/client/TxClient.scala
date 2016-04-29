@@ -35,7 +35,7 @@ object TxClient extends BaseClient {
       log.info(s"Balance is $balance")
       if(balance > 0) {
         val f = wallet.send(1, pka.publicKey)
-        Try(Await.result(f, 1 minute)) match {
+        Try(Await.result(f, 10 seconds)) match {
           case Failure(e) => log.info("Timeout spending money", e)
           case Success(s) => log.info(s"successfully spent $s")
         }
@@ -46,9 +46,9 @@ object TxClient extends BaseClient {
     def spendAll: Unit = {
       if(wallet.balance > 0) {
         spendAllInOnes(wallet.balance)
-        Thread.sleep(5000)
+        //Thread.sleep(5000)
         spendAll
-      } else Thread.sleep(5000)
+      } else Thread.sleep(500)
     }
 
     log.info(s"Wallet balance ${wallet.balance}")

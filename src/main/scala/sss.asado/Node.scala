@@ -66,6 +66,7 @@ object Node extends Configure {
 
     val blockChainSyncerActor = actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor],
       quorum,
+      blockChainSettings.maxTxPerBlock,
       blockChainSettings.maxSignatures,
       stateMachine,
       bc,

@@ -32,7 +32,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   /**
     * On client Retry ...
     *
-    * Normal scenario - client gets a block height response, this is the block the tx will be in.
+    * Normal scenario - client gets a block tx id it will be in.
     * At this point the tx is irreversible, however it is not confirmed.
     * The block cannot close until the confirms are in, so the whole network depends on getting those confirms in.
     *
@@ -41,7 +41,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
     * the confirm to be rejected. A retry should work though.
     * This is a weakness.
     *
-    * If the client receives a block number but no confirms it should include it's block number in the retry
+    * If the client receives a block tx id but no confirms it should include it's block number in the retry
     * If the client receives no block number, it can still ask for a retry and the lookup will be based on it's original
     * timestamp.
     *

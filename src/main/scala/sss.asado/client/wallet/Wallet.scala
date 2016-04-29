@@ -1,7 +1,7 @@
 package sss.asado.client.wallet
 
 import akka.actor.{Actor, ActorLogging, Props}
-import contract.{Decumbrance, NullDecumbrance}
+import contract.Decumbrance
 import ledger._
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
@@ -115,7 +115,7 @@ private class WalletImpl(pka: PrivateKeyAccount,
   override def accept(txIndex: TxIndex, amount: Int): Unit = {
     walletPersist.find(txIndex) match {
       case None =>
-        val stx = createTx(txIndex, amount, amount, NullDecumbrance)
+        val stx = createTx(txIndex, amount, amount)
         walletPersist.addOrUpdate(txIndex, amount)
         walletPersist.markUnspent(txIndex)
         val p = Promise[String]()

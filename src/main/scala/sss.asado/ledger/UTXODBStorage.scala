@@ -27,8 +27,6 @@ private[ledger] class UTXODBStorage(implicit db: Db) extends Logging {
 
   def get(k: TxIndex): Option[TxOutput] = {
     val hexStr = k.txId.toVarChar
-    log.info(s"UTXO DB looking for $hexStr, have ... ")
-    utxoLedgerTable.map(r => log.info(r.toString + " " + r[Array[Byte]]("entry").toTxOutput))
     utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
   }
 
