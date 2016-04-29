@@ -190,6 +190,10 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
       writersRouterRef ! Broadcast(BlockLedger(self, Option(createLedger(lastClosedBlock, 2))))
 
     case MaxBlockSizeOrOpenTimeReached => {
+      // There is still a race condition here.
+      // The scheduled Max... could be in the message queue when this executes
+      // then orElse waiting(lastClosedBlock)) will process this message again ....
+      // need to take this out of the path after processing....
       cancellable map (_.cancel())
       log.info("Block open time elapsed, begin close process ...")
       writersRouterRef ! GetRoutees
