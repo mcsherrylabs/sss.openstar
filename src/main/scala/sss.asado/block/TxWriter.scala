@@ -1,11 +1,9 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block.{BlockChainTx, BlockChainTxId, BlockTx, DistributeTx, TxMessage}
-import com.google.common.primitives.Longs
+import block.{BlockChainTx, BlockTx, DistributeTx, TxMessage}
 import ledger.{SignedTx, _}
 import sss.asado.MessageKeys
-import sss.asado.block.serialize.BlockChainTxIdSerializer
 import sss.asado.network.NetworkMessage
 import sss.asado.util.ByteArrayVarcharOps._
 
@@ -19,14 +17,14 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   override def postStop = log.warning(s"Tx Writer ($self) is down."); super.postStop
 
   private def writeStx(blockLedger: BlockChainLedger, signedTx: SignedTx): Unit = {
+      val sendr = sender()
       Try(blockLedger(signedTx)) match {
         case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
-          val sendr = sender()
           sendr ! NetworkMessage(MessageKeys.SignedTxAck, btx.toId.toBytes)
           writeConfirmActor ! DistributeTx(sendr, btx)
         case Failure(e) => {
           log.info(s"Failed to ledger tx! ${signedTx.txId.toVarChar} ${e.getMessage}")
-          sender() ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(signedTx.txId, e.getMessage).toBytes)
+          sendr ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(signedTx.txId, e.getMessage).toBytes)
         }
       }
     }
@@ -52,10 +50,10 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
     */
 
 
-  def errorNoLedger: Unit = {
+  def errorNoLedger(txId: TxId): Unit = {
     val msg = "No ledger open, retry later."
     log.error(msg)
-    sender() ! NetworkMessage(MessageKeys.SignedTxNack, msg.getBytes)
+    sender() ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(txId, msg).toBytes)
   }
 
   def errorBadMessage: Unit = {
@@ -78,7 +76,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
         case Some(blockLedger) => bytes.toSeqSignedTx.ordered foreach { stx =>
           writeStx(blockLedger, stx)
         }
-        case None => errorNoLedger
+        case None => bytes.toSeqSignedTx.ordered.foreach(stx => errorNoLedger(stx.txId))
       }
 
 
@@ -87,7 +85,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
       Try(bytes.toSignedTx) match {
         case Success(stx) => blockLedgerOpt match {
           case Some(blockLedger) => writeStx(blockLedger, stx)
-          case None => errorNoLedger
+          case None => errorNoLedger(stx.txId)
         }
         case Failure(e) => errorBadMessage
       }

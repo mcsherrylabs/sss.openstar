@@ -1,15 +1,14 @@
 package sss.asado.client
 
-import sss.asado.{BaseClient, ClientContext}
 import sss.asado.account.ClientKey
-import sss.asado.client.wallet.{Wallet}
+import sss.asado.client.wallet.Wallet
+import sss.asado.{BaseClient, ClientContext}
 
-
-import scala.util.{Try, Failure, Success}
 import scala.annotation.tailrec
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.language.{implicitConversions, postfixOps}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -47,8 +46,8 @@ object TxClient extends BaseClient {
     def spendAll: Unit = {
       if(wallet.balance > 0) {
         spendAllInOnes(wallet.balance)
-        //Thread.sleep(1000)
-        //spendAll
+        Thread.sleep(5000)
+        spendAll
       } else Thread.sleep(5000)
     }
 

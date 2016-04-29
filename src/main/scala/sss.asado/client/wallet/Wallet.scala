@@ -1,12 +1,10 @@
 package sss.asado.client.wallet
 
 import akka.actor.{Actor, ActorLogging, Props}
-import com.google.common.primitives.Longs
 import contract.{Decumbrance, NullDecumbrance}
 import ledger._
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
-import sss.asado.{ClientContext, MessageKeys}
 import sss.asado.account.{ClientKey, PrivateKeyAccount}
 import sss.asado.client.wallet.WalletPersistence.WalletEntry
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
@@ -14,6 +12,7 @@ import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.NetworkMessage
 import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.{ClientContext, MessageKeys}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -145,13 +144,21 @@ private class WalletImpl(pka: PrivateKeyAccount,
   }
 
   override def send(amount: Int, publicKey: PublicKey): Future[String] = {
-    walletPersist.findUnSpent.filter(_.spendingTx.isEmpty).headOption match {
+    walletPersist.findUnSpent.headOption match {
       case Some(found) =>
         val stx = createTx(found.txIndx, found.amount, amount)
         val p = Promise[String]()
         ref ! NewTx(p, stx)
         p.future
-      case None => Future.failed(new IllegalArgumentException("No unspent! (or pending)"))
+      case None => walletPersist.findUnSpent.headOption match {
+        case None => Future.failed(new IllegalArgumentException("No unspent! (or pending)"))
+        case Some(mightBeInProcess) =>
+          val stx = createTx(mightBeInProcess.txIndx, mightBeInProcess.amount, amount)
+          val p = Promise[String]()
+          ref ! NewTx(p, stx)
+          p.future
+      }
+
     }
   }
 

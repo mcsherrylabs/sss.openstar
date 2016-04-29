@@ -1,4 +1,4 @@
-package sss.asado.state
+package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import akka.agent.Agent
@@ -56,37 +56,37 @@ class TxForwarderActor(thisNodeId: String,
       context.become(noForward)
 
 
-    case NetworkMessage(MessageKeys.SignedTx, bytes) =>
+    case m @ NetworkMessage(MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toSignedTx) { stx =>
         txs +=  (stx.txId.toVarChar -> sender())
-        leaderRef ! bytes
+        leaderRef ! m
       }
 
-    case NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
+    case m @ NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
       decode(MessageKeys.SeqSignedTx, bytes.toSeqSignedTx) { seqStx =>
         seqStx.ordered foreach { stx =>
           txs += (stx.txId.toVarChar -> sender())
         }
-        leaderRef ! bytes
+        leaderRef ! m
       }
 
-    case NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
+    case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
       decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
-        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! bytes)
+        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! m)
 
       }
 
-    case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+    case m @ NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       decode(MessageKeys.SignedTxNack, bytes.toTxMessage) { txNack =>
-        txs.get(txNack.txId.toVarChar) map (_ ! bytes)
+        txs.get(txNack.txId.toVarChar) map (_ ! m)
         txs -= txNack.txId.toVarChar
       }
 
 
 
-    case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
+    case m @ NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       decode(MessageKeys.AckConfirmTx, bytes.toBlockChainIdTx) { txAck =>
-        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! bytes)
+        txs.get(txAck.blockTxId.txId.toVarChar) map (_ ! m)
 
       }
   }

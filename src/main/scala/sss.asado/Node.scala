@@ -10,7 +10,7 @@ import sss.asado.console.ConsoleServlet
 import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
-import sss.asado.state.{AsadoStateMachineActor, LeaderActor, TxForwarderActor}
+import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
 import sss.asado.util.{InitServlet, ServerLauncher}
 import sss.db.Db
 

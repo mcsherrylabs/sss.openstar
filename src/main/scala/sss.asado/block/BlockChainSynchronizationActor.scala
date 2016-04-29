@@ -7,7 +7,6 @@ import sss.asado.MessageKeys
 import sss.asado.Node.InitWithActorRefs
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef}
-import sss.asado.network.NetworkController.QuorumLost
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol.{NotSynced, Synced}
 import sss.asado.util.ByteArrayComparisonOps
@@ -137,10 +136,8 @@ class BlockChainSynchronizationActor(quorum: Int,
       context watch clientRef
       val newPeerSet = updateToDatePeers + clientRef
       context.become(awaitConfirms(blockChainActor, newPeerSet, awaitGroup))
-      if (newPeerSet.size == quorum) {
-        stateMachine ! Synced
-        blockChainActor ! StartBlockChain(self, lastTxPage)
-      }
+      if (newPeerSet.size == quorum) stateMachine ! Synced
+      blockChainActor ! StartBlockChain(self, lastTxPage)
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
 
 

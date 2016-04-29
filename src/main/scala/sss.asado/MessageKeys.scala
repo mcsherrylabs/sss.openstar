@@ -13,7 +13,7 @@ object MessageKeys extends Logging {
   val SignedTx: Byte = 100
   val SignedTxAck: Byte = 101
   val SignedTxNack: Byte = 102
-  val SeqSignedTx: Byte = 102
+  val SeqSignedTx: Byte = 103
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
   val NackConfirmTx: Byte = 106
