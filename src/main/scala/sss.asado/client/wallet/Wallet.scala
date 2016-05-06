@@ -49,6 +49,7 @@ private class WalletImpl(pka: PrivateKeyAccount,
     messageRouter ! Register(MessageKeys.AckConfirmTx)
     messageRouter ! Register(MessageKeys.NackConfirmTx)
 
+
     def createTx(txIndex: TxIndex, amunt: Int): SignedTx = {
       val txOutput = TxOutput(amunt, SinglePrivateKey(pka.publicKey))
       val txInput = TxInput(txIndex, amunt, PrivateKeySig)
@@ -93,6 +94,14 @@ private class WalletImpl(pka: PrivateKeyAccount,
 
       case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
         val txMsg = bytes.toTxMessage
+        if(txMsg.msg.contains("does not exist")) {
+          walletPersist.findWithSpendingTx(txMsg.txId) map { we =>
+            walletPersist.markSpent(we.txIndx)
+          }
+          walletPersist.filter(txMsg.txId) map { we =>
+            walletPersist.markUnspent(we.txIndx)
+          }
+        }
         promises(txMsg.txId.toVarChar).failure(new Exception(txMsg.msg))
         promises -= txMsg.txId.toVarChar
 
@@ -143,14 +152,16 @@ private class WalletImpl(pka: PrivateKeyAccount,
     walletPersist.findUnSpent.foldLeft(0)(addEm)
   }
 
+  override def export: Set[WalletEntry] = walletPersist.list
+
   override def send(amount: Int, publicKey: PublicKey): Future[String] = {
-    walletPersist.findUnSpent.headOption match {
+    walletPersist.findUnSpent.filter(_.spendingTx.isEmpty).headOption match {
       case Some(found) =>
         val stx = createTx(found.txIndx, found.amount, amount)
         val p = Promise[String]()
         ref ! NewTx(p, stx)
         p.future
-      case None => walletPersist.findUnSpent.headOption match {
+      case None => walletPersist.findUnSpent.filter(_.spendingTx.isDefined).headOption match {
         case None => Future.failed(new IllegalArgumentException("No unspent! (or pending)"))
         case Some(mightBeInProcess) =>
           val stx = createTx(mightBeInProcess.txIndx, mightBeInProcess.amount, amount)
@@ -181,6 +192,7 @@ trait Wallet {
 
   def accept(txIndex: TxIndex, amount: Int)
   def balance: Int
+  def export: Set[WalletEntry]
   def send(amount: Int, publicKey: PublicKey): Future[String]
   def close(waitDuration : Duration = Duration.Inf): Future[_]
 }

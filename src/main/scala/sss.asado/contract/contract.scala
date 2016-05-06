@@ -15,10 +15,7 @@ package object contract {
 
   case object NullDecumbrance extends Decumbrance
   case object NullEncumbrance extends Encumbrance {
-    override def decumber(params: Seq[Array[Byte]], decumberence: Decumbrance): Boolean = decumberence match {
-      case NullDecumbrance => true
-      case _ => false
-    }
+    override def decumber(params: Seq[Array[Byte]], decumberence: Decumbrance): Boolean = true
   }
 
 }

@@ -194,21 +194,17 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
       // The scheduled Max... could be in the message queue when this executes
       // then orElse waiting(lastClosedBlock)) will process this message again ....
       // need to take this out of the path after processing....
-      cancellable match {
-        case Some(c) =>
-          if (c.cancel || c.isCancelled) {
-            log.info("Timeout cancelled, begin close Block process ...")
-            writersRouterRef ! GetRoutees
-          }
-        case None =>
-          log.info("Block close, begin close process ...")
+      cancellable map { c =>
+          c.cancel()
+          log.info("Timeout cancelled, begin close Block process ...")
           writersRouterRef ! GetRoutees
+          cancellable = None
       }
     }
 
     case StartBlockChain(ref, any) => ref ! BlockChainStarted(any)
 
-    case sbc @ StopBlockChain(ref, any) =>
+    case sbc @ StopBlockChain(ref, _) =>
       log.info("Attempting to stop blockchain")
       cancellable map (_.cancel())
       context.become(handleRouterDeath orElse stoppingBlockChain(sbc, lastClosedBlock))

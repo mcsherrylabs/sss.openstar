@@ -79,7 +79,7 @@ class ContractTest extends FlatSpec with Matchers with ByteArrayComparisonOps {
     assert(NullEncumbrance.decumber(Seq(), NullDecumbrance))
   }
 
-  it should " not be decumbered by other decumbrances " in {
-    assert(!NullEncumbrance.decumber(Seq(), PrivateKeySig))
+  it should "  be decumbered by any decumbrance " in {
+    assert(NullEncumbrance.decumber(Seq(), PrivateKeySig))
   }
 }

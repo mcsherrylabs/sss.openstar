@@ -5,6 +5,7 @@ import org.joda.time.DateTime
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.db.{Db, Row, Where}
+
 import scala.language.implicitConversions
 
 object WalletPersistence {
@@ -110,6 +111,14 @@ class WalletPersistence(db:Db) extends Logging {
     val idAsStr = txIndex.txId.toVarChar
     val sql = s"$txid_str = ? AND $txid_indx_str = ?"
     table.find(Where(sql, idAsStr, txIndex.index))
+  }
+
+  def list: Set[WalletEntry] = db.inTransaction {
+    table.map( row => row : WalletEntry ).toSet
+  }
+
+  def findWithSpendingTx(txId: TxId): Set[WalletEntry] = {
+    table.filter(Where(s"$spending_txid_str = ?", txId.toVarChar)).map( row => row : WalletEntry ).toSet
   }
 
   def findUnSpent: Seq[WalletEntry] = db.inTransaction {
