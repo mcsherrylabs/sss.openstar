@@ -1,7 +1,5 @@
 package sss.asado.ledger
 
-import javax.xml.bind.DatatypeConverter
-
 import ledger.{GenisesTx, SignedTx, TxIndex, TxOutput}
 import sss.ancillary.Logging
 import sss.db.Db
@@ -31,12 +29,13 @@ class Ledger(storage: UTXODBStorage) extends Logging {
 
       var totalIn = 0
 
-      ins foreach { in =>
+      ins.indices foreach { i =>
+        val in = ins(i)
         entry(in.txIndex) match {
           case Some(txOut) => {
             require(txOut.amount >= in.amount, s"Cannot pay out (${in.amount}), only ${txOut.amount} available ")
             totalIn += in.amount
-            val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
+            //val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
             require(txOut.encumbrance.decumber(txId +: stx.params, in.sig), "Failed to decumber!")
             storage.delete(in.txIndex)
           }

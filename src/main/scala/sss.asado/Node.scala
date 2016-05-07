@@ -7,6 +7,7 @@ import sss.ancillary.{Configure, DynConfig}
 import sss.asado.account.NodeIdentity
 import sss.asado.block._
 import sss.asado.console.ConsoleServlet
+import sss.asado.http.TxServlet
 import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork}
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
@@ -91,10 +92,14 @@ object Node extends Configure {
     if(quorum == 0 && !nodeConfig.getBoolean("production")) stateMachine ! AcceptTransactions(settings.nodeId)
 
     val console = new ConsoleServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, bc, db)
+    val txServlet = new TxServlet(args, messageRouter, ncRef, connectedPeers, actorSystem, ncRef, bc, db)
 
-    val webServer = ServerLauncher(nodeConfig.getInt("consoleport"), InitServlet(console, "/console/*"))
+    val webServer = ServerLauncher(nodeConfig.getInt("consoleport"),
+      InitServlet(console, "/console/*"),
+      InitServlet(txServlet, "/tx/*"))
+
     webServer.start
-    println("Http console started...")
+    println(s"... node ${args(0)} started.")
 
     sys addShutdownHook( webServer stop )
 

@@ -50,7 +50,10 @@ libraryDependencies += "org.scalatra" % "scalatra_2.11" % "2.4.0"
 
 libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 
-libraryDependencies += "org.eclipse.jetty.aggregate" % "jetty-all-server" % "8.1.18.v20150929"
+libraryDependencies += "org.eclipse.jetty.aggregate" % "jetty-all-server" % "8.1.19.v20160209"
+
+libraryDependencies += "us.monoid.web" % "resty" % "0.3.2" % Test
+
 
 mainClass in Compile := Some("sss.asado.Node")
 
