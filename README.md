@@ -5,8 +5,7 @@ Scala Based DLT
 
 ## A functioning blockchain with near instant confirmation.
 
-This documentation is out of date. Sry.
-Consensus? What consensus? This is a centralised but replicated network ledger with cooperating nodes. There is no spoon.
+Milestone 2 - all basic functionality working. 
 
 Nodes have peers, when over half the peers are connected, a leader is elected based on who has the latest transactions.When the other nodes in the cluster are synched transactions are accepted.
 
