@@ -25,8 +25,8 @@ class BlockChainLedger(block: Block, utxo: Ledger) extends Logging {
           case Some(s) => BlockChainTx(block.height, BlockTx(s.index, s.signedTx))
           case None =>
             utxo.genesis(genesisTx)
-            val index = block.write(SignedTx(genesisTx))
-            BlockChainTx(block.height, BlockTx(index, SignedTx(genesisTx)))
+            val index = block.write(SignedTx(genesisTx, Seq()))
+            BlockChainTx(block.height, BlockTx(index, SignedTx(genesisTx, Seq())))
         }
       }
   }

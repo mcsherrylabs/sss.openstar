@@ -55,7 +55,7 @@ private class WalletImpl(pka: PrivateKeyAccount,
       val txInput = TxInput(txIndex, amunt, PrivateKeySig)
       val tx = StandardTx(Seq(txInput), Seq(txOutput))
       val sig = tx.sign(pka)
-      SignedTx(tx, Seq(sig))
+      SignedTx(tx, Seq(Seq(sig)))
     }
 
     override def receive: Receive = {
@@ -182,7 +182,7 @@ private class WalletImpl(pka: PrivateKeyAccount,
     val txInput = TxInput(txIndex, totalIn, decumbrance)
     val tx = StandardTx(Seq(txInput), outs)
     val sig = tx.sign(pka)
-    SignedTx(tx, Seq(sig))
+    SignedTx(tx, Seq(Seq(sig)))
   }
 }
 

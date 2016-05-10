@@ -3,6 +3,8 @@ package sss.asado.ledger
 import contract.{NullDecumbrance, NullEncumbrance}
 import ledger._
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.account.PrivateKeyAccount
+import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
 import sss.asado.util.SeedBytes
 import sss.db.Db
 
@@ -45,7 +47,7 @@ class LedgerTest extends FlatSpec with Matchers {
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(11, NullEncumbrance))
     intercept[IllegalArgumentException] {
-      val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+      val le = ledger.apply(SignedTx(StandardTx(ins, outs), Seq(Seq())))
     }
   }
 
@@ -53,7 +55,7 @@ class LedgerTest extends FlatSpec with Matchers {
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 1), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val stx = SignedTx(StandardTx(ins, outs))
+    val stx = SignedTx(StandardTx(ins, outs), Seq(Seq()))
     validOut = TxIndex(stx.txId, 0)
     val le = ledger.apply(stx)
 
@@ -75,12 +77,14 @@ class LedgerTest extends FlatSpec with Matchers {
 
     val ins = Seq(TxInput(validOut, 99, NullDecumbrance))
     val outs = Seq(TxOutput(98, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val stx = SignedTx(StandardTx(ins, outs))
+    val stx = SignedTx(StandardTx(ins, outs), Seq(Seq()))
     ledger(stx)
-    val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 1), 1, NullDecumbrance))
-    val nextOuts = Seq(TxOutput(1, NullEncumbrance))
-    val nextTx = SignedTx(StandardTx(nextIns, nextOuts))
+    val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 0), 98, NullDecumbrance))
+    val nextOuts = Seq(TxOutput(1, NullEncumbrance),TxOutput(97, NullEncumbrance))
+    val nextTx = SignedTx(StandardTx(nextIns, nextOuts),  Seq(Seq()))
     ledger(nextTx)
+
+    validOut = TxIndex(nextTx.txId, 1)
 
     intercept[IllegalArgumentException] {
       ledger(stx)
@@ -89,5 +93,23 @@ class LedgerTest extends FlatSpec with Matchers {
     intercept[IllegalArgumentException] {
       ledger(nextTx)
     }
+  }
+
+  it should " handle different encumbrances on different inputs " in {
+
+    lazy val pkPair1 = PrivateKeyAccount(SeedBytes(32))
+    lazy val pkPair2 = PrivateKeyAccount(SeedBytes(32))
+
+    val ins = Seq(TxInput(validOut, 97, NullDecumbrance))
+
+    val outs = Seq(TxOutput(1, SinglePrivateKey(pkPair1.publicKey)), TxOutput(96, SinglePrivateKey(pkPair2.publicKey)))
+    val stx = SignedTx(StandardTx(ins, outs),  Seq(Seq()))
+    ledger(stx)
+    val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 0), 1, PrivateKeySig), TxInput(TxIndex(stx.tx.txId, 1), 96, PrivateKeySig))
+    val nextOuts = Seq(TxOutput(97, NullEncumbrance))
+    val nextTx = StandardTx(nextIns, nextOuts)
+    val nextSignedTx = SignedTx(nextTx, Seq(Seq(nextTx.sign(pkPair1)), Seq(nextTx.sign(pkPair2))))
+    ledger(nextSignedTx)
+
   }
 }

@@ -32,14 +32,14 @@ package object ledger extends ByteArrayComparisonOps {
   case class TxOutput(amount: Int, encumbrance: Encumbrance)
   case class SeqSignedTx(ordered: Seq[SignedTx])
 
-  case class SignedTx(tx: Tx, params: Seq[Array[Byte]] = Seq.empty) {
+  case class SignedTx(tx: Tx, params: Seq[Seq[Array[Byte]]] = Seq.empty) {
     lazy val txId = tx.txId
 
     override def equals(obj: scala.Any): Boolean = obj match {
-      case stx: SignedTx => stx.tx == tx && (stx.params isSame params)
+      case stx: SignedTx => stx.tx == tx && (stx.params.flatten isSame params.flatten)
       case _ => false
     }
-    override def hashCode(): Int = (17 + params.hash) * txId.hash
+    override def hashCode(): Int = (17 + params.flatten.hash) * txId.hash
   }
 
   trait Tx {

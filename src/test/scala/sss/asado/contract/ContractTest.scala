@@ -14,10 +14,6 @@ class ContractTest extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
   lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
 
-
-  val genisis = SignedTx(GenisesTx(outs = Seq(TxOutput(100, NullEncumbrance))))
-
-
   "A single sig " should " unlock a single key contract " in {
 
     val enc = SinglePrivateKey(pkPair.publicKey)

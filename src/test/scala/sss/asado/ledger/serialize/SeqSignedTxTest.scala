@@ -21,7 +21,7 @@ class SeqSignedTxTest extends FlatSpec with Matchers {
     val txInput = TxInput(txIndex, 34 + index, PrivateKeySig)
     val tx = StandardTx(Seq(txInput, txInput, txInput), Seq(txOutput, txOutput, txOutput))
     val sig = tx.sign(pkPair)
-    SignedTx(tx, Seq(sig))
+    SignedTx(tx, Seq(Seq(sig)))
   }
 
   lazy val stxs = 0 to 10 map stx _

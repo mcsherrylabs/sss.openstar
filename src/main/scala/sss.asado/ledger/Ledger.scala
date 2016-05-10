@@ -11,7 +11,7 @@ object Ledger {
 class Ledger(storage: UTXODBStorage) extends Logging {
 
   def genesis(genisesTx: GenisesTx) = {
-    val stx = SignedTx(genisesTx)
+    val stx = SignedTx(genisesTx, Seq())
     stx.tx.outs.foldLeft(0){ (acc, out) =>
       storage.write(TxIndex(stx.txId, acc), out)
       acc + 1
@@ -27,6 +27,7 @@ class Ledger(storage: UTXODBStorage) extends Logging {
       require(ins.nonEmpty, "Tx has no inputs")
       require(outs.nonEmpty, "Tx has no outputs")
 
+      require(stx.params.length == ins.length, "Every input *must* have a specified param sequence, even if it's empty.")
       var totalIn = 0
 
       ins.indices foreach { i =>
@@ -36,7 +37,7 @@ class Ledger(storage: UTXODBStorage) extends Logging {
             require(txOut.amount >= in.amount, s"Cannot pay out (${in.amount}), only ${txOut.amount} available ")
             totalIn += in.amount
             //val asStr = DatatypeConverter.printHexBinary(in.txIndex.txId)
-            require(txOut.encumbrance.decumber(txId +: stx.params, in.sig), "Failed to decumber!")
+            require(txOut.encumbrance.decumber(txId +: stx.params(i), in.sig), "Failed to decumber!")
             storage.delete(in.txIndex)
           }
           case None => throw new IllegalArgumentException(s"${in.txIndex} does not exist.")
@@ -51,7 +52,7 @@ class Ledger(storage: UTXODBStorage) extends Logging {
         acc + 1
       }
 
-      require(totalOut <= totalIn, "Total out *must* be less than or equal to total in")
+      require(totalOut <= totalIn, s"Total out (${totalOut}) *must* be less than or equal to total in (${totalIn})")
 
     }
   }
