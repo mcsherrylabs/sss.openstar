@@ -76,7 +76,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val le = ledger.apply(SignedTx(StandardTx(ins, outs)))
+    val le = ledger.apply(SignedTx(StandardTx(ins, outs),Seq(Seq())))
 
     expectIllegalArgument(ledger.apply(SignedTx(StandardTx(ins, outs))))
 
@@ -98,11 +98,11 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val r = ledger.genesis(genesisTx)
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    val stx = SignedTx(StandardTx(ins, outs))
+    val stx = SignedTx(StandardTx(ins, outs), Seq(Seq()))
     ledger(stx)
     val nextIns = Seq(TxInput(TxIndex(stx.tx.txId, 1), 1, NullDecumbrance))
     val nextOuts = Seq(TxOutput(1, NullEncumbrance))
-    val nextTx = SignedTx(StandardTx(nextIns, nextOuts))
+    val nextTx = SignedTx(StandardTx(nextIns, nextOuts),Seq(Seq()))
     ledger(nextTx)
 
   }
@@ -114,7 +114,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val r = ledger.genesis(genesisTx)
     val ins = Seq(TxInput(TxIndex(genisis.txId, 0), 100, NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
-    SignedTx(StandardTx(ins, outs))
+    SignedTx(StandardTx(ins, outs), Seq(Seq()))
   }
 
   it should "allow journaling of a tx " in {
