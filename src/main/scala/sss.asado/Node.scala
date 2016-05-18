@@ -3,7 +3,7 @@ package sss.asado
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
 import akka.routing.RoundRobinPool
-import sss.ancillary.{Configure, DynConfig}
+import sss.ancillary.{Configure, DynConfig, InitServlet, ServerLauncher}
 import sss.asado.account.NodeIdentity
 import sss.asado.block._
 import sss.asado.console.ConsoleServlet
@@ -12,7 +12,6 @@ import sss.asado.network.NetworkController.{BindControllerSettings, StartNetwork
 import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.AcceptTransactions
 import sss.asado.state.{AsadoStateMachineActor, LeaderActor}
-import sss.asado.util.{InitServlet, ServerLauncher}
 import sss.db.Db
 
 import scala.collection.JavaConversions._
