@@ -34,7 +34,7 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.6"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.21"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.1"
+libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.2"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-asado-network" % "0.7"
 
