@@ -1,5 +1,7 @@
 package sss.asado.crypto
 
+import java.nio.charset.StandardCharsets
+
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.util.ByteArrayComparisonOps
 
@@ -15,11 +17,11 @@ class CBCEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
     val value = "randonw mesafsd s;klf ;lk ;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
     val iv = CBCEncryption.newInitVector
     val encrypted = CBCEncryption.encrypt(key, value, iv)
-    assert(new String(encrypted) != value)
-    assert(new String(encrypted) != key)
+    assert(new String(encrypted, StandardCharsets.UTF_8) != value)
+    assert(new String(encrypted, StandardCharsets.UTF_8) != key)
 
     val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
-    assert(new String(decrypted) == value)
+    assert(new String(decrypted, StandardCharsets.UTF_8) == value)
 
     intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
 
@@ -27,15 +29,15 @@ class CBCEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
 
   it should " encrypt and decrypt a byte array " in {
 
-  val key = "coulsdfsfdIBEanmorera"
-  val value = "randonw mesafsd s;klf ;lk ;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
+  val key = "codfsfdIBEanmoreraasdadsads"
+  val value = "randonw mesafsd s;klf ;asdasdadlk asdad;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
   val iv = CBCEncryption.newInitVector
   val encrypted = CBCEncryption.encrypt(key, value.getBytes, iv)
-  assert(new String(encrypted) != value)
-  assert(new String(encrypted) != key)
+  assert(new String(encrypted, StandardCharsets.UTF_8) != value)
+  assert(new String(encrypted, StandardCharsets.UTF_8) != key)
 
   val decrypted = CBCEncryption.decrypt(key, encrypted, CBCEncryption.initVector(iv.asString))
-  assert(new String(decrypted) == value)
+  assert(new String(decrypted, StandardCharsets.UTF_8) == value)
 
   intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
 

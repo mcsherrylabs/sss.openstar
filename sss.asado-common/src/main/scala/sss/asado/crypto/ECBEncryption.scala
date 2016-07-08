@@ -13,7 +13,7 @@ object ECBEncryption {
 
   def encrypt(key: String, value: String): String = {
     val encoded = encrypt(key, value.getBytes(UTF_8))
-    new String(encoded)
+    new String(encoded, UTF_8)
   }
 
   def encrypt(key: String, value: Array[Byte]): Array[Byte] = {
@@ -25,7 +25,7 @@ object ECBEncryption {
   def decrypt(key: String, encryptedValue: String): String = {
     val cipher = makeCipher
     cipher.init(Cipher.DECRYPT_MODE, keyToSpec(key))
-    new String(cipher.doFinal(Base64.getDecoder.decode(encryptedValue)))
+    new String(cipher.doFinal(Base64.getDecoder.decode(encryptedValue)),UTF_8)
   }
 
   def decrypt(key: String, encryptedValue: Array[Byte]): Array[Byte] = {
