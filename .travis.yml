@@ -7,8 +7,8 @@ branches:
   only:
     - master
 script:
-    - cd sss.asado-common ; sbt clean test publish
-    - cd ../sss.asado-network ; sbt clean test publish
-    - cd ../sss.asado-ledger ; sbt clean test publish
-    - cd ../sss.asado-node ; sbt clean test publish
+    - cd sss.asado-common ; sbt clean test 
+    - cd ../sss.asado-network ; sbt clean test
+    - cd ../sss.asado-ledger ; sbt clean test
+    - cd ../sss.asado-node ; sbt clean test 
     - cd ../sss.asado-nobu ; sbt clean test 
