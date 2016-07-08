@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+ <head>
+  <meta charset="UTF-8" name="design-properties" content="{&quot;RULERS_VISIBLE&quot;:true,&quot;GUIDELINES_VISIBLE&quot;:false,&quot;SNAP_TO_OBJECTS&quot;:true,&quot;SNAP_TO_GRID&quot;:true,&quot;SNAPPING_DISTANCE&quot;:10,&quot;JAVA_SOURCES_ROOT&quot;:&quot;src/main/java&quot;,&quot;THEME&quot;:&quot;mytheme&quot;}">
+ </head> 
+ <body> 
+  <vaadin-vertical-layout id="writeLayout" margin size-full>
+   <vaadin-form-layout :middle> 
+    <vaadin-text-field caption="To" width-full _id="toField"></vaadin-text-field> 
+    <vaadin-text-area responsive rows="12" width-full _id="messageText" :middle>
+      Type here ...
+    </vaadin-text-area> 
+    <vaadin-button icon="fonticon://FontAwesome/f1d8" plain-text _id="sendButton" :middle :right>
+      Send 
+    </vaadin-button> 
+   </vaadin-form-layout> 
+  </vaadin-vertical-layout>  
+ </body>
+</html>

@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+ <head>
+
+ </head> 
+ <body>
+ <vaadin-horizontal-layout style-name="valo-menu-responsive" id="responsive-application-template" size-full>
+  <vaadin-css-layout style-name="valo-menu messageborder" height="70%" :middle :center :expand>
+   <vaadin-css-layout>
+    <vaadin-css-layout style-name="valo-menuitems" _id="menuItems">
+     <vaadin-button icon="fonticon://FontAwesome/f09c" primary-style-name="valo-menu-item" width-full plain-text _id="unlockMnuBtn">
+      Unlock
+     </vaadin-button>
+     <vaadin-button icon="fonticon://FontAwesome/f002" primary-style-name="valo-menu-item" _id="claimMnuBtn">
+      Claim
+     </vaadin-button>
+    </vaadin-css-layout>
+   </vaadin-css-layout>
+   <vaadin-vertical-layout style-name="valo-menu-part" id="unlockIdentity" size-auto margin _id="rhsUnlock">
+    <vaadin-text-area width-full readonly _id="unlockInfoTextArea">
+     Unlock an identity using the phrase it was locked it with when it was claimed. (Only one identity is supported?)
+    </vaadin-text-area>
+    <vaadin-form-layout size-auto :middle :center>
+     <vaadin-combo-box caption="Identity" style-name="small" width="250px" item-caption-mode="id" _id="identityCombo">
+      <option>Option 1</option>
+     </vaadin-combo-box>
+     <vaadin-text-field caption="Tag" style-name="small" width="250px" _id="unlockTagText"></vaadin-text-field>
+     <vaadin-password-field caption="Phrase" style-name="small" width="250px" _id="unLockPhrase"></vaadin-password-field>
+     <vaadin-button icon="fonticon://FontAwesome/f09c" style-name="small" plain-text _id="unlockBtn" :middle :right>
+      Unlock
+     </vaadin-button>
+    </vaadin-form-layout>
+   </vaadin-vertical-layout>
+   <vaadin-vertical-layout style-name="valo-menu-part" id="claimIdentity" size-auto margin _id="rhsClaim">
+    <vaadin-text-area width-full readonly _id="claimInfoTextArea">
+     Claim an identity from the network. Only simple characters and numbers are allowed. Successfully claiming an identity locks it to the private key generated on this machine. The phrase you provide encrypts the private key on this machine rendering it unreadable. Don't forget the phrase, the key is unusable without the phrase.
+    </vaadin-text-area>
+    <vaadin-form-layout size-auto :middle :center>
+     <vaadin-text-field caption="Identity" style-name="small" width="250px" _id="claimIdentityText"></vaadin-text-field>
+     <vaadin-text-field caption="Tag" style-name="small" width="250px" _id="claimTagText"></vaadin-text-field>
+     <vaadin-password-field caption="Phrase" style-name="small" width="250px" _id="claimPhrase"></vaadin-password-field>
+     <vaadin-button icon="fonticon://FontAwesome/f007" style-name="small" plain-text _id="claimBtn" :middle :right>
+      Claim
+     </vaadin-button>
+    </vaadin-form-layout>
+   </vaadin-vertical-layout>
+  </vaadin-css-layout>
+ </vaadin-horizontal-layout>
+ </body>
+</html>

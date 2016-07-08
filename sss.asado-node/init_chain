@@ -1,0 +1,8 @@
+node=$1
+PS1="\e[0;32m \w $node $ \e[m"
+echo Working on $node ...
+rm -rf /home/alan/extra2/data/asado/sss-hsql-ledger-$node.*
+
+##sbt "run-main sss.asado.tools.BlockChainTool $node block0"
+sbt "run-main sss.asado.tools.BlockChainTool $node init"
+## "run-main sss.asado.tools.BlockChainTool $node genesis 100000"
