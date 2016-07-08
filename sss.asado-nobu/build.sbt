@@ -12,6 +12,8 @@ resolvers += "indvd00m-github-repo" at "https://github.com/indvd00m/maven-repo/r
 
 resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases"
 
+resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+
 //Seq(vaadinWebSettings: _*)
 
 val vaadinVer = "7.5.8"
