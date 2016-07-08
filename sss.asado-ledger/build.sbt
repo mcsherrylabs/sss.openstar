@@ -6,6 +6,8 @@ version := "0.2.9-SNAPSHOT"
 
 parallelExecution in Test := false
 
+resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+
 libraryDependencies += "mcsherrylabs.com" %% "sss-asado-common" % "0.2.9-SNAPSHOT"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.+"
