@@ -35,7 +35,7 @@ libraryDependencies ++= Seq(
   "org.vaadin.addons" % "animator" % "1.7.4",
   "mcsherrylabs.com" %% "sss-asado-node" % "0.2.9-SNAPSHOT",
   "mcsherrylabs.com" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT",
-  "mcsherrylabs.com" %% "sss-vaadin-akka-reactive" % "0.3+",
+  "mcsherrylabs.com" %% "sss-vaadin-akka-reactive" % "0.2",
   "org.scalatra" % "scalatra_2.11" % "2.4.0",
   "io.spray" %%  "spray-json" % "1.3.2",
   "org.scalatest" %% "scalatest" % "2.2.6" % Test
