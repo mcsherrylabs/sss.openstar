@@ -1,24 +1,19 @@
-enablePlugins(JavaAppPackaging, DockerPlugin)
+import NativePackagerHelper._
 
-dockerEntrypoint := Seq("/opt/docker/bin/core_node")
+enablePlugins(JavaAppPackaging)
 
-//dockerExposedPorts := Seq(7070, 7071, 7072, 7073, 7074, 7075, 7076, 7077, 7078, 7079)
-
-dockerExposedPorts := Seq(7070, 8071, 7071, 8070)
-
+packageSummary in Linux := "message-load-test"
 scalacOptions += "-target:jvm-1.8"
 
 parallelExecution in Test := false
 
-name := "sss.asado-node"
+name := "message-sender"
 
-version := "0.2.11-SNAPSHOT"
+version := "0.1-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
 resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
-
-packageSummary in Linux := "asado node"
 
 dependencyOverrides += "mcsherrylabs.com" %% "scrypto" % "1.2.0-SNAPSHOT"
 
@@ -40,6 +35,8 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.2"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-asado-network" % "0.2.9-SNAPSHOT"
 
+libraryDependencies += "mcsherrylabs.com" %% "sss-asado-node" % "0.2.11-SNAPSHOT"
+
 libraryDependencies += "mcsherrylabs.com" %% "sss-asado-common" % "0.2.9-SNAPSHOT"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT"
@@ -48,16 +45,11 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-agent" % "2.4.+"
 
-libraryDependencies += "org.bitlet" % "weupnp" % "0.1.+"
-
-libraryDependencies += "com.twitter" %% "util-collection" % "6.27.0"
-
 libraryDependencies += "org.scalatra" % "scalatra_2.11" % "2.4.0"
 
 libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 
 libraryDependencies += "us.monoid.web" % "resty" % "0.3.2" % Test
 
-
-mainClass in Compile := Some("sss.asado.CoreMain")
+mainClass in Compile := Some("messagesender.Main")
 

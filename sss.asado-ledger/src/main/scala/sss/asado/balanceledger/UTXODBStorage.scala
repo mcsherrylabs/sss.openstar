@@ -9,10 +9,10 @@ private[balanceledger] class UTXODBStorage(implicit db: Db) extends Logging {
 
   private val utxoLedgerTable = db.table("utxo")
 
-  def entries: Set[TxOutput] = {
+  def entries: Seq[TxOutput] = {
     utxoLedgerTable.map { row =>
       row[Array[Byte]]("entry").toTxOutput
-    }.toSet
+    }
   }
 
   def apply(k: TxIndex): TxOutput = get(k).get

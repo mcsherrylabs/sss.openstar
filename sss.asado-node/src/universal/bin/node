@@ -1,3 +1,0 @@
-#!/bin/bash
-
-./bin/sss-asado -main "sss.asado.Node" "$@"

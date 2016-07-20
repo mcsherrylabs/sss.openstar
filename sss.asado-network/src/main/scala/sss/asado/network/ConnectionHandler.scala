@@ -38,7 +38,7 @@ class ConnectionHandler(
       connection ! ResumeReading
 
     case cc: ConnectionClosed =>
-      log.debug(s"Connection closed to : $remote ${cc.getErrorCause}")
+      log.debug(s"Connection closed to : $remote ${Option(cc.getErrorCause)}")
       context.stop(self)
 
     case CloseConnection =>

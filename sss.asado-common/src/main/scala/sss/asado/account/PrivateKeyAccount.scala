@@ -4,6 +4,12 @@ import scorex.crypto.signatures.Curve25519
 import scorex.crypto.signatures.SigningFunctions._
 import sss.asado.crypto.SecureSeedBytes
 
+/**
+  * Binds a private key to public key and provides signing of messages.
+  *
+  * @param privateKey
+  * @param publicKey
+  */
 case class PrivateKeyAccount(privateKey: Array[Byte],
                              override val publicKey: Array[Byte])
   extends PublicKeyAccount(publicKey) {

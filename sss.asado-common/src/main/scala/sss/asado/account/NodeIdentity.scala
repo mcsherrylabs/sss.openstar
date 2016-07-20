@@ -7,9 +7,10 @@ import scala.io.StdIn
 import scala.util.{Failure, Success, Try}
 
 /**
-  * Created by alan on 3/21/16.
+  * Node identity binds a string identifier to a pair of public private keys.
+  * The id is the main identifier, but the tag signifies a different pair of keys for
+  * the same 'id'.
   */
-
 trait NodeIdentity {
   val id: String
   val tag: String

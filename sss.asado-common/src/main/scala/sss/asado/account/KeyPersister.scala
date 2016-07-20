@@ -9,7 +9,12 @@ import sss.asado.util.ByteArrayVarcharOps.VarCharToByteArray
 import scala.io.StdIn
 
 /**
-  * Created by alan on 5/24/16.
+  * Persists the key pair, tag and identity...
+  *
+  * @param mementoName
+  * @param createIfMissing
+  * @param phrase
+  * @param tag
   */
 private class KeyPersister(val mementoName: String,
                             val createIfMissing: Boolean,

@@ -47,7 +47,8 @@ trait BlockChainActorsBuilder {
       ledgers))
 
   def buildTxRouter: ActorRef =
-    actorSystem.actorOf(RoundRobinPool(5).props(Props(classOf[TxWriter], blockChainSynchronizationActor)), "txRouter")
+    actorSystem.actorOf(RoundRobinPool(nodeConfig.blockChainSettings.numTxWriters).props(
+      Props(classOf[TxWriter], blockChainSynchronizationActor)), "txRouter")
 
 }
 
@@ -82,6 +83,6 @@ trait TxForwarderActorBuilder {
   def buildTxForwarder =
     actorSystem.actorOf(Props(classOf[TxForwarderActor],
       messageRouterActor,
-      nodeConfig.nodeConfig.getInt("clientRefCacheSize")))
+      nodeConfig.conf.getInt("clientRefCacheSize")))
 
 }

@@ -19,7 +19,7 @@ trait HttpServerBuilder {
           NetworkContollerBuilder =>
 
   lazy val httpServer =  {
-    ServerLauncher.singleContext(DynConfig[ServerConfig](nodeConfig.nodeConfig.getConfig("httpServerConfig")))
+    ServerLauncher.singleContext(DynConfig[ServerConfig](nodeConfig.conf.getConfig("httpServerConfig")))
   }
 
   def startHttpServer: Unit = {

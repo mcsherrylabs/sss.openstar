@@ -12,6 +12,6 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-asado-common" % "0.2.9-SNAPSHO
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.29"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.30"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test

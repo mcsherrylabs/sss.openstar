@@ -31,6 +31,7 @@ trait BlockChainSettings {
   val maxBlockOpenSecs: Int
   val maxSignatures: Int
   val spendDelayBlocks: Int
+  val numTxWriters: Int
 }
 
 case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])
@@ -188,6 +189,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
           blockChainSyncingActor ! DistributeClose(Seq(sig), BlockId(newLastBlock.height, newLastBlock.numTxs))
 
+
           // can safely send coinbase tx now....
           val txs = ledgers.coinbase(nodeIdentity, BlockId(newLastBlock.height, newLastBlock.numTxs))
           if(txs.nonEmpty) {
@@ -201,6 +203,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
                   val outs = stx.txEntryBytes.toTx.outs
                   outs.indices foreach { i =>
                     wallet.credit(Lodgement(TxIndex(stx.txId, i),outs(i), newLastBlock.height + 1))
+                    log.info(s"Added ${outs(i).amount} to node ${nodeIdentity.id}'s wallet, balance now ${wallet.balance()} ")
                   }
                 }
               }

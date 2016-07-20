@@ -59,7 +59,7 @@ class MessageDownloadActor(who: String,
 
     case NetworkMessage(MessageKeys.EndMessageQuery, bytes) =>
       isQuiet = true
-      context.system.scheduler.scheduleOnce(FiniteDuration(1, TimeUnit.MINUTES), self, CheckForMessages)
+      context.system.scheduler.scheduleOnce(FiniteDuration(5, TimeUnit.SECONDS), self, CheckForMessages)
 
     case NetworkMessage(MessageKeys.MessageMsg, bytes) =>
       decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>

@@ -20,14 +20,11 @@
     </appender>
 
     <root>
-        <!--appender-ref ref="CONSOLE"/-->
+        <!-- appender-ref ref="CONSOLE"/-->
         <appender-ref ref="ERRFILE"/>
     </root>
     <logger name="com.zaxxer.hikari">
-        <level value="off"/>
-    </logger>
-    <logger name="sss.db">
-        <level value="WARN"/>
+        <level value="OFF"/>
     </logger>
 
 </configuration>

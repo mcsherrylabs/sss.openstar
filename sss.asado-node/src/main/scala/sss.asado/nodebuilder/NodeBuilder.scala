@@ -1,6 +1,7 @@
 package sss.asado.nodebuilder
 
-import java.net.InetSocketAddress
+
+import java.util.logging.{Level, Logger}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.agent.Agent
@@ -9,17 +10,16 @@ import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.asado.account.NodeIdentity
-import sss.asado.balanceledger.{BalanceLedger, BalanceLedgerQuery}
+import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.contract.CoinbaseValidator
-import sss.asado.identityledger.{IdentityLedger, IdentityService, IdentityServiceQuery}
+import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
 import sss.asado.network.NetworkController.{BindControllerSettings, ConnectTo, StartNetwork}
 import sss.asado.network._
 import sss.asado.state._
 import sss.asado.account.PublicKeyAccount
-import sss.asado.wallet.{Wallet, WalletPersistence}
 import sss.db.Db
 
 import scala.collection.JavaConversions._
@@ -31,19 +31,30 @@ import scala.language.postfixOps
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-
-
-
 trait ConfigNameBuilder {
   val configName : String
 }
 
-trait NodeConfigBuilder {
+trait ConfigBuilder extends Configure {
   self : ConfigNameBuilder =>
-  lazy val nodeConfig: NodeConfig = NodeConfigImpl(configName)
+  lazy val conf: Config = config(configName)
+}
+
+trait BindControllerSettingsBuilder {
+  self : ConfigBuilder =>
+  lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
+}
+
+trait NodeConfigBuilder {
+  self : ConfigNameBuilder with
+    ConfigBuilder with
+    ConfigNameBuilder with
+    BindControllerSettingsBuilder =>
+
+  lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
 
   trait NodeConfig {
-     val nodeConfig: Config
+     val conf: Config
      val settings: BindControllerSettings
      val uPnp: Option[UPnP]
      val dbConfig: Config
@@ -55,14 +66,14 @@ trait NodeConfigBuilder {
      val connectedClients = Agent[Set[Connection]](Set.empty[Connection])
   }
 
-  case class NodeConfigImpl(configName: String) extends NodeConfig with Configure {
-    lazy val nodeConfig: Config = config(configName)
-    lazy val settings: BindControllerSettings = DynConfig[BindControllerSettings](nodeConfig.getConfig("bind"))
+  case class NodeConfigImpl(conf: Config) extends NodeConfig with Configure {
+
+    lazy val settings: BindControllerSettings = bindSettings
     lazy val uPnp = DynConfig.opt[UPnPSettings](s"${configName}.upnp") map (new UPnP(_))
-    lazy val dbConfig = nodeConfig.getConfig("database")
-    lazy val blockChainSettings: BlockChainSettings = DynConfig[BlockChainSettings](s"${configName}.blockchain")
-    lazy val production: Boolean = nodeConfig.getBoolean("production")
-    lazy val peersList: Set[NodeId] = nodeConfig.getStringList("peers").toSet.map(NetworkController.toNodeId)
+    lazy val dbConfig = conf.getConfig("database")
+    lazy val blockChainSettings: BlockChainSettings = DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
+    lazy val production: Boolean = conf.getBoolean("production")
+    lazy val peersList: Set[NodeId] = conf.getStringList("peers").toSet.map(NetworkController.toNodeId)
     lazy val quorum = NetworkController.quorum(peersList.size)
   }
 }
@@ -72,7 +83,7 @@ trait HomeDomainBuilder {
   self : NodeConfigBuilder =>
 
   lazy val homeDomain: HomeDomain = {
-    val conf = DynConfig[HomeDomainConfig](nodeConfig.nodeConfig.getConfig("homeDomain"))
+    val conf = DynConfig[HomeDomainConfig](nodeConfig.conf.getConfig("homeDomain"))
     new HomeDomain {
       override val identity: String = conf.identity
       override val dns: String = conf.dns
@@ -118,8 +129,8 @@ trait NodeIdentityBuilder {
 
   self : NodeConfigBuilder =>
   lazy val nodeIdentity: NodeIdentity = {
-    if(nodeConfig.production) NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.nodeConfig)
-    else NodeIdentity(nodeConfig.nodeConfig, "password")
+    if(nodeConfig.production) NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
+    else NodeIdentity(nodeConfig.conf, "password")
   }
 }
 
@@ -154,7 +165,7 @@ trait BootstrapIdentitiesBuilder {
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] = buildBootstrapIdentities
   def buildBootstrapIdentities: List[BootstrapIdentity] = {
-    nodeConfig.nodeConfig.getStringList("bootstrap").toList.map { str =>
+    nodeConfig.conf.getStringList("bootstrap").toList.map { str =>
           val strAry = str.split(":::")
           BootstrapIdentity(strAry.head, strAry.tail.head)
         }
@@ -195,9 +206,16 @@ trait MessageQueryHandlerActorBuilder {
     ActorSystemBuilder with
     NodeIdentityBuilder with
     BlockChainBuilder with
+    ConfigBuilder with
     IdentityServiceBuilder =>
 
-  lazy val messagePaywall = new MessagePaywall(1,1,currentBlockHeight _, nodeIdentity, identityService)
+  lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
+  lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
+
+  lazy val messagePaywall = new MessagePaywall(
+    minNumBlocksInWhichToClaim,
+    chargePerMessage,
+    currentBlockHeight _, nodeIdentity, identityService)
 
   lazy val messageServiceActor =
     actorSystem.actorOf(Props(classOf[MessageQueryHandlerActor], messageRouterActor, messagePaywall, db))
@@ -328,6 +346,8 @@ trait NetworkContollerBuilder {
 
 trait MinimumNode extends Logging with
     ConfigNameBuilder with
+    ConfigBuilder with
+    BindControllerSettingsBuilder with
     ActorSystemBuilder with
     DbBuilder with
     NodeConfigBuilder with
@@ -350,6 +370,8 @@ trait MinimumNode extends Logging with
     httpServer.stop
     actorSystem.terminate
   }
+
+  Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
 }
 
 
@@ -366,8 +388,6 @@ trait CoreNode extends MinimumNode with
 trait ServicesNode extends CoreNode with
     MessageQueryHandlerActorBuilder with
     ClaimServletBuilder {
-
-
 }
 
 

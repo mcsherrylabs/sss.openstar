@@ -26,13 +26,19 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
     * @return
     */
   def journal(blockTx: BlockTx): BlockChainTx = block.inTransaction[BlockChainTx] {
-      Try(block.journal(blockTx.index, blockTx.ledgerItem)) match {
-        case Failure(e: SQLIntegrityConstraintViolationException) =>
-          val blck = block.get(blockTx.ledgerItem.txId).getOrElse(throw e)
-          BlockChainTx(block.height, BlockTx(blck.index, blck.ledgerItem))
-        case Failure(e) => throw e
-        case Success(index) => BlockChainTx(block.height, BlockTx(index, blockTx.ledgerItem))
+      block.get(blockTx.ledgerItem.txId) match {
+        case Some(blck) => BlockChainTx(block.height, BlockTx(blck.index, blck.ledgerItem))
+        case None =>
+          val index = block.journal(blockTx.index, blockTx.ledgerItem)
+          BlockChainTx(block.height, BlockTx(index, blockTx.ledgerItem))
       }
+//      Try(block.journal(blockTx.index, blockTx.ledgerItem)) match {
+//        case Failure(e: SQLIntegrityConstraintViolationException) =>
+//          val blck = block.get(blockTx.ledgerItem.txId).getOrElse(throw e)
+//          BlockChainTx(block.height, BlockTx(blck.index, blck.ledgerItem))
+//        case Failure(e) => throw e
+//        case Success(index) => BlockChainTx(block.height, BlockTx(index, blockTx.ledgerItem))
+//      }
   }
 
   /**

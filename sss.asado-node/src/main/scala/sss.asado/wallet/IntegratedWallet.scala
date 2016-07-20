@@ -2,6 +2,7 @@ package sss.asado.wallet
 
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block._
@@ -39,7 +40,7 @@ object IntegratedWallet {
 }
 
 class IntegratedWallet(wallet: Wallet,
-                       messageRouterActor: ActorRef)(implicit system: ActorSystem) {
+                       messageRouterActor: ActorRef)(implicit system: ActorSystem) extends Logging {
 
 
   import IntegratedWallet._
@@ -110,6 +111,7 @@ class IntegratedWallet(wallet: Wallet,
   def credit(lodgement: Lodgement): Unit = wallet.credit(lodgement)
 
   def payAsync(sendingActor: ActorRef, payment: Payment) = {
+    log.info(s"Attempting to create a tx for ${payment.amount} with wallet balance ${wallet.balance()}")
     val tx = wallet.createTx(payment.amount)
     val enc = wallet.encumberToIdentity(payment.blockHeight, payment.identity)
     val finalTxUnsigned = wallet.appendOutputs(tx, TxOutput(payment.amount, enc))

@@ -48,7 +48,7 @@ class BalanceLedger(storage: UTXODBStorage,
         val in = ins(i)
         entry(in.txIndex) match {
           case Some(txOut) =>
-            require(txOut.amount >= in.amount, s"Cannot pay out (${in.amount}), only ${txOut.amount} available ")
+            require(txOut.amount == in.amount, s"In amount ${in.amount}) must equal out amount ${txOut.amount} ")
             totalIn += in.amount
             val context = LedgerContext(contextTemplate + (blockHeightKey  -> blockHeight))
             require(txOut.encumbrance.decumber(txId +: stx.signatures(i), context, in.sig), "Failed to decumber!")
@@ -58,6 +58,8 @@ class BalanceLedger(storage: UTXODBStorage,
             case TxIndex(coinbaseTxId, 0) if CoinbaseTxId sameElements coinbaseTxId =>
               totalIn += in.amount
               coinbaseValidator.validate(blockHeight, stx.signatures, tx)
+              // No need to delete from storage becfause it's not in storage.
+              log.info(s"Balance ledger balance is ${balance} at height $blockHeight, adding ${in.amount} via coinbase")
 
             case TxIndex(coinbaseTxId, _) if CoinbaseTxId sameElements coinbaseTxId =>
               throw new IllegalArgumentException(s"Only one coinbase tx allowed ${in.txIndex}.")
@@ -74,7 +76,7 @@ class BalanceLedger(storage: UTXODBStorage,
         acc + 1
       }
 
-      require(totalOut <= totalIn, s"Total out (${totalOut}) *must* be less than or equal to total in (${totalIn})")
+      require(totalOut == totalIn, s"Total out (${totalOut}) *must* equal total in (${totalIn})")
 
     }
   }
