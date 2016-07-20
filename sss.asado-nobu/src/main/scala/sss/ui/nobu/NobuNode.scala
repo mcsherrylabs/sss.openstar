@@ -20,9 +20,13 @@ object NobuNode {
   }
   case object NodeBootstrap extends ConfigNameBuilder with
     NodeConfigBuilder with
+    ConfigBuilder with
+    BindControllerSettingsBuilder with
     HomeDomainBuilder with NodeConfigName
 
   case class NodeBootstrapWallet(nodeId: NodeIdentity) extends ConfigNameBuilder with
+    BindControllerSettingsBuilder with
+    ConfigBuilder with
     NodeConfigBuilder with
     HomeDomainBuilder with
     NodeIdentityBuilder with

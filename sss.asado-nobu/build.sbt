@@ -33,7 +33,7 @@ libraryDependencies ++= Seq(
   "us.monoid.web" % "resty" % "0.3.2",
   "org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   "org.vaadin.addons" % "animator" % "1.7.4",
-  "mcsherrylabs.com" %% "sss-asado-node" % "0.2.9-SNAPSHOT",
+  "mcsherrylabs.com" %% "sss-asado-node" % "0.2.11-SNAPSHOT",
   "mcsherrylabs.com" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT",
   "mcsherrylabs.com" %% "sss-vaadin-akka-reactive" % "0.2",
   "org.scalatra" % "scalatra_2.11" % "2.4.0",
