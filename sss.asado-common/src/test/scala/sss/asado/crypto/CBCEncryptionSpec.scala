@@ -16,6 +16,7 @@ class CBCEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
     val key = "coulsdfsfdIBEanmorera"
     val value = "randonw mesafsd s;klf ;lk ;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
     val iv = CBCEncryption.newInitVector
+    println(s"CBC STRING IV ${iv}")
     val encrypted = CBCEncryption.encrypt(key, value, iv)
     assert(new String(encrypted, StandardCharsets.UTF_8) != value)
     assert(new String(encrypted, StandardCharsets.UTF_8) != key)
@@ -32,6 +33,7 @@ class CBCEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
   val key = "codfsfdIBEanmoreraasdadsads"
   val value = "randonw mesafsd s;klf ;asdasdadlk asdad;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
   val iv = CBCEncryption.newInitVector
+  println(s"CBC BYTE IV ${iv}")
   val encrypted = CBCEncryption.encrypt(key, value.getBytes, iv)
   assert(new String(encrypted, StandardCharsets.UTF_8) != value)
   assert(new String(encrypted, StandardCharsets.UTF_8) != key)
