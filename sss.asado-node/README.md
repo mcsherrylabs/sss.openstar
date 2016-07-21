@@ -40,7 +40,7 @@ Assuming bob is configured in the nodes.conf - call it for a service node named 
 ```bash
 . run_nodes bob SERVICE
 ```
-Assuming alice is configured in the nodes.conf - call it for a core node named 'bob' as follows 
+Assuming alice is configured in the nodes.conf - call it for a core node named 'alice' as follows 
 ```bash
 . run_nodes alice CORE
 ```
