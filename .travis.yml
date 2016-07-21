@@ -11,4 +11,5 @@ script:
     - cd ../sss.asado-network ; sbt clean test
     - cd ../sss.asado-ledger ; sbt clean test
     - cd ../sss.asado-node ; sbt clean test 
-    - cd ../sss.asado-nobu ; sbt clean test 
+    - cd ../sss.asado-nobu ; sbt clean test
+    - cd ../test-rigs/message-sender ; sbt clean test
