@@ -2,20 +2,20 @@
 
 While all the rest of the code concerns itself with keeping the ledgers in sync across a network and going forward, this module contains the ledgers themselves. 
   
-  The currently supported ledgers are the balanceledger and an identity ledger. 
+  The currently supported ledgers are the balance ledger and an identity ledger. 
   
   In order for a ledger to be supported it must conform to the Ledger interface as described in the 'common' module.
   
 ```scala
   trait Ledger {
       @throws[LedgerException]
-      def apply(ledgerItem: LedgerItem, blockheight: Long)
+      def apply(ledgerItem: LedgerItem, blockHeight: Long)
       def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId, ledgerId: Byte): Option[LedgerItem] = None
     }
     
 ```
  
-   So for example the IdentityLedger looks like ... 
+   For example the IdentityLedger looks like ... 
    
 ```scala
    class IdentityLedger(ledgerId: Byte, idLedgerStorage: IdentityService) extends  Ledger with Logging {
@@ -30,7 +30,7 @@ While all the rest of the code concerns itself with keeping the ledgers in sync 
 
 From the point of view of the rest of the system all a ledger has to do is accept a LedgerItem via `apply` and optionally provide a coinbase LedgerItem for each block. If the ledger rejects the LedgerItem it throws an `Exception`.
  
- A LedgerItem itself requires a transaction id and the identifier of the Ledger itself (BalanceLedger is 1 and Identity Ledger is 2)
+ A LedgerItem itself requires a transaction id and the identifier of the Ledger itself (Balance Ledger is 1 and Identity Ledger is 2)
  It also has an Array of bytes which should mean something to the ledger itself but nothing to the rest of the system.
  
 ```scala
@@ -41,11 +41,11 @@ These LedgerItems represent transactions and end up stored as bytes in Blocks on
  
 ## The BalanceLedger
  
-The balance ledger has some similarities to the bitcoin ledger. A pool of transaction outputs exists. A new transaction must have as it's inputs some of these previous outputs. In order to use these outputs successfully the transaction must provide the necessary 'proofs' to unlock the TxOut, otherwise the tx is rejected. The mechanism for locking outputs and unlocking inputs is the bitcoin scripting language or [script](https://en.bitcoin.it/wiki/Script). 
+The balance ledger is similar to the bitcoin ledger. A pool of transaction outputs exists. A new transaction must have as it's inputs some of these previous outputs. In order to use these outputs successfully the transaction must provide the necessary 'proofs' to unlock the TxOut, otherwise the tx is rejected. Whereas in Bitocin the mechanism for locking outputs and unlocking inputs is the bitcoin scripting language or [script](https://en.bitcoin.it/wiki/Script), in asado the mechanisms are written in JVM code.  
 
-In the simplest case a TxOut might be locked to a particular public key, an entity trying to use that TxOut must provide proof that they hold the private key paired with the public key. So the txOut is encumbered with a simple contract and to 'decumber' or use the output proof of holding the private key must be provided. 
+In the simplest case a TxOut might be locked to a particular public key, an entity trying to use that TxOut must provide proof that they hold the private key paired with the public key. So the txOut is encumbered with a simple contract and to 'decumber' or use the output, proof of holding the private key must be provided. 
      
-The BalanceLedger also has a pool of TxOuts. Each of these is encumbered with a contract. In order to use the txOut to fund another transaction the txOut must be 'decumbered' successfully.
+The balance ledger also has a pool of TxOuts. Each of these is encumbered with a contract. In order to use the txOut to fund another transaction the txOut must be 'decumbered' successfully.
 
 Thus a valid transaction is a set of valid inputs and a set of valid outputs. The TxId identifying the transaction is a hash of all the inputs and outputs. 
    
@@ -76,7 +76,7 @@ case class TxOutput(amount: Int, encumbrance: Encumbrance)
 The total amount in all outputs must equal the total of all the inputs.
  
 ###Supported Encumbrances
-The encumbrances and decumbrances are written in scala code. On the plus side it extremely easy to create new encumbrances, however every new encumbrance requires every node in the network wishing to validate the blockchain must support every new encumbrance. They are serialised and stored in the ledger and when they are used in a transaction they are stored in the block. Thus an encumbrance once supported must always be supported. (This inertia might be seen as a good thing (tm)). 
+The encumbrances and decumbrances are written in scala code. On the plus side it extremely easy to create new encumbrances, however every new encumbrance requires every node in the network wishing to validate the blockchain must support every new encumbrance. Encumbrances are serialised and stored in the ledger and when they are used in a transaction they are stored in the block. Thus an encumbrance once supported must always be supported. (This inertia might be seen as a good thing (tm)). 
   
 ```scala
 case class SinglePrivateKey(pKey: PublicKey, minBlockHeight: Long = 0) extends Encumbrance
@@ -97,15 +97,21 @@ The single identity encumbrance is similar to the single key encumbrance except 
                     returnBlockHeight: Long
                   ) extends Encumbrance 
 ```                                          
-The sale of return encumbrance enables the MessageInBox functionality described in the 'node' module. The claimant may claim the output if they can provide a secret who's hash has been embedded in the encumbrance. Should a 'returnBlockHeight' be reached the returnIdentity may then claim the output. The idea is to allow the claimant some time to take the money if they provide the secret you have embedded in your message to them.               
+The 'sale or return' encumbrance enables the MessageInBox functionality described in the 'node' module. The claimant may claim the output if they can provide a secret who's hash has been embedded in the encumbrance. Should a 'returnBlockHeight' be reached the returnIdentity may then claim the output. The idea is to allow the claimant some time to take the money if they provide the secret you have embedded in your message to them.               
 
 ###Coinbase
-Ledgers may optionally provide a coinbase tx. The balance ledger allows the node to claim a coinbase tx *if* they are the first signer of the block they are claiming the coinbase tx in. The coinbase tx is special in that it inputs are not in the txOut set. This can be turned off.  
+Ledgers may optionally provide a coinbase tx. The balance ledger allows the node to claim a coinbase tx *if* they are the first signer of the block they are claiming the coinbase tx in. The coinbase tx is special in that its inputs are not in the txOut set. This can be turned off.  
  
 
 ## The IdentityLedger
 Public keys are not an intuitive way to identify a person, group or organisation. And locking value to a single private key puts great pressure on that key. The identity ledger attaches a string value to a key pair and then allows several key pairs to be associated with that identity through the magic of distributed ledgers. 
    
-At first an identity is 'claimed', as an example take 'bob', there are many ways to control the 'claim' entry point, but take a simple servlet as a starting point. To claim the identity 'bob', bob must not already be in the identity ledger and a public key must be provided. That key and the identifier are inserted into the ledger and distributed across the nodes. Bob may then sign a tx with the first private adding a second public key to his identity. These are differentiated by a tag (e.g. 'pc', 'mobile') and bob may then use encumbrances based on his identity, which can be proven by either of the 2 keys. Should Bob lose the first key he may add a third key using the second key. Bob may also create a 'rescuer', this is a second identity linked to Bob's identity entrusted to link a public key to Bob's identity.     
+At first an identity is 'claimed', as an example take 'bob', there are many ways to control the 'claim' entry point, but take a simple servlet as a starting point. To claim the identity 'bob', bob must not already be in the identity ledger and a public key must be provided. That key and the identifier are inserted into the ledger and distributed across the nodes. Bob may then sign a tx with the first private key adding a second public key to his identity.
+ 
+```scala
+case class Link(identity: String, pKey: PublicKey, tag: String) extends IdentityLedgerMessage(identity) 
+ ```
+ 
+These are differentiated by a tag (e.g. 'pc', 'mobile') and bob may then use encumbrances based on his identity, which can be proven by either of the 2 keys. Should Bob lose the first key he may add a third key using the second key. Bob may also create a 'rescuer', this is a second identity linked to Bob's identity entrusted to link a public key to Bob's identity.     
 
 A node may not connect to the network without a valid identity. The mechanics of this are detailed in the 'network' module. The implication is that it is very important to have an up to date blockchain containing the latest identities and keys.   

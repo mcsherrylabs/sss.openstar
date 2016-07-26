@@ -6,8 +6,6 @@ import com.twitter.util.SynchronizedLruMap
 import org.joda.time.LocalDateTime
 import sss.db._
 
-import scala.annotation.tailrec
-
 /**
   * Created by alan on 6/6/16.
   */
