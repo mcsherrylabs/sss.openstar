@@ -35,6 +35,10 @@ trait ConfigNameBuilder {
   val configName : String
 }
 
+trait PhraseBuilder {
+  val phrase : Option[Array[Char]]
+}
+
 trait ConfigBuilder extends Configure {
   self : ConfigNameBuilder =>
   lazy val conf: Config = config(configName)
@@ -127,10 +131,18 @@ trait MessageRouterActorBuilder {
 
 trait NodeIdentityBuilder {
 
-  self : NodeConfigBuilder =>
+  self : NodeConfigBuilder with PhraseBuilder =>
   lazy val nodeIdentity: NodeIdentity = {
-    if(nodeConfig.production) NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
-    else NodeIdentity(nodeConfig.conf, "password")
+    phrase match {
+      case None => NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
+      case Some(secret) => {
+        // secret is used in the constructor only, but as a string *will* hang around in memory
+        val res = NodeIdentity(nodeConfig.conf, new String(secret))
+        // blank out the password chars.
+        for(i <- 0 until secret.length) secret.update(i, " ".head)
+        res
+      }
+    }
   }
 }
 
@@ -351,6 +363,7 @@ trait MinimumNode extends Logging with
     ActorSystemBuilder with
     DbBuilder with
     NodeConfigBuilder with
+    PhraseBuilder with
     NodeIdentityBuilder with
     IdentityServiceBuilder with
     BootstrapIdentitiesBuilder with

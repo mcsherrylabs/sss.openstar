@@ -19,6 +19,7 @@ case class InitWithActorRefs(refs: ActorRef*)
 
       val core = new CoreNode {
         override val configName: String = withArgs(0)
+        override val phrase: Option[Array[Char]] = if(withArgs.length > 1) Option(withArgs(1).toCharArray) else None
       }
       core.initStateMachine
       core.startNetwork
@@ -32,6 +33,8 @@ case class InitWithActorRefs(refs: ActorRef*)
 
       val core = new ServicesNode {
         override val configName: String = withArgs(0)
+        override val phrase: Option[Array[Char]] = if(withArgs.length > 1) Option(withArgs(1).toCharArray) else None
+
       }
       core.initStateMachine
       core.messageServiceActor
