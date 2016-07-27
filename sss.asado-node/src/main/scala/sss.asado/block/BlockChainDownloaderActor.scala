@@ -74,14 +74,13 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
     case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.GetPageTx, bytes)
 
-    case CommitBlock(serverRef, blockId, reTryCount) if reTryCount > 5 => log.error(s"Ledger cannot sync retry, giving up.")
-
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
       Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
         case Failure(e) =>
-          log.error(e, s"Could not commit this block ${blockId}")
-          context.system.scheduler.scheduleOnce(5000 millis, self, CommitBlock(serverRef, blockId, reTryCount + 1))
+          val retryDelaySeconds = if(reTryCount > 60) 60 else reTryCount + 1
+          log.error(e, s"Could not commit this block ${blockId}, retry count is $reTryCount")
+          context.system.scheduler.scheduleOnce(retryDelaySeconds seconds, self, CommitBlock(serverRef, blockId, reTryCount + 1))
         case Success(_) =>
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")

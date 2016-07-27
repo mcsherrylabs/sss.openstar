@@ -1,8 +1,9 @@
 package sss.asado.identityledger
 
+import java.nio.charset.StandardCharsets
+
 import sss.ancillary.Logging
-import sss.asado.account.NodeIdentity
-import sss.asado.block.BlockId
+import StandardCharsets.UTF_8
 import sss.asado.ledger._
 
 /**
@@ -51,7 +52,7 @@ class IdentityLedger(ledgerId: Byte, idLedgerStorage: IdentityService) extends  
     val rescuers = idLedgerStorage.rescuers(identity)
     require(rescuers.contains(rescuer), s"This rescuer is not authorized to rescue $identity")
 
-    val tag = new String(ste.signatures.head(0))
+    val tag = new String(ste.signatures.head(0), UTF_8)
     val sig = ste.signatures.head(1)
     val accOpt = idLedgerStorage.accountOpt(rescuer, tag)
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")
@@ -60,7 +61,7 @@ class IdentityLedger(ledgerId: Byte, idLedgerStorage: IdentityService) extends  
 
   def verifyChangeRequest(ste: SignedTxEntry, msg: IdentityLedgerMessage, identity: String) {
     require(ste.signatures.nonEmpty && ste.signatures.head.size == 2, "A tag/sig pair must be provided to continue.")
-    val tag = new String(ste.signatures.head(0))
+    val tag = new String(ste.signatures.head(0), UTF_8)
     val sig = ste.signatures.head(1)
     val accOpt = idLedgerStorage.accountOpt(identity, tag)
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")

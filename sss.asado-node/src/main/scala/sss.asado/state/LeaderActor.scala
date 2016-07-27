@@ -101,14 +101,17 @@ class LeaderActor(thisNodeId: String,
         // I am the leader.
         context.setReceiveTimeout(Duration.Undefined)
         context.become(handle(thisNodeId))
-        log.info(s"The leader is $thisNodeId (me), closing partial block.")
+        log.info(s"The leader is $thisNodeId (me), telling the network...")
+        stateMachine ! LeaderFound(thisNodeId)
+        ncRef ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
+        /*log.info(s"The leader is $thisNodeId (me), closing partial block.")
         Try(BlockChainLedger(bc.lastBlockHeader.height + 1).commit) match {
           case Failure(e) => log.error(e, s"Failed to commit outstanding txs in partial block")
           case Success(numTxs) =>
             log.info(s"Committed the outstanding txs ($numTxs) in partial block")
             stateMachine ! LeaderFound(thisNodeId)
             ncRef ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
-        }
+        }*/
 
       } else context.become(handleNoLeader(confirms))
 

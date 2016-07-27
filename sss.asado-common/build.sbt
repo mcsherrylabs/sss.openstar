@@ -13,5 +13,7 @@ libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.12"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.5" % Test
+
 
 

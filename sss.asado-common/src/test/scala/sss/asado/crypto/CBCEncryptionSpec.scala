@@ -2,50 +2,92 @@ package sss.asado.crypto
 
 import java.nio.charset.StandardCharsets
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
+import org.scalatest.{FlatSpec, Matchers, PropSpec}
 import sss.asado.util.ByteArrayComparisonOps
 
 /**
   * Created by alan on 2/11/16.
   */
-class CBCEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
+class CBCEncryptionSpec extends PropSpec
+  with PropertyChecks
+  with GeneratorDrivenPropertyChecks
+  with Matchers {
 
-  "CBC Encryption " should " encrypt and decrypt a string " in {
+  property("decrypted string should match the pre encryption string ") {
 
-    val key = "coulsdfsfdIBEanmorera"
-    val value = "randonw mesafsd s;klf ;lk ;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
-    val iv = CBCEncryption.newInitVector
-    println(s"CBC STRING IV ${iv}")
-    val encrypted = CBCEncryption.encrypt(key, value, iv)
-    assert(new String(encrypted, StandardCharsets.UTF_8) != value)
-    assert(new String(encrypted, StandardCharsets.UTF_8) != key)
+    forAll (minSuccessful(20)){ (key: String, value: String) => {
+      whenever(key.length > 0 && value.length > 0) {
+        val iv = CBCEncryption.newInitVector
+        println(s"CBC STRING IV ${iv.asString}")
+        val encrypted = CBCEncryption.encrypt(key, value, iv)
+        new String(encrypted, StandardCharsets.UTF_8) shouldNot be(value)
+        new String(encrypted, StandardCharsets.UTF_8) shouldNot be(key)
 
-    val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
-    assert(new String(decrypted, StandardCharsets.UTF_8) == value)
+        val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
+        new String(decrypted, StandardCharsets.UTF_8) should be(value)
 
-    intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+      }
+    }
+    }
+  }
+  property("decrypted byte array should match the pre encryption array ") {
 
+    forAll (minSuccessful(20)){ (key: String, value: Array[Byte]) => {
+      whenever(key.length > 0 && value.length > 0) {
+        val iv = CBCEncryption.newInitVector
+        println(s"CBC STRING IV ${iv.asString}")
+        val encrypted = CBCEncryption.encrypt(key, value, iv)
+        encrypted shouldNot be(value)
+        new String(encrypted, StandardCharsets.UTF_8) shouldNot be(key)
+
+        val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
+        decrypted should be(value)
+
+        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+      }
+    }
+    }
   }
 
-  it should " encrypt and decrypt a byte array " in {
+  property("decrypted string should match the pre encryption string when key is byte array") {
 
-  val key = "codfsfdIBEanmoreraasdadsads"
-  val value = "randonw mesafsd s;klf ;asdasdadlk asdad;lsdkf ;sldkf ;sldkf;aqkq;wkemq"
-  val iv = CBCEncryption.newInitVector
-  println(s"CBC BYTE IV ${iv}")
-  val encrypted = CBCEncryption.encrypt(key, value.getBytes, iv)
-  assert(new String(encrypted, StandardCharsets.UTF_8) != value)
-  assert(new String(encrypted, StandardCharsets.UTF_8) != key)
+    forAll (minSuccessful(20)){ (key: Array[Byte], value: String) => {
+      whenever(key.length > 0 && value.length > 0) {
+        val iv = CBCEncryption.newInitVector
+        println(s"CBC STRING IV ${iv.asString}")
+        val encrypted = CBCEncryption.encrypt(key, value, iv)
+        new String(encrypted, StandardCharsets.UTF_8) shouldNot be(value)
+        encrypted shouldNot be(key)
 
-  val decrypted = CBCEncryption.decrypt(key, encrypted, CBCEncryption.initVector(iv.asString))
-  assert(new String(decrypted, StandardCharsets.UTF_8) == value)
+        val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
+        new String(decrypted, StandardCharsets.UTF_8) should be(value)
 
-  var decrypted2: Array[Byte] = Array()
+        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+      }
+    }
+    }
+  }
 
-  intercept[Exception](decrypted2 = CBCEncryption.decrypt("!" + key, encrypted, iv))
-  assert(new String(decrypted2, StandardCharsets.UTF_8) != value)
+  property("decrypted byte array should match the pre encryption array when key is also byte array") {
 
+    forAll (minSuccessful(5)){ (key: Array[Byte], value: Array[Byte]) => {
+      whenever(key.length > 0 && value.length > 0) {
+        val iv = CBCEncryption.newInitVector
+        println(s"CBC STRING IV ${iv.asString}")
+        val encrypted = CBCEncryption.encrypt(key, value, iv)
+        encrypted shouldNot be(value)
+        encrypted shouldNot be(key)
+
+        val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
+        decrypted should be(value)
+
+        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+      }
+    }
+    }
   }
 }
 
