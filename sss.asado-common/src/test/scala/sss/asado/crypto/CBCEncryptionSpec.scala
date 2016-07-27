@@ -1,6 +1,7 @@
 package sss.asado.crypto
 
 import java.nio.charset.StandardCharsets
+import java.util
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
 import org.scalatest.{FlatSpec, Matchers, PropSpec}
@@ -46,7 +47,12 @@ class CBCEncryptionSpec extends PropSpec
         val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
         decrypted should be(value)
 
-        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+        intercept[Exception]{
+          val badDec = CBCEncryption.decrypt(key + "!", encrypted, iv)
+          if(util.Arrays.equals(badDec, value)) {
+            println("I've successfully decrypted a value with the wrong key!")
+          } else println("At least the decrypted values were different, partial success.")
+        }
       }
     }
     }
