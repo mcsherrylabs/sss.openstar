@@ -65,7 +65,8 @@ class CBCEncryptionSpec extends PropSpec
         val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
         new String(decrypted, StandardCharsets.UTF_8) should be(value)
 
-        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+        val k: Array[Byte] = key ++ "!".getBytes()
+        intercept[Exception](CBCEncryption.decrypt(k, encrypted, iv))
       }
     }
     }
@@ -81,10 +82,12 @@ class CBCEncryptionSpec extends PropSpec
         encrypted shouldNot be(value)
         encrypted shouldNot be(key)
 
+
         val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
         decrypted should be(value)
 
-        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+        val k: Array[Byte] = key ++ "!".getBytes()
+        intercept[Exception](CBCEncryption.decrypt(k, encrypted, iv))
       }
     }
     }

@@ -154,7 +154,7 @@ class Wallet(identity: NodeIdentity,
       }
 
       case None =>
-        if (lodgement.inBlock == currentBlockHeight()) {
+        if (lodgement.inBlock == atBlockHeight) {
           // the lodgement is in the current block, but as this block has not been closed
           // it will not be in the balanceledger.
           Option(UnSpent(lodgement.txIndex, lodgement.txOutput))
