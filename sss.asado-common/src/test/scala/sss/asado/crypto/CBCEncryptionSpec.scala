@@ -18,7 +18,7 @@ class CBCEncryptionSpec extends PropSpec
 
   property("decrypted string should match the pre encryption string ") {
 
-    forAll (minSuccessful(50)){ (key: String, value: String) => {
+    forAll (minSuccessful(10)){ (key: String, value: String) => {
       whenever(key.length > 0 && value.length > 0) {
         val iv = CBCEncryption.newInitVector
         println(s"CBC STRING IV ${iv.asString}")
@@ -29,14 +29,18 @@ class CBCEncryptionSpec extends PropSpec
         val decrypted = CBCEncryption.decrypt(key, encrypted, iv)
         new String(decrypted, StandardCharsets.UTF_8) should be(value)
 
-        intercept[Exception](CBCEncryption.decrypt(key + "!", encrypted, iv))
+
+        intercept[Exception]{
+          val badDec = CBCEncryption.decrypt(key + "!", encrypted, iv)
+          assert(new String(badDec) != value)
+        }
       }
     }
     }
   }
   property("decrypted byte array should match the pre encryption array ") {
 
-    forAll (minSuccessful(50)){ (key: String, value: Array[Byte]) => {
+    forAll (minSuccessful(10)){ (key: String, value: Array[Byte]) => {
       whenever(key.length > 0 && value.length > 0) {
         val iv = CBCEncryption.newInitVector
         println(s"CBC STRING IV ${iv.asString}")
@@ -49,9 +53,7 @@ class CBCEncryptionSpec extends PropSpec
 
         intercept[Exception]{
           val badDec = CBCEncryption.decrypt(key + "!", encrypted, iv)
-          if(util.Arrays.equals(badDec, value)) {
-            println("I've successfully decrypted a value with the wrong key!")
-          } else println("At least the decrypted values were different, partial success.")
+          assert(!util.Arrays.equals(badDec, value))
         }
       }
     }
@@ -60,7 +62,7 @@ class CBCEncryptionSpec extends PropSpec
 
   property("decrypted string should match the pre encryption string when key is byte array") {
 
-    forAll (minSuccessful(50)){ (key: Array[Byte], value: String) => {
+    forAll (minSuccessful(10)){ (key: Array[Byte], value: String) => {
       whenever(key.length > 0 && value.length > 0) {
         val iv = CBCEncryption.newInitVector
         println(s"CBC STRING IV ${iv.asString}")
@@ -72,7 +74,11 @@ class CBCEncryptionSpec extends PropSpec
         new String(decrypted, StandardCharsets.UTF_8) should be(value)
 
         val k: Array[Byte] = key ++ "!".getBytes()
-        intercept[Exception](CBCEncryption.decrypt(k, encrypted, iv))
+        intercept[Exception]{
+          val badDec = CBCEncryption.decrypt(k, encrypted, iv)
+          assert(new String(badDec) != value)
+        }
+
       }
     }
     }
@@ -80,7 +86,7 @@ class CBCEncryptionSpec extends PropSpec
 
   property("decrypted byte array should match the pre encryption array when key is also byte array") {
 
-    forAll (minSuccessful(50)){ (key: Array[Byte], value: Array[Byte]) => {
+    forAll (minSuccessful(10)){ (key: Array[Byte], value: Array[Byte]) => {
       whenever(key.length > 0 && value.length > 0) {
         val iv = CBCEncryption.newInitVector
         println(s"CBC STRING IV ${iv.asString}")
@@ -93,7 +99,11 @@ class CBCEncryptionSpec extends PropSpec
         decrypted should be(value)
 
         val k: Array[Byte] = key ++ "!".getBytes()
-        intercept[Exception](CBCEncryption.decrypt(k, encrypted, iv))
+        intercept[Exception]{
+          val badDec = CBCEncryption.decrypt(k, encrypted, iv)
+          assert(!util.Arrays.equals(badDec, value))
+        }
+
       }
     }
     }

@@ -51,10 +51,10 @@ class ConnectionHandler(
   }
 
 
-  private val sentHandShakeTrue = true
-  private val handShakeNotSent = false
+  private var sentHandShake = false
+  private var remoteIdOpt: Option[String] = None
 
-  private def handshake(sentSignedHandshake: Boolean, remoteIdOpt: Option[String]): Receive = {
+  private def handshake : Receive = {
 
     case h: Handshake =>
       connection ! Write(ByteString(h.bytes))
@@ -68,13 +68,12 @@ class ConnectionHandler(
             if (handshakeGood) {
               val delay = (System.currentTimeMillis() / 1000) - shake.time
               log.debug(s"Got a Handshake from $remote, delay in s is $delay")
+              remoteIdOpt = Some(shake.nodeId)
 
-              if(sentSignedHandshake) {
+              if(sentHandShake) {
                 val nId = NodeId(shake.nodeId, remote)
                 context.parent ! Connection(nId, self)
                 context become working(nId)
-              } else {
-                context.become(handshake(handShakeNotSent, Some(shake.nodeId)))
               }
 
             } else {
@@ -89,13 +88,12 @@ class ConnectionHandler(
             val sigStr = DatatypeConverter.printHexBinary(signedShake.sig)
             log.info(s"Signing ${signedShake.fromNonce} ${signedShake.nodeId}, ${signedShake.tag}, ${sigStr}")
             connection ! Write(ByteString(signedShake.bytes))
+            sentHandShake = true
 
-            remoteIdOpt match {
-              case Some(remoteId) =>
+            remoteIdOpt map { remoteId =>
                 val nId = NodeId(remoteId, remote)
                 context.parent ! Connection(nId, self)
                 context become working(nId)
-              case None => context become handshake(sentHandShakeTrue, remoteIdOpt)
             }
           }
           connection ! ResumeReading
@@ -142,6 +140,6 @@ class ConnectionHandler(
         log.warning(s"Strange input for ConnectionHandler: $nonsense")
     }: Receive)
 
-  override def receive: Receive = handshake(handShakeNotSent, None)
+  override def receive: Receive = handshake
 }
 

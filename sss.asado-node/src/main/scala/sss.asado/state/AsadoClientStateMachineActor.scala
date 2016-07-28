@@ -20,8 +20,10 @@ class AsadoClientStateMachineActor(thisNodeId: String,
                                    blockChainSettings: BlockChainSettings,
                                    bc: BlockChain,
                                    quorum: Int,
-                                   db: Db
+                                   db: Db,
+                                   protected val eventListener: ActorRef
                              ) extends AsadoClientStateMachine {
+
 
   final override def receive = init orElse super.receive
 
@@ -34,7 +36,7 @@ class AsadoClientStateMachineActor(thisNodeId: String,
         messageDownloader,
         chainDownloaderRef,
         messageRouter) orElse super.receive)
-
+      eventListener ! StateMachineInitialised
   }
 
 
@@ -44,10 +46,10 @@ class AsadoClientStateMachineActor(thisNodeId: String,
                            ): Receive = {
 
     case  swl @ SyncWithConnection(conn) =>
-        log.info(s"Connected to ${conn.nodeId.id}, begin syncing ... ")
-        chainDownloaderRef ! SynchroniseWith(conn)
-        messageDownloader ! CheckForMessages
+      eventListener ! swl
+      chainDownloaderRef ! SynchroniseWith(conn)
+      messageDownloader ! CheckForMessages
 
-    case Connecting => log.info("Connecting!!")
+    case c @ Connecting => eventListener ! c
   }
 }

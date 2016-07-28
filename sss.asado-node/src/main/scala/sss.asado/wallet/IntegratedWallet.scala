@@ -118,13 +118,13 @@ class IntegratedWallet(wallet: Wallet,
     val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
     val signedTx = wallet.sign(finalTxUnsigned)
     val p = Promise[TxResult]()
-
-    inBetweenActor ! TxTracker(signedTx, txIndex, payment.numConfirms, p, payment.txIdentifier)
     p.future.map {
       case txs @ TxSuccess(blockChainTxId, _, _) =>
         wallet.update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
         txs
     }.map(sendingActor ! _)
+
+    inBetweenActor ! TxTracker(signedTx, txIndex, payment.numConfirms, p, payment.txIdentifier)
   }
 
 

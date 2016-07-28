@@ -36,7 +36,7 @@ trait ConfigNameBuilder {
 }
 
 trait PhraseBuilder {
-  val phrase : Option[Array[Char]]
+  val phrase : Option[String]
 }
 
 trait ConfigBuilder extends Configure {
@@ -108,6 +108,11 @@ trait ActorSystemBuilder {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
+trait EventListenerBuilder {
+  self: ActorSystemBuilder =>
+  lazy val eventListener: ActorRef = actorSystem.actorOf(Props(classOf[EventListener]))
+}
+
 trait LedgersBuilder {
 
   self : BlockChainBuilder with NodeConfigBuilder with IdentityServiceBuilder with BalanceLedgerBuilder with DbBuilder =>
@@ -121,7 +126,6 @@ trait LedgersBuilder {
         MessageKeys.IdentityLedger -> identityLedger
       ))
     }
-
 }
 
 trait MessageRouterActorBuilder {
@@ -135,13 +139,7 @@ trait NodeIdentityBuilder {
   lazy val nodeIdentity: NodeIdentity = {
     phrase match {
       case None => NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
-      case Some(secret) => {
-        // secret is used in the constructor only, but as a string *will* hang around in memory
-        val res = NodeIdentity(nodeConfig.conf, new String(secret))
-        // blank out the password chars.
-        for(i <- 0 until secret.length) secret.update(i, " ".head)
-        res
-      }
+      case Some(secret) => NodeIdentity(nodeConfig.conf, secret)
     }
   }
 }
@@ -312,6 +310,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
     BlockChainBuilder with
     MessageDownloadServiceBuilder with
     BlockChainDownloaderBuilder with
+    EventListenerBuilder with
     MessageRouterActorBuilder =>
 
   lazy val stateMachineActor: ActorRef = buildClientStateMachine
@@ -329,7 +328,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
       nodeConfig.blockChainSettings,
       bc,
       nodeConfig.quorum,
-      db))
+      db, eventListener))
   }
 }
 
@@ -406,6 +405,7 @@ trait ServicesNode extends CoreNode with
 
 trait ClientNode extends MinimumNode with
     BlockChainDownloaderBuilder with
+    EventListenerBuilder with
     ClientStateMachineActorBuilder with
     MessageDownloadServiceBuilder with
     HomeDomainBuilder {

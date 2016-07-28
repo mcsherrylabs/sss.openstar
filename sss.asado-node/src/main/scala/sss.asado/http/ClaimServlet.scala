@@ -90,6 +90,7 @@ class ClaimsResultsActor(messageRouter: ActorRef, integratedWallet: IntegratedWa
 
     case TxSuccess(blockChainTxId, txIndex, txTracking) =>
       inFlightClaims.get(txTracking.get) map { claimTracker =>
+        log.info(s"Got TxSuccess for $txTracking")
         val indx = TxIndex(blockChainTxId.blockTxId.txId, 0)
         claimTracker.claiming.p.success(s"ok:${txIndex.toString}:$kickStartingAmount:${blockChainTxId.height}")
       }

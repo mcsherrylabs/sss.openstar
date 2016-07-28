@@ -60,7 +60,7 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
 
     case  swl @ SyncWithLeader(leader) =>
       if(thisNodeId == leader) {
-        log.info(s"We are leader - $leader, we will repsond to syncing ... ")
+        log.info(s"We are leader - $leader, we will respond to syncing requests ... ")
       } else {
         log.info(s"Leader is $leader, begin syncing ... ")
         connectedPeers().find(_.nodeId.id == leader) match {
@@ -73,14 +73,12 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
 
     case BlockChainStarted(BlockChainUp) => messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
     case BlockChainStopped(BlockChainDown) => log.info("Block chain has stopped.")
+    case CommandFailed(BlockChainUp) => context.system.scheduler.scheduleOnce(2 seconds, blockChainActor , StartBlockChain(self, BlockChainUp))
 
-    case  CommandFailed(BlockChainUp) => context.system.scheduler.scheduleOnce(2 seconds, blockChainActor , StartBlockChain(self, BlockChainUp))
-
-    case  AcceptTransactions(leader) =>
+    case AcceptTransactions(leader) =>
       log.info("Tx Accept :D")
       if(thisNodeId == leader) {
         blockChainActor ! StartBlockChain(self, BlockChainUp)
-        //messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
       }
 
     case  StopAcceptingTransactions =>

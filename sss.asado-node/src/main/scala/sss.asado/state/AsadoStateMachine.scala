@@ -22,6 +22,7 @@ object AsadoStateProtocol {
   case object Connecting
   case object BlockChainUp
   case object BlockChainDown
+  case object StateMachineInitialised
 }
 
 object AsadoState {

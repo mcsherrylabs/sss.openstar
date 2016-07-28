@@ -1,7 +1,10 @@
 package messagesender
 
-import akka.actor.Props
+import java.nio.charset.StandardCharsets
+
+import akka.actor.{ActorRef, Props}
 import messagesender.CheckInBoxForCash.CheckInBox
+import sss.ancillary.Memento
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.ledger._
@@ -27,9 +30,8 @@ object Main {
     val port = args(1).toInt
     val startIndex = args(2).toInt
     val endIndex = args(3).toInt
-    val isSender = args(4).toBoolean
-    new MessageSenderClient(new EditPortBindControllerSettings(port), prefix,
-      new CircularSeq(startIndex, endIndex, port), isSender)
+     new MessageSenderClient(new EditPortBindControllerSettings(port), prefix,
+      new CircularSeq(startIndex, endIndex, port))
 
   }
 
@@ -71,19 +73,23 @@ class EditPortBindControllerSettings(override val port: Int) extends BindControl
 }
 
 class MessageSenderClient(val newBndSettings: BindControllerSettings,
-                         prefix: String, circSeq: CircularSeq, isSender: Boolean) extends ClientNode {
+                         prefix: String, circSeq: CircularSeq) extends ClientNode {
   override val configName: String = "node"
-
+  override val phrase: Option[String] = Some("password")
   override lazy val bindSettings: BindControllerSettings = newBndSettings
 
   lazy override val nodeIdentity: NodeIdentity = {
     val idStr = s"${prefix}${bindSettings.port}"
     val defTag = "defaultTag"
-    val phrase = "password"
-    if(!NodeIdentity.keyExists(idStr, defTag)) {
-      claim(idStr, defTag, phrase)
+
+    Try {
+      claim(idStr, defTag, new String(phrase.get))
+    } match {
+      case Failure(e) => log.error(e.toString)
+      case Success(s) => log.info(s"Claim ok $s")
     }
-    NodeIdentity(idStr, defTag, phrase)
+
+    NodeIdentity(idStr, defTag, new String(phrase.get))
   }
 
   def claim(claim: String, claimTag: String, phrase:String) = {
@@ -113,28 +119,10 @@ class MessageSenderClient(val newBndSettings: BindControllerSettings,
     }
   }
 
-  nodeIdentity.publicKey
+  override lazy val eventListener: ActorRef =
+    actorSystem.actorOf(Props(classOf[OrchestratingActor], this, prefix, circSeq))
 
   initStateMachine
-  Thread.sleep(1000)
-  //startHttpServer
-  //configureServlets
-  startNetwork
-  connectHome
-
-  private lazy val inBox = MessageInBox(nodeIdentity.id)
-
-  val messageSendingActorRef = actorSystem.actorOf(Props(classOf[MessageSendingActor], this, inBox, prefix, circSeq))
-  val checkInBoxForCashRef = actorSystem.actorOf(Props(classOf[CheckInBoxForCash],
-    inBox, identityService, nodeIdentity, ncRef, wallet, homeDomain))
-
-  messageRouterActor ! RegisterRef( MessageKeys.SignedTxAck, checkInBoxForCashRef)
-  messageRouterActor ! RegisterRef( MessageKeys.AckConfirmTx, checkInBoxForCashRef)
-  messageRouterActor ! RegisterRef( MessageKeys.SignedTxNack, checkInBoxForCashRef)
-  messageRouterActor ! RegisterRef( MessageKeys.MessageResponse, messageSendingActorRef)
-
-  messageSendingActorRef ! TrySendMail
-  checkInBoxForCashRef ! CheckInBox
 
 
 }

@@ -1,6 +1,6 @@
 package sss.asado.state
 
-import akka.actor.{Actor, ActorLogging, FSM}
+import akka.actor.{Actor, ActorLogging, ActorRef, FSM}
 import sss.asado.network.Connection
 import sss.asado.network.NetworkController._
 
@@ -14,10 +14,14 @@ trait AsadoClientStateMachine
   import AsadoState._
   import AsadoStateProtocol._
 
+  protected val eventListener: ActorRef
+
   startWith(ConnectingState, None)
 
   when(ConnectingState) {
-    case Event(ConnectionGained(conn,_), _) => goto(OrderedState) using Some(conn)
+    case Event(cg @ ConnectionGained(conn,_), _) =>
+      eventListener ! cg
+      goto(OrderedState) using Some(conn)
   }
 
   onTransition {
@@ -35,8 +39,12 @@ trait AsadoClientStateMachine
   }
 
   whenUnhandled {
-    case Event(ConnectionLost(_,_), Some(leaderId)) => goto(ConnectingState) using None
-    case x => log.warning(x.toString); stay()
+    case Event(cl @ ConnectionLost(_,_), Some(leaderId)) =>
+      eventListener ! cl
+      goto(ConnectingState) using None
+    case x =>
+      eventListener ! x
+      stay()
   }
 
   initialize()

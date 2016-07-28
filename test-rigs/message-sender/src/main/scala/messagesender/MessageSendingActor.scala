@@ -41,6 +41,8 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
     )
   }
 
+  private var failFactor = 1
+
   override def receive: Receive = {
 
     case TrySendMail =>
@@ -74,8 +76,9 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
       } match {
         case Failure(e) =>
           log.info(s"Message sending to $to failed -> $e")
-          context.system.scheduler.scheduleOnce(10 seconds, self, TrySendMail)
-        case Success(_) =>
+          context.system.scheduler.scheduleOnce(10  * failFactor seconds, self, TrySendMail)
+          if(failFactor < 10) failFactor += 1
+        case Success(_) => failFactor = 1
       }
 
     case NetworkMessage(MessageKeys.MessageResponse, bytes) =>
