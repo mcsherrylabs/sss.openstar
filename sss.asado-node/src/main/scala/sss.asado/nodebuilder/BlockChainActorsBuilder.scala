@@ -2,7 +2,9 @@ package sss.asado.nodebuilder
 
 import akka.actor.{ActorRef, Props}
 import akka.routing.RoundRobinPool
-import sss.asado.block.{BlockChainActor, BlockChainDownloaderActor, BlockChainSynchronizationActor, TxForwarderActor, TxWriter}
+import sss.asado.MessageKeys._
+import sss.asado.block.{BlockChainActor, BlockChainDownloaderActor, BlockChainSynchronizationActor, ClientBlockChainDownloaderActor, SimpleTxPageActor, TxForwarderActor, TxWriter}
+import sss.asado.network.MessageRouter.{Register, RegisterRef}
 
 /**
   * Created by alan on 6/16/16.
@@ -30,6 +32,7 @@ trait BlockChainActorsBuilder {
       nodeConfig.quorum,
       nodeConfig.blockChainSettings.maxTxPerBlock,
       nodeConfig.blockChainSettings.maxSignatures,
+      nodeConfig.peersList,
       stateMachineActor,
       bc,
       messageRouterActor,
@@ -57,6 +60,7 @@ trait BlockChainDownloaderBuilder {
 
   self : ActorSystemBuilder with
     MessageRouterActorBuilder with
+    StateMachineActorBuilder with
     NodeIdentityBuilder with
     NetworkContollerBuilder with
     BlockChainBuilder with
@@ -67,7 +71,26 @@ trait BlockChainDownloaderBuilder {
 
   def buildChainDownloader =
     actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, ncRef,
-      messageRouterActor, bc, db, ledgers))
+      messageRouterActor, stateMachineActor, bc, db, ledgers))
+
+}
+
+trait ClientBlockChainDownloaderBuilder {
+
+  self : ActorSystemBuilder with
+    MessageRouterActorBuilder with
+    StateMachineActorBuilder with
+    NodeIdentityBuilder with
+    NetworkContollerBuilder with
+    BlockChainBuilder with
+    DbBuilder with
+    LedgersBuilder =>
+
+  lazy val blockChainDownloaderActor: ActorRef = buildClientChainDownloader
+
+  def buildClientChainDownloader =
+    actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
+      messageRouterActor, stateMachineActor, bc, db, ledgers))
 
 }
 
@@ -85,4 +108,21 @@ trait TxForwarderActorBuilder {
       messageRouterActor,
       nodeConfig.conf.getInt("clientRefCacheSize")))
 
+}
+
+trait SimpleTxPageActorBuilder {
+
+  self : NodeConfigBuilder with
+    ActorSystemBuilder with
+    MessageRouterActorBuilder with
+    BlockChainBuilder with DbBuilder  =>
+
+  lazy val simpleTxPageActor: ActorRef = buildSimpleTxPageActor
+
+  def buildSimpleTxPageActor =
+    actorSystem.actorOf(Props(classOf[SimpleTxPageActor],
+      nodeConfig.blockChainSettings.maxSignatures,
+      bc, db))
+
+  def initSimplePageTxActor = messageRouterActor ! RegisterRef(SimpleGetPageTx, simpleTxPageActor)
 }

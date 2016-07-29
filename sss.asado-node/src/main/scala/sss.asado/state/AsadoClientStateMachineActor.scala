@@ -47,9 +47,9 @@ class AsadoClientStateMachineActor(thisNodeId: String,
 
     case  swl @ SyncWithConnection(conn) =>
       eventListener ! swl
+      println("CHAIN " + chainDownloaderRef)
       chainDownloaderRef ! SynchroniseWith(conn)
       messageDownloader ! CheckForMessages
 
-    case c @ Connecting => eventListener ! c
   }
 }

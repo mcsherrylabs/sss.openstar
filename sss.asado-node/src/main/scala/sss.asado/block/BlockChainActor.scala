@@ -40,7 +40,7 @@ case class StartBlockChain(refToInform: ActorRef, something: Any)
 case class BlockChainStarted(something: Any)
 case class StopBlockChain(refToInform: ActorRef, something: Any)
 case class CommandFailed(something: Any)
-case class BlockChainStopped(something: Any)
+case class BlockChainStopped(wasRunning: Boolean, something: Any)
 case class TryCloseBlock(height: Long)
 case class OkToCloseBlock(height: Long)
 case object AcknowledgeNewLedger
@@ -145,11 +145,11 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
     case Routees(writers: IndexedSeq[_]) =>
       routees = writers
-      context.become(awaitAcks(BlockChainStopped(stopMsg)) orElse stoppingBlockChain(stopMsg, lastBlockHeader))
+      context.become(awaitAcks(BlockChainStopped(true, stopMsg)) orElse stoppingBlockChain(stopMsg, lastBlockHeader))
       writersRouterRef ! Broadcast(BlockLedger(self, None))
 
-    case BlockChainStopped(StopBlockChain(ref, any)) =>
-      ref ! BlockChainStopped(any)
+    case BlockChainStopped(_, StopBlockChain(ref, any)) =>
+      ref ! BlockChainStopped(true, any)
       context.become(initialize)
 
     case StartBlockChain(ref, any) => ref ! CommandFailed(any)
@@ -164,8 +164,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
       context.become(handleRouterDeath orElse startingBlockChain(sbc, bc.lastBlockHeader))
       writersRouterRef ! GetRoutees
 
-    case sbc @ StopBlockChain(ref, any) => ref ! BlockChainStopped(any)
-
+    case sbc @ StopBlockChain(ref, any) => ref ! BlockChainStopped(false, any)
 
   }
 

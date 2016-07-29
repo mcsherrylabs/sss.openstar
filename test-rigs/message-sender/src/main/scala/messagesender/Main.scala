@@ -113,7 +113,7 @@ class MessageSenderClient(val newBndSettings: BindControllerSettings,
           walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
         case errMsg =>
           //NodeIdentity.deleteKey(claim, claimTag)
-          log.error(s"Failed to claim $claim: $errMsg")
+          //log.error(s"Failed to claim $claim: $errMsg")
           throw new Error(errMsg)
       }
     }

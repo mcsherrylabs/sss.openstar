@@ -25,23 +25,25 @@ trait AsadoClientStateMachine
   }
 
   onTransition {
-    case _ -> OrderedState => self ! SyncWithConnection(nextStateData.get)
-    case _ -> ConnectingState => self ! Connecting
+    case _ -> OrderedState =>
+      self ! SyncWithConnection(nextStateData.get)
+      eventListener ! OrderedState
+    case _ -> ConnectingState => eventListener ! OrderedState
+    case _ -> ReadyState =>
+      eventListener ! ReadyState
   }
-
 
   when(OrderedState) {
-    case Event(Synced,_) => goto(ReadyState)
+    case Event(ClientSynced,_) => goto(ReadyState)
   }
-
   when(ReadyState) {
-    case Event(NotSynced, _) => goto(OrderedState)
-  }
-
-  whenUnhandled {
     case Event(cl @ ConnectionLost(_,_), Some(leaderId)) =>
       eventListener ! cl
       goto(ConnectingState) using None
+  }
+
+  whenUnhandled {
+
     case x =>
       eventListener ! x
       stay()

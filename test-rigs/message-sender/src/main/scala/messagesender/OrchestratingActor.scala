@@ -1,14 +1,14 @@
 package messagesender
 
-import akka.actor.Actor.Receive
 import akka.actor.{Actor, ActorLogging, Props}
 import messagesender.CheckInBoxForCash.CheckInBox
 import sss.asado.MessageKeys
 import sss.asado.message.MessageInBox
 
 import sss.asado.network.MessageRouter.RegisterRef
-import sss.asado.network.NetworkController.ConnectionGained
+
 import sss.asado.state.AsadoStateProtocol.StateMachineInitialised
+import sss.asado.state.AsadoState.ReadyState
 
 /**
   * Created by alan on 7/28/16.
@@ -21,7 +21,8 @@ class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: Ci
       startNetwork
       connectHome
 
-    case ConnectionGained(conn, updatedSet) =>
+
+    case ReadyState =>
       val inBox = MessageInBox(nodeIdentity.id)
 
       val messageSendingActorRef = context.system.actorOf(Props(classOf[MessageSendingActor], client, inBox, prefix, circSeq))

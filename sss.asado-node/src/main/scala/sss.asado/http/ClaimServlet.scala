@@ -77,7 +77,11 @@ class ClaimsResultsActor(messageRouter: ActorRef, integratedWallet: IntegratedWa
       } match {
         case Failure(e) =>
           log.info(e.getMessage)
-          trackerOpt.map(_.claiming.p.success(s"fail:${e.getMessage}") )
+
+          trackerOpt.map{ claimTracker =>
+            if(claimTracker.claiming.p.isCompleted) log.info(s"${hexId} already completed ")
+            else claimTracker.claiming.p.success(s"fail:${e.getMessage}")
+          }
         case Success(_) =>
       }
 
@@ -86,17 +90,20 @@ class ClaimsResultsActor(messageRouter: ActorRef, integratedWallet: IntegratedWa
       val hexId = txMsg.txId.toVarChar
       val claimTracker = inFlightClaims(hexId)
       inFlightClaims -= hexId
-      claimTracker.claiming.p.success(s"fail:${txMsg.msg}")
+      if(claimTracker.claiming.p.isCompleted) log.info(s"${hexId} already completed ")
+      else claimTracker.claiming.p.success(s"fail:${txMsg.msg}")
 
     case TxSuccess(blockChainTxId, txIndex, txTracking) =>
       inFlightClaims.get(txTracking.get) map { claimTracker =>
         log.info(s"Got TxSuccess for $txTracking")
         val indx = TxIndex(blockChainTxId.blockTxId.txId, 0)
-        claimTracker.claiming.p.success(s"ok:${txIndex.toString}:$kickStartingAmount:${blockChainTxId.height}")
+        if(claimTracker.claiming.p.isCompleted) log.info(s"${txTracking.get} already completed ")
+        else claimTracker.claiming.p.success(s"ok:${txIndex.toString}:$kickStartingAmount:${blockChainTxId.height}")
       }
     case TxFailure(txMsg, txTracking) =>
       inFlightClaims.get(txTracking.get) map { claimTracker =>
-        claimTracker.claiming.p.success(s"okNoMoney:${txMsg.msg}")
+        if(claimTracker.claiming.p.isCompleted) log.info(s"${txTracking.get} already completed ")
+        else claimTracker.claiming.p.success(s"okNoMoney:${txMsg.msg}")
       }
   }
 

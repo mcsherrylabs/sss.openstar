@@ -27,6 +27,7 @@ case class InitWithActorRefs(refs: ActorRef*)
       core.initStateMachine
       core.startNetwork
       core.startHttpServer
+      core.initSimplePageTxActor
 
     }
   }
@@ -44,6 +45,7 @@ case class InitWithActorRefs(refs: ActorRef*)
       core.addClaimServlet
       core.startNetwork
       core.startHttpServer
+      core.initSimplePageTxActor
 
     }
   }

@@ -29,6 +29,7 @@ object NobuNode {
     ConfigBuilder with
     NodeConfigBuilder with
     HomeDomainBuilder with
+    PhraseBuilder with
     NodeIdentityBuilder with
     DbBuilder with
     WalletPersistenceBuilder with

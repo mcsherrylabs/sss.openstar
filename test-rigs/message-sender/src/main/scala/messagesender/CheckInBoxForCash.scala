@@ -92,18 +92,22 @@ class CheckInBoxForCash(inBox: MessageInBox,
   }
 
 
+  private var failFactor = 1
+
   override def receive: Receive = {
 
     case CheckInBox =>
       log.info("Checking InBox")
       if(lastPage.messages.nonEmpty) {
+        failFactor = 1
         val msg = lastPage.messages.head
         processMsg(msg)
         inBox.archive(msg.index)
         self ! CheckInBox
 
       } else {
-        context.system.scheduler.scheduleOnce(10 seconds, self, CheckInBox)
+        context.system.scheduler.scheduleOnce(10 * failFactor seconds, self, CheckInBox)
+        if(failFactor < 10) failFactor += 1
       }
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>

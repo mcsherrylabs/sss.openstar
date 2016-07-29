@@ -72,14 +72,14 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
       }
 
     case BlockChainStarted(BlockChainUp) => messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
-    case BlockChainStopped(BlockChainDown) => log.info("Block chain has stopped.")
+    case BlockChainStopped(_, BlockChainDown) => log.info("Block chain has stopped.")
     case CommandFailed(BlockChainUp) => context.system.scheduler.scheduleOnce(2 seconds, blockChainActor , StartBlockChain(self, BlockChainUp))
 
     case AcceptTransactions(leader) =>
-      log.info("Tx Accept :D")
       if(thisNodeId == leader) {
+        log.info("Tx Accept :D")
         blockChainActor ! StartBlockChain(self, BlockChainUp)
-      }
+      } else log.info("Begin Tx forward...")
 
     case  StopAcceptingTransactions =>
       messageRouter ! UnRegisterRef(MessageKeys.SignedTx, txRouter)

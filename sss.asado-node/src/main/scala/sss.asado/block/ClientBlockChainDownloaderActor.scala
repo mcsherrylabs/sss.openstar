@@ -21,30 +21,14 @@ import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 
-case class SynchroniseWith(who: Connection)
+case object SynchroniseWithConn
 
 /**
   * This actor's job is to bring the local blockchain up to date with
-  * the leaders blockchain and keep it there.
+  * the home nodes blockchain and keep it there.
   *
-  * When it's asked to SynchroniseWith with 'who' it pages down the
-  * tx's and the block sig's and closes the blocks (commiting the tx's to
-  * the ledger in the process) until it gets 'Synced'
-  *
-  * It raises the 'Synced' event to the stateMachine.
-  *
-  * Then it continues to download tx's more slowly through the 'ConfimTx' message
-  * but continues to close blocks through the 'CloseBlock' message
-  *
-  * @param nodeIdentity
-  * @param nc
-  * @param messageRouter
-  * @param stateMachine
-  * @param bc
-  * @param db
-  * @param ledgers
   */
-class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
+class ClientBlockChainDownloaderActor(
                                 nc: ActorRef,
                                 messageRouter: ActorRef,
                                 stateMachine: ActorRef,
@@ -56,22 +40,26 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
   messageRouter ! Register(PagedTx)
   messageRouter ! Register(EndPageTx)
-  messageRouter ! Register(ConfirmTx)
   messageRouter ! Register(CloseBlock)
-  messageRouter ! Register(BlockSig)
-  messageRouter ! Register(Synced)
+  messageRouter ! Register(SimpleGetPageTxEnd)
 
-  log.info(s"BlockChainDownloader actor has started... $self")
 
-  override def postStop = log.warning("BlockChainDownloaderActor is down!"); super.postStop
+  log.info("ClientBlockChainDownloaderActor actor has started...")
 
-  override def receive: Receive = syncLedgerWithLeader
+  override def postStop = log.warning("ClientBlockChainDownloaderActor is down!"); super.postStop
 
-  private var synced = false
+  override def receive: Receive = init
 
-  private def syncLedgerWithLeader: Receive = {
-
+  private def init: Receive = {
     case SynchroniseWith(who) =>
+      context.become(init.orElse(syncLedgerWithLeader(who)))
+      self ! SynchroniseWithConn
+  }
+
+  private def syncLedgerWithLeader(connectionToSyncWith: Connection): Receive = {
+
+    case SynchroniseWithConn =>
+
         val getTxs = {
             val lb = bc.lastBlockHeader
             val blockStorage = Block(lb.height + 1)
@@ -80,7 +68,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
             GetTxPage(lb.height + 1, startAtNextIndex, 50)
         }
 
-        nc ! SendToNetwork(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), _ => Set(who) )
+        nc ! SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxs.toBytes), _ => Set(connectionToSyncWith) )
 
 
     case NetworkMessage(MessageKeys.PagedTx, bytes) =>
@@ -92,7 +80,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
       }
 
 
-    case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.GetPageTx, bytes)
+    case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
@@ -106,28 +94,11 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
               log.info(s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
-              if(BlockSignatures(blockHeader.height).indexOfBlockSignature(nodeIdentity.id).isEmpty) {
-                val sig = nodeIdentity.sign(blockHeader.hash)
-                val newSig = BlockSignature(0, new DateTime(),
-                  blockHeader.height,
-                  nodeIdentity.id,
-                  nodeIdentity.publicKey, sig)
-
-                serverRef ! NetworkMessage(MessageKeys.BlockNewSig, newSig.toBytes)
-              }
-              if (!synced) {
-                val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
-                serverRef ! NetworkMessage(MessageKeys.GetPageTx, nextBlockPage.toBytes)
-              }
+              val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
+              serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx, nextBlockPage.toBytes)
           }
       }
     }
-
-
-    case NetworkMessage(BlockSig, bytes) =>
-      decode(BlockSig, bytes.toBlockSignature) { blkSig =>
-        BlockSignatures(blkSig.height).write(blkSig)
-      }
 
     case NetworkMessage(CloseBlock, bytes) =>
       decode(CloseBlock, bytes.toDistributeClose) { distClose =>
@@ -138,27 +109,11 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
         self ! CommitBlock(sender(), distClose.blockId)
       }
 
-    case NetworkMessage(Synced, bytes) =>
-      synced = true;
-      val getTxPage = bytes.toGetTxPage
+    case NetworkMessage(SimpleGetPageTxEnd, _) =>
       stateMachine ! ClientSynced
-      log.info(s"Downloader is synced to tx page $getTxPage")
+      log.info(s"Client downloader is synced pausing for 20 seconds")
+      context.system.scheduler.scheduleOnce(20 seconds, self, SynchroniseWithConn)
 
-
-    case NetworkMessage(ConfirmTx, bytes) =>
-      decode(ConfirmTx, bytes.toBlockChainTx) { blockChainTx =>
-          Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
-            case Failure(e) =>
-              sender() ! NetworkMessage(MessageKeys.NackConfirmTx, blockChainTx.toId.toBytes)
-              log.error(e, s"Ledger cannot journal ${blockChainTx.blockTx}, game over.")
-            case Success(resultBlockChainTx) =>
-              if(resultBlockChainTx.toId != blockChainTx.toId) {
-                log.warning(s"Local  is  ${resultBlockChainTx.toId}")
-                log.warning(s"Remote is  ${blockChainTx.toId}")
-              }
-              sender() ! NetworkMessage(MessageKeys.AckConfirmTx, resultBlockChainTx.toId.toBytes)
-          }
-      }
   }
 
 

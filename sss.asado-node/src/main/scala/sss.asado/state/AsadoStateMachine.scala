@@ -11,6 +11,9 @@ import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, 
 object AsadoStateProtocol {
 
   case class LeaderFound(leaderId: String)
+  // Fired when the client has downloaded up to the latest
+  case object ClientSynced
+  // Fired when the network leader has got a quorum of synced nodes
   case object Synced
   case object NotSynced
 

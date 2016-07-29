@@ -309,7 +309,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
     NodeIdentityBuilder with
     BlockChainBuilder with
     MessageDownloadServiceBuilder with
-    BlockChainDownloaderBuilder with
+    ClientBlockChainDownloaderBuilder with
     EventListenerBuilder with
     MessageRouterActorBuilder =>
 
@@ -376,7 +376,8 @@ trait MinimumNode extends Logging with
     WalletPersistenceBuilder with
     WalletBuilder with
     IntegratedWalletBuilder with
-    HttpServerBuilder  {
+    HttpServerBuilder with
+    SimpleTxPageActorBuilder {
 
   def shutdown: Unit = {
     httpServer.stop
@@ -394,7 +395,6 @@ trait CoreNode extends MinimumNode with
     LeaderActorBuilder with
     BlockChainActorsBuilder {
 
-
 }
 
 trait ServicesNode extends CoreNode with
@@ -404,7 +404,7 @@ trait ServicesNode extends CoreNode with
 
 
 trait ClientNode extends MinimumNode with
-    BlockChainDownloaderBuilder with
+    ClientBlockChainDownloaderBuilder with
     EventListenerBuilder with
     ClientStateMachineActorBuilder with
     MessageDownloadServiceBuilder with
