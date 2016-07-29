@@ -56,7 +56,7 @@ class SimpleTxPageActor(maxSignatures: Int,
            self ! TxToReturn(ref, bctx)
         }
         if (nextPage.size == pageSize) self ! EndOfPage(ref, pageIncremented.toBytes)
-        else if (maxHeight == blockHeight) sender() ! NetworkMessage(SimpleGetPageTxEnd, Array())
+        else if (maxHeight == blockHeight) ref ! NetworkMessage(SimpleGetPageTxEnd, Array())
         else self ! EndOfBlock(ref, BlockId(blockHeight, index + nextPage.size))
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
 
