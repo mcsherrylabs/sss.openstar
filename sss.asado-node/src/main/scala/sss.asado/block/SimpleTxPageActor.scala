@@ -13,7 +13,7 @@ import sss.db.Db
 import scala.language.postfixOps
 
 /**
-  * Embarrassingly I failed to extract the common code from TxPageActor
+  * Embarrassingly, I failed to extract the common code from TxPageActor
   * This does almost the same thing, but is used only for clients and not
   * for nodes forming part of the core peer set.
   *

@@ -78,6 +78,7 @@ trait BlockChainDownloaderBuilder {
 trait ClientBlockChainDownloaderBuilder {
 
   self : ActorSystemBuilder with
+    NodeConfigBuilder with
     MessageRouterActorBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
@@ -90,7 +91,7 @@ trait ClientBlockChainDownloaderBuilder {
 
   def buildClientChainDownloader =
     actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
-      messageRouterActor, stateMachineActor, bc, db, ledgers))
+      messageRouterActor, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  bc, db, ledgers))
 
 }
 

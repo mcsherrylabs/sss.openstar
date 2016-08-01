@@ -32,6 +32,7 @@ trait BlockChainSettings {
   val maxSignatures: Int
   val spendDelayBlocks: Int
   val numTxWriters: Int
+  val numBlocksCached: Int
 }
 
 case class BlockLedger(ref: ActorRef, blockLedger: Option[BlockChainLedger])

@@ -11,9 +11,11 @@ import scala.util.Try
 
 object Block extends Logging {
   private val blockTableNamePrefix = "block_"
-  private lazy val blockCache = new SynchronizedLruMap[Long, Block](10)
+  private lazy val blockCache = new SynchronizedLruMap[Long, Block](3)
   private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
   def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
+
+  def drop(height: Long)(implicit db:Db) = db.executeSql(s"DROP TABLE ${makeTableName(height)}")
 
   private[block] def findSmallestMissing(candidates: Seq[Long]): Long = {
 

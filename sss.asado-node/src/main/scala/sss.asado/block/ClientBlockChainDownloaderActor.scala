@@ -2,17 +2,16 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
-import org.joda.time.DateTime
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-import sss.asado.account.NodeIdentity
+
 import sss.asado.block.signature.BlockSignatures
-import sss.asado.block.signature.BlockSignatures.BlockSignature
+
 import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{ClientSynced, SyncWithLeader}
+import sss.asado.state.AsadoStateProtocol.{ClientSynced}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,6 +31,7 @@ class ClientBlockChainDownloaderActor(
                                 nc: ActorRef,
                                 messageRouter: ActorRef,
                                 stateMachine: ActorRef,
+                                numBlocksCached: Int,
                                 bc: BlockChain with BlockChainSignatures)
                                (implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
 
@@ -93,9 +93,10 @@ class ClientBlockChainDownloaderActor(
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
-              log.info(s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
+              log.info(s"Client syncing - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
               val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
               serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx, nextBlockPage.toBytes)
+              Block.drop(blockId.blockHeight - numBlocksCached)
           }
       }
     }
