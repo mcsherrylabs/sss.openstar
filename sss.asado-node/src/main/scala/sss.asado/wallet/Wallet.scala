@@ -166,7 +166,10 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def findUnSpent(atBlockHeight: Long): Seq[UnSpent] =  {
     val allWalletEntries = walletPersistence.listUnSpent
-    log.info(s"There are ${allWalletEntries.size} unspent wallet entries.")
+    log.info(s"There are ${allWalletEntries.size} unspent wallet entries. Printing last 10")
+    allWalletEntries.reverse.take(10).foreach { we =>
+      log.info(s"Blk ${we.inBlock}, Amnt ${we.txOutput.amount}, Type ${we.txOutput.encumbrance.getClass.toGenericString}")
+    }
     allWalletEntries.foldLeft(Seq[UnSpent]()) ((acc: Seq[UnSpent], lodgement: Lodgement) =>
       unSpentOpt(lodgement, atBlockHeight) match {
         case Some(u) => acc :+ u

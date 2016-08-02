@@ -62,6 +62,8 @@ javaOptions in Universal ++= Seq( "-javaagent:/opt/docker/data/plumbr.jar", "-Dc
 
 //updateOptions := updateOptions.value.withCachedResolution(false)
 
+// https://mvnrepository.com/artifact/com.typesafe.akka/akka-slf4j_2.11
+libraryDependencies += "com.typesafe.akka" % "akka-slf4j_2.11" % "2.4.8"
 
 mainClass in Compile := Some("sss.asado.CoreMain")
 

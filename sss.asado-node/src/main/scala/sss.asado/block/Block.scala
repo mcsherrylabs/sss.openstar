@@ -6,7 +6,7 @@ import sss.db.{Db, OrderAsc, Row, Where}
 import sss.asado.ledger._
 
 import scala.annotation.tailrec
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 
 object Block extends Logging {
@@ -15,7 +15,13 @@ object Block extends Logging {
   private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
   def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
 
-  def drop(height: Long)(implicit db:Db) = db.executeSql(s"DROP TABLE ${makeTableName(height)}")
+  def drop(height: Long)(implicit db:Db) = {
+    val tblName = makeTableName(height)
+    Try(db.executeSql(s"DROP TABLE $tblName")) match {
+      case Failure(e) => log.debug(s"Exception, table ${tblName} probably doesn't exist.")
+      case Success(_) =>
+    }
+  }
 
   private[block] def findSmallestMissing(candidates: Seq[Long]): Long = {
 

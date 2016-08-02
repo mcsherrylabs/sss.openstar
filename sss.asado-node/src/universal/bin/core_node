@@ -1,5 +1,5 @@
 #!/bin/bash
 
-JAVA_OPTS="${JAVA_OPTS} -javaagent:/opt/docker/plumbr/plumbr.jar"
+JAVA_OPTS="${JAVA_OPTS} -javaagent:/opt/docker/plumbr/${PORT}/plumbr.jar"
 export JAVA_OPTS
 ./bin/sss-asado-node  -main "sss.asado.CoreMain" "$@"
