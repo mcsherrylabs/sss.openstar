@@ -125,9 +125,12 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def unSpentOpt(lodgement: Lodgement, atBlockHeight: Long): Option[UnSpent] = {
 
+    log.info(s"Is ${lodgement.txIndex.txId.asHexStr} unspent?")
     balanceLedger.entry(lodgement.txIndex) match {
       case Some(txOut) => txOut.encumbrance match {
         case SinglePrivateKey(pKey, minBlockHeight) =>
+          log.info(s"${lodgement.txIndex.txId.asHexStr} is a SinglePrivateKey with minBlkH $minBlockHeight")
+          if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
           identityServiceQuery.identify(pKey).flatMap { acc =>
             if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
             else None
