@@ -26,7 +26,7 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
 
   import clientNode._
 
-  val chargePerMessage = 1
+  val chargePerMessage = 0
   val amountBuriedInMail = 10
 
 
