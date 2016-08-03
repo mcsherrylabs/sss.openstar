@@ -13,25 +13,34 @@ import sss.asado.util.ByteArrayVarcharOps._
 object CreateIdentity {
 
   def main(args: Array[String]) {
-    val ledgerUrl = args(0)
-    val identity = args(1)
 
-    require(identity.forall(c => c.isDigit || c.isLower),
-      s"Identity ($identity) must be lower case and a simple alpha numeric")
+    if(args.length == 2) {
+      val ledgerUrl = args(0)
+      val identity = args(1)
 
-    println("You will need this password again to unlock the key.")
-    val ni = NodeIdentity.unlockNodeIdentityFromConsole(identity, defaultTag)
-    val pkey = ni.publicKey.toVarChar
-    val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")
-    if(result.toString == "Ok") {
-      println(s"Identity $identity is now locked to public key $pkey")
-      println(s"The public key is identified by tag $defaultTag")
-      println(s"The private key corresponding to the public key is unlocked by the password you just typed in.")
-    } else {
-      println(s"Couldn't register identity $identity - ")
+      require(identity.forall(c => c.isDigit || c.isLower),
+        s"Identity ($identity) must be lower case and a simple alpha numeric")
+
+
+      if (NodeIdentity.keyExists(identity, defaultTag)) {
+        println(s"Key exists for identity $identity - unlocking with phrase")
+      } else {
+        println(s"Creating key for identity $identity - please provide phrase")
+        println("(You will need this phrase again to unlock the key)")
+      }
+
+      val ni = NodeIdentity.unlockNodeIdentityFromConsole(identity, defaultTag)
+      println("...unlocked.")
+      val pkey = ni.publicKey.toVarChar
+      val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")
       println(result)
-    }
-
-
+      if (result.toString.startsWith("Ok")) {
+        println(s"Identity $identity is now locked to public key $pkey")
+        println(s"The public key is identified by tag $defaultTag")
+        println(s"The private key corresponding to the public key is unlocked by the password you just typed in.")
+      } else {
+        println(s"Couldn't register identity $identity - ")
+      }
+    } else println("Provide the url to claim from and the identity to claim.")
   }
 }

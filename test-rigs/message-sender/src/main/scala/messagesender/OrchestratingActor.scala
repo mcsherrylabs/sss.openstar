@@ -1,14 +1,15 @@
 package messagesender
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, Cancellable, Props}
 import messagesender.CheckInBoxForCash.CheckInBox
 import sss.asado.MessageKeys
 import sss.asado.message.MessageInBox
-
 import sss.asado.network.MessageRouter.RegisterRef
-
 import sss.asado.state.AsadoStateProtocol.StateMachineInitialised
-import sss.asado.state.AsadoState.ReadyState
+import sss.asado.state.AsadoState.{ConnectingState, OrderedState, ReadyState}
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import scala.concurrent.duration._
 
 /**
   * Created by alan on 7/28/16.
@@ -16,11 +17,23 @@ import sss.asado.state.AsadoState.ReadyState
 class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: CircularSeq) extends Actor with ActorLogging  {
   import client._
 
+  private case object ConnectHome
+  private var cancellable: Option[Cancellable] = None
+
   override def receive: Receive = {
     case StateMachineInitialised =>
       startNetwork
-      connectHome
 
+    case ConnectHome =>
+      connectHome
+      cancellable = Option(context.system.scheduler.scheduleOnce(
+        FiniteDuration(1, MINUTES),
+        self, ConnectHome))
+
+    case ConnectingState =>
+      self ! ConnectHome
+
+    case OrderedState => cancellable.map(_.cancel())
 
     case ReadyState =>
       val inBox = MessageInBox(nodeIdentity.id)

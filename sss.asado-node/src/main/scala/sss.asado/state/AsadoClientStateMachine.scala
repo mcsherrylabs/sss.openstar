@@ -28,12 +28,15 @@ trait AsadoClientStateMachine
     case _ -> OrderedState =>
       self ! SyncWithConnection(nextStateData.get)
       eventListener ! OrderedState
-    case _ -> ConnectingState => eventListener ! OrderedState
+    case _ -> ConnectingState => eventListener ! ConnectingState
     case _ -> ReadyState =>
       eventListener ! ReadyState
   }
 
   when(OrderedState) {
+    case Event(cl @ ConnectionLost(_,_), Some(leaderId)) =>
+      eventListener ! cl
+      goto(ConnectingState) using None
     case Event(ClientSynced,_) => goto(ReadyState)
   }
   when(ReadyState) {
