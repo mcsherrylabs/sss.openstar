@@ -25,7 +25,7 @@ class AsadoStateMachineSpec extends TestKit(ActorSystem("test-system"))
 
     def localRec : Receive = {
       case  m@FindTheLeader => println(s"$m")
-      case  m@SyncWithLeader => println(s"$m")
+      case  m@SplitRemoteLocalLeader => println(s"$m")
       case  m@AcceptTransactions=> println(s"$m")
       case  m@StopAcceptingTransactions=> println(s"$m")
     }

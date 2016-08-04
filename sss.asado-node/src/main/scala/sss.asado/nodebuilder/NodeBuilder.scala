@@ -49,6 +49,10 @@ trait BindControllerSettingsBuilder {
   lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
 }
 
+trait LeaderAgentBuilder {
+  val leader = Agent[Option[Connection]](None)
+}
+
 trait NodeConfigBuilder {
   self : ConfigNameBuilder with
     ConfigBuilder with
@@ -192,7 +196,8 @@ trait LeaderActorBuilder {
     NodeIdentityBuilder with
     MessageRouterActorBuilder with
     IdentityServiceBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
+    LeaderAgentBuilder with
     StateMachineActorBuilder =>
 
   lazy val leaderActor: ActorRef = buildLeaderActor
@@ -238,7 +243,7 @@ trait MessageDownloadServiceBuilder  {
     ActorSystemBuilder with
     NodeIdentityBuilder with
     HomeDomainBuilder with
-   NetworkContollerBuilder =>
+   NetworkControllerBuilder =>
 
   lazy val messageDownloaderActor = actorSystem.actorOf(Props(classOf[MessageDownloadActor],
     nodeIdentity.id, homeDomain, messageRouterActor,ncRef,db))
@@ -333,7 +338,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
 }
 
 
-trait NetworkContollerBuilder {
+trait NetworkControllerBuilder {
 
   self : ActorSystemBuilder with
     DbBuilder with
@@ -370,7 +375,7 @@ trait MinimumNode extends Logging with
     BlockChainBuilder with
     StateMachineActorBuilder with
     NetworkInterfaceBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
     BalanceLedgerBuilder with
     LedgersBuilder with
     WalletPersistenceBuilder with
@@ -393,6 +398,7 @@ trait CoreNode extends MinimumNode with
     TxForwarderActorBuilder with
     CoreStateMachineActorBuilder with
     LeaderActorBuilder with
+    LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
 }

@@ -21,7 +21,7 @@ import scala.language.postfixOps
 class TxPageActor(maxSignatures: Int,
                   bc: BlockChain with BlockChainSignatures)(implicit db: Db) extends Actor with ActorLogging {
 
-  private case class GetTxPageWithRef(ref: ActorRef, serviceWasRunning: Boolean, servicePaused: Boolean, getTxPage: GetTxPage)
+  private case class GetTxPageWithRef(ref: ActorRef, servicePaused: Boolean, getTxPage: GetTxPage)
   private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
   private case class EndOfBlock(ref: ActorRef, blockId: BlockId)
   private case class TxToReturn(ref: ActorRef, blockChainTx: BlockChainTx)
@@ -39,12 +39,12 @@ class TxPageActor(maxSignatures: Int,
     case TxToReturn(ref, blockChainTx) =>
       ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
 
-    case BlockChainStopped(wasRunning, getTxPageWithRef: GetTxPageWithRef) => self ! getTxPageWithRef.copy(servicePaused = true, serviceWasRunning = wasRunning)
+    case BlockChainStopped(getTxPageWithRef: GetTxPageWithRef) => self ! getTxPageWithRef.copy(servicePaused = true)
 
     case CommandFailed(getTxPageRef) =>
       context.system.scheduler.scheduleOnce(1 seconds, context.parent, StopBlockChain(self, getTxPageRef))
 
-    case getTxPageRef @ GetTxPageWithRef(ref, serviceWasRunning, servicePaused, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
+    case getTxPageRef @ GetTxPageWithRef(ref, servicePaused, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
       log.info(s"Another node asking me for $getTxPage")
       lazy val nextPage = bc.block(blockHeight).page(index, pageSize)
@@ -66,7 +66,7 @@ class TxPageActor(maxSignatures: Int,
             self ! TxToReturn(ref, bctx)
           }
           if (nextPage.size == pageSize) self ! EndOfPage(ref, pageIncremented.toBytes)
-          else if (maxHeight == blockHeight) context.parent ! ClientSynched(ref, pageIncremented, serviceWasRunning)
+          else if (maxHeight == blockHeight) context.parent ! ClientSynched(ref, pageIncremented)
           else self ! EndOfBlock(ref, BlockId(blockHeight, index + nextPage.size))
         } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
       }
@@ -74,7 +74,7 @@ class TxPageActor(maxSignatures: Int,
     case netTxPage@NetworkMessage(GetPageTx, bytes) =>
       decode(GetPageTx, bytes.toGetTxPage) { getTxPage =>
         val sendr = sender()
-        self ! GetTxPageWithRef(sendr, false, false, getTxPage)
+        self ! GetTxPageWithRef(sendr, false, getTxPage)
       }
 
     case NetworkMessage(BlockNewSig, bytes) =>

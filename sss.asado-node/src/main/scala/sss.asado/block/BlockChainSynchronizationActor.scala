@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage, blockChainNeedsReStarting: Boolean)
+case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
 case class EnsureConfirms[T](ref: ActorRef, height: Long, t: T, retryCount: Int = 1)
 
 /**
@@ -152,15 +152,13 @@ class BlockChainSynchronizationActor(quorum: Int,
     case BlockChainStarted(lastTxPage) =>
       log.info(s"Blockchain started up again, client synced to $lastTxPage")
 
-    case ClientSynched(clientRef, lastTxPage, restartBlockChain) =>
+    case ClientSynched(clientRef, lastTxPage) =>
       context watch clientRef
       updateToDatePeers = updateToDatePeers + clientRef
       //We may be restarting the blockchain after a pause for client syncing.
-      if(restartBlockChain)blockChainActor ! StartBlockChain(self, lastTxPage)
+      blockChainActor ! StartBlockChain(self, lastTxPage)
       if (updateToDatePeers.size == quorum) stateMachine ! Synced
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
-
-
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc
   }

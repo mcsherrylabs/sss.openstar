@@ -12,7 +12,8 @@ import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{ClientSynced, SyncWithLeader}
+import sss.asado.state.AsadoStateProtocol
+import sss.asado.state.AsadoStateProtocol.{ClientSynced, RegisterStateEvents, RemoteLeaderEvent, SplitRemoteLocalLeader}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -54,6 +55,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
 
+  stateMachine ! RegisterStateEvents
   messageRouter ! Register(PagedTx)
   messageRouter ! Register(EndPageTx)
   messageRouter ! Register(ConfirmTx)
@@ -70,6 +72,8 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
   private var synced = false
 
   private def syncLedgerWithLeader: Receive = {
+
+    case RemoteLeaderEvent(conn) => self ! SynchroniseWith(conn)
 
     case SynchroniseWith(who) =>
         val getTxs = {
@@ -139,9 +143,9 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
       }
 
     case NetworkMessage(Synced, bytes) =>
-      synced = true;
+      synced = true
       val getTxPage = bytes.toGetTxPage
-      stateMachine ! ClientSynced
+      stateMachine ! AsadoStateProtocol.Synced
       log.info(s"Downloader is synced to tx page $getTxPage")
 
 

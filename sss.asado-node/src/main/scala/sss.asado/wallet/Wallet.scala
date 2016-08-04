@@ -125,12 +125,12 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def unSpentOpt(lodgement: Lodgement, atBlockHeight: Long): Option[UnSpent] = {
 
-    log.info(s"Is ${lodgement.txIndex.txId.asHexStr} unspent?")
+    //log.info(s"Is ${lodgement.txIndex.txId.asHexStr} unspent?")
     balanceLedger.entry(lodgement.txIndex) match {
       case Some(txOut) => txOut.encumbrance match {
         case SinglePrivateKey(pKey, minBlockHeight) =>
-          log.info(s"${lodgement.txIndex.txId.asHexStr} is a SinglePrivateKey with minBlkH $minBlockHeight")
-          if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
+          //log.info(s"${lodgement.txIndex.txId.asHexStr} is a SinglePrivateKey with minBlkH $minBlockHeight")
+          //if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
           identityServiceQuery.identify(pKey).flatMap { acc =>
             if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
             else None
@@ -169,10 +169,10 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def findUnSpent(atBlockHeight: Long): Seq[UnSpent] =  {
     val allWalletEntries = walletPersistence.listUnSpent
-    log.info(s"There are ${allWalletEntries.size} unspent wallet entries. Printing last 10")
-    allWalletEntries.reverse.take(10).foreach { we =>
-      log.info(s"Blk ${we.inBlock}, Amnt ${we.txOutput.amount}, Type ${we.txOutput.encumbrance.getClass.toGenericString}")
-    }
+//    log.info(s"There are ${allWalletEntries.size} unspent wallet entries. Printing last 10")
+//    allWalletEntries.reverse.take(10).foreach { we =>
+//      log.info(s"Blk ${we.inBlock}, Amnt ${we.txOutput.amount}, Type ${we.txOutput.encumbrance.getClass.toGenericString}")
+//    }
     allWalletEntries.foldLeft(Seq[UnSpent]()) ((acc: Seq[UnSpent], lodgement: Lodgement) =>
       unSpentOpt(lodgement, atBlockHeight) match {
         case Some(u) => acc :+ u

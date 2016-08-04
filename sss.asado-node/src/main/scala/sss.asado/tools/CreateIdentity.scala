@@ -34,7 +34,7 @@ object CreateIdentity {
       val pkey = ni.publicKey.toVarChar
       val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")
       println(result)
-      if (result.toString.startsWith("Ok")) {
+      if (result.toString.startsWith("ok")) {
         println(s"Identity $identity is now locked to public key $pkey")
         println(s"The public key is identified by tag $defaultTag")
         println(s"The private key corresponding to the public key is unlocked by the password you just typed in.")

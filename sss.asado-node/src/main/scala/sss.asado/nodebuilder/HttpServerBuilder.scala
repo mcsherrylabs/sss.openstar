@@ -16,7 +16,7 @@ trait HttpServerBuilder {
           MessageRouterActorBuilder with
           IdentityServiceBuilder with
           WalletBuilder with
-          NetworkContollerBuilder =>
+          NetworkControllerBuilder =>
 
   lazy val httpServer =  {
     ServerLauncher.singleContext(DynConfig[ServerConfig](nodeConfig.conf.getConfig("httpServerConfig")))
@@ -44,11 +44,12 @@ trait ClaimServletBuilder {
     MessageRouterActorBuilder with
     ActorSystemBuilder with
     IntegratedWalletBuilder with
+    StateMachineActorBuilder with
     HttpServerBuilder =>
 
 
   def buildClaimServlet: Option[ClaimServlet] = {
-    Option(new ClaimServlet(actorSystem, messageRouterActor, integratedWallet))
+    Option(new ClaimServlet(actorSystem, stateMachineActor, messageRouterActor, integratedWallet))
   }
 
   def addClaimServlet = {

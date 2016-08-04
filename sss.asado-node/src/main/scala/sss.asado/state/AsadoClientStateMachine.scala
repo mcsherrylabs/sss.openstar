@@ -26,7 +26,7 @@ trait AsadoClientStateMachine
 
   onTransition {
     case _ -> OrderedState =>
-      self ! SyncWithConnection(nextStateData.get)
+      self ! RemoteLeaderEvent(nextStateData.get)
       eventListener ! OrderedState
     case _ -> ConnectingState => eventListener ! ConnectingState
     case _ -> ReadyState =>

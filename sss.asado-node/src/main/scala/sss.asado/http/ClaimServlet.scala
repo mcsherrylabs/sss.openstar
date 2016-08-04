@@ -8,6 +8,7 @@ import sss.asado.block._
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent, RegisterStateEvents}
 import sss.asado.util.ByteArrayVarcharOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
@@ -21,12 +22,31 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 5/7/16.
   */
 class ClaimServlet(actorSystem:ActorSystem,
+                   stateMachine: ActorRef,
                    messageRouter: ActorRef,
                    integratedWallet: IntegratedWallet) extends ScalatraServlet {
 
   import ClaimServlet._
 
-  private val claimsActor = actorSystem.actorOf(Props(classOf[ClaimsResultsActor], messageRouter, integratedWallet))
+  implicit val timeout = Duration(30, SECONDS)
+
+  private val claimsActor = actorSystem.actorOf(Props(classOf[ClaimsResultsActor], stateMachine, messageRouter, integratedWallet))
+
+  get("/debit") {
+    params.get("to") match {
+      case None => BadRequest("Param 'to' not found")
+      case Some(to) => params.get("amount") match {
+        case None => BadRequest("Param 'amount' not found")
+        case Some(amount) =>
+          integratedWallet.pay(Payment(to, amount.toInt)) match {
+            case TxSuccess(blkTxId, txIndex, _) =>
+              Ok(txIndex.toString() + "Balance now - " + integratedWallet.balance)
+            case TxFailure(TxMessage(_, _, str), _) => Ok(str + "Balance now - " + integratedWallet.balance)
+          }
+
+      }
+    }
+  }
 
   get("/") {
     params.get("claim") match {
@@ -53,14 +73,18 @@ object ClaimServlet {
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
 }
 
-class ClaimsResultsActor(messageRouter: ActorRef, integratedWallet: IntegratedWallet) extends Actor with ActorLogging {
+class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet) extends Actor with ActorLogging {
 
   import ClaimServlet._
   var inFlightClaims: Map[String, ClaimTracker] = Map()
 
   val kickStartingAmount = 100
 
+  stateMachine ! RegisterStateEvents
+
   private def working: Receive = {
+
+    case NotReadyEvent => context.become(init)
 
     case c@Claiming(identity, txIdHex, netMsg, promise) =>
       inFlightClaims += (txIdHex-> ClaimTracker(sender(), c))
@@ -108,6 +132,13 @@ class ClaimsResultsActor(messageRouter: ActorRef, integratedWallet: IntegratedWa
   }
 
   override def postStop = log.info("ClaimsResultsActor has stopped")
-  override def receive: Receive = working
+
+  override def receive: Receive = init
+
+  def init: Receive = {
+    case c@Claiming(identity, txIdHex, netMsg, promise) => promise.success("fail:Network not ready")
+
+    case ReadyStateEvent => context.become(working)
+  }
 
 }

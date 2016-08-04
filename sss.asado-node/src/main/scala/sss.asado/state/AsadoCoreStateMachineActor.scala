@@ -17,6 +17,7 @@ import scala.language.postfixOps
 /**
   * Created by alan on 4/1/16.
   */
+
 class AsadoCoreStateMachineActor(thisNodeId: String,
                                  connectedPeers: Agent[Set[Connection]],
                                  blockChainSettings: BlockChainSettings,
@@ -25,7 +26,18 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
                                  db: Db
                              ) extends AsadoStateMachine {
 
-  final override def receive = init orElse super.receive
+  log.info("AsadoCoreStateMachine actor has started...")
+
+  final override def receive = init orElse eventRegistration orElse super.receive
+
+  private var registerRefs: Set[ActorRef] = Set.empty
+
+  private def eventRegistration: Receive = {
+
+    case RegisterStateEvents => registerRefs += sender()
+    case DeRegisterStateEvents => registerRefs -= sender()
+    case Propagate(ev) => registerRefs foreach (_ ! ev)
+  }
 
   private def init: Receive = {
     case InitWithActorRefs(
@@ -41,10 +53,9 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
         messageRouter,
         txRouter,
         blockChainActor,
-        txForwarder) orElse super.receive)
+        txForwarder) orElse eventRegistration orElse super.receive)
 
   }
-
 
   def stateTransitionTasks(chainDownloaderRef: ActorRef,
                            leaderRef: ActorRef,
@@ -53,26 +64,25 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
                            blockChainActor: ActorRef,
                            txForwarder: ActorRef): Receive = {
 
-    case  FindTheLeader =>
-      log.info("We need to find the leader ...")
-      leaderRef ! FindTheLeader
-      txForwarder ! StopAcceptingTransactions
 
-    case  swl @ SyncWithLeader(leader) =>
+    case  swl @ SplitRemoteLocalLeader(leader) =>
       if(thisNodeId == leader) {
         log.info(s"We are leader - $leader, we will respond to syncing requests ... ")
+        self ! Propagate(LocalLeaderEvent)
       } else {
-        log.info(s"Leader is $leader, begin syncing ... ")
+        log.info(s"New leader is $leader, begin syncing ... ")
         connectedPeers().find(_.nodeId.id == leader) match {
           case None => log.warning(s"Could not find leader $leader in peer connections!")
-          case Some(c) =>
-            chainDownloaderRef ! SynchroniseWith(c)
-            txForwarder ! Forward(c)
+          case Some(c) => self ! Propagate(RemoteLeaderEvent(c))
         }
       }
 
-    case BlockChainStarted(BlockChainUp) => messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
-    case BlockChainStopped(_, BlockChainDown) => log.info("Block chain has stopped.")
+    case BlockChainStarted(BlockChainUp) =>
+      messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
+      messageRouter ! RegisterRef(MessageKeys.SeqSignedTx, txRouter)
+
+    case BlockChainStopped(BlockChainDown) => log.info("Block chain has stopped.")
+
     case CommandFailed(BlockChainUp) => context.system.scheduler.scheduleOnce(2 seconds, blockChainActor , StartBlockChain(self, BlockChainUp))
 
     case AcceptTransactions(leader) =>
@@ -81,12 +91,11 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
         blockChainActor ! StartBlockChain(self, BlockChainUp)
       } else log.info("Begin Tx forward...")
 
-    case  StopAcceptingTransactions =>
+    case StopAcceptingTransactions =>
       messageRouter ! UnRegisterRef(MessageKeys.SignedTx, txRouter)
+      messageRouter ! UnRegisterRef(MessageKeys.SeqSignedTx, txRouter)
       blockChainActor ! StopBlockChain(self, BlockChainDown)
       log.info("Stop Tx Accept!!")
 
-
-    case Connecting => log.info("Connecting!!")
   }
 }

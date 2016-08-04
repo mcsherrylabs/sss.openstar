@@ -45,7 +45,7 @@ class AsadoClientStateMachineActor(thisNodeId: String,
                            messageRouter: ActorRef
                            ): Receive = {
 
-    case  swl @ SyncWithConnection(conn) =>
+    case  swl @ RemoteLeaderEvent(conn) =>
       eventListener ! swl
       chainDownloaderRef ! SynchroniseWith(conn)
       messageDownloader ! CheckForMessages
