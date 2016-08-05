@@ -68,6 +68,7 @@ class NobuNode(override val configName: String,
 
   messageRouterActor ! RegisterRef( MessageKeys.SignedTxAck, ref)
   messageRouterActor ! RegisterRef( MessageKeys.AckConfirmTx, ref)
+  messageRouterActor ! RegisterRef( MessageKeys.TempNack, ref)
   messageRouterActor ! RegisterRef( MessageKeys.SignedTxNack, ref)
   messageRouterActor ! RegisterRef( MessageKeys.MessageResponse, ref)
 }

@@ -10,9 +10,10 @@ import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
 import sss.asado.wallet.WalletPersistence.Lodgement
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.util.{Failure, Success, Try}
+import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 /**
   * Created by alan on 7/5/16.
@@ -85,6 +86,23 @@ class IntegratedWallet(wallet: Wallet,
           val blockChainTxId = bytes.toBlockChainIdTx
           log.warning(s"PAYMENT CONFIRM NACK $blockChainTxId")
 
+
+      case NetworkMessage(MessageKeys.TempNack, bytes) =>
+        Try {
+          log.info(s"Temp NACK ")
+          val txMsg = bytes.toTxMessage
+          val hexId = txMsg.txId.asHexStr
+
+          paymentsInFlight.get(hexId) match {
+            case Some(txTracker) =>
+              paymentsInFlight -= hexId
+              context.system.scheduler.scheduleOnce(2 seconds, self, txTracker)
+            case None => log.warning(s"Got a Temp Nack for unlisted txid in wallet! ${hexId}")
+          }
+        } match {
+          case Failure(e) => log.error(e, s"Failed to decode an alledged ${MessageKeys.TempNack} message.")
+          case Success(_) =>
+        }
 
       case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
         Try {

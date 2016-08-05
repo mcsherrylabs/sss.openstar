@@ -19,6 +19,9 @@ package object contract {
 
   case object NullDecumbrance extends Decumbrance
   case object NullEncumbrance extends Encumbrance {
+
+    override def toString: String = "NullEncumbrance!"
+
     override def decumber(params: Seq[Array[Byte]], context: LedgerContext, decumberence: Decumbrance): Boolean = true
   }
 

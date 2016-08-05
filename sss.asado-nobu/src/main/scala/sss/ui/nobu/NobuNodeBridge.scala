@@ -98,6 +98,11 @@ class NobuNodeBridge(nobuNode: NobuNode,
       val bId = bytes.toBlockChainIdTx
       //push(Notification.show(s"Got ACK $bId"))
 
+    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      val m = bytes.toTxMessage
+      //push(Notification.show(s"Got NACK ${m.msg}"))
+      watchingBounties -= m.txId.asHexStr
+
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage
       //push(Notification.show(s"Got NACK ${m.msg}"))

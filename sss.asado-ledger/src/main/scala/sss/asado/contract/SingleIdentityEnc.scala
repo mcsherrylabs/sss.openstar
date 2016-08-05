@@ -11,6 +11,9 @@ import sss.asado.ledger.TxId
   */
 case class SingleIdentityEnc(identity: String, minBlockHeight: Long = 0) extends Encumbrance with ByteArrayComparisonOps {
 
+
+  override def toString: String = s"SingleIdentityEnc at min block height $minBlockHeight with identity ${identity}"
+
   def decumber(params: Seq[Array[Byte]], context: LedgerContext, decumbrance: Decumbrance): Boolean = {
 
     val currentBlockHeight: Long = context.blockHeight.get

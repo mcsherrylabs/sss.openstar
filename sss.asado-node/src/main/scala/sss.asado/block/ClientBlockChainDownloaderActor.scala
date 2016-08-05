@@ -62,7 +62,7 @@ class ClientBlockChainDownloaderActor(
 
         val getTxs = {
             val lb = bc.lastBlockHeader
-            val blockStorage = Block(lb.height + 1)
+            val blockStorage = bc.block(lb.height + 1)
             val indexOfLastRow = blockStorage.maxMonotonicCommittedIndex
             val startAtNextIndex = indexOfLastRow + 1
             GetTxPage(lb.height + 1, startAtNextIndex, 50)

@@ -25,7 +25,7 @@ import scala.util.{Failure, Success, Try}
   */
 object CheckInBoxForCash {
   case object CheckInBox
-  case class BountyTracker(txIndex: TxIndex, txOutput: TxOutput, indexToMark: Long)
+  case class BountyTracker(txIndex: TxIndex, txOutput: TxOutput, indexToMark: Long, txBytes: Array[Byte])
 }
 
 
@@ -85,9 +85,9 @@ class CheckInBoxForCash(inBox: MessageInBox,
     val newTx = StandardTx(Seq(in), Seq(out))
     val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
     val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
-    val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-    watchingBounties += signedTx.txId.asHexStr -> BountyTracker(TxIndex(signedTx.txId, 0),out, index)
-    ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, le.toBytes), homeDomain.nodeId)
+    val leBytes = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes).toBytes
+    watchingBounties += signedTx.txId.asHexStr -> BountyTracker(TxIndex(signedTx.txId, 0),out, index, leBytes)
+    ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, leBytes), homeDomain.nodeId)
 
   }
 
@@ -132,6 +132,15 @@ class CheckInBoxForCash(inBox: MessageInBox,
       val bId = bytes.toBlockChainIdTx
       log.info("Got an ACK for a bounty ")
 
+
+    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      val m = bytes.toTxMessage
+      watchingBounties.get(m.txId.asHexStr) match {
+        case None => log.info(s"WARN got Temp NACK for a bounty-> ${m.msg}, and can't find it in the list.")
+        case Some(bountyTracker) =>
+          context.system.scheduler.scheduleOnce(5 seconds, ncRef,
+            SendToNodeId(NetworkMessage(MessageKeys.SignedTx, bountyTracker.txBytes), homeDomain.nodeId))
+      }
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage

@@ -33,6 +33,15 @@ class BalanceLedger(storage: UTXODBStorage,
 
   override def entry(inIndex: TxIndex): Option[TxOutput] = storage.get(inIndex)
 
+  /**
+    * Used for debug only.
+    *
+    * @param f
+    * @tparam M
+    * @return
+    */
+  def map[M](f: (TxOutput) => M): Seq[M] = storage.entries.map(f)
+
   def apply(stx: SignedTxEntry, blockHeight: Long) {
 
     val tx = stx.txEntryBytes.toTx

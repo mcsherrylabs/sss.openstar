@@ -3,8 +3,9 @@ package sss.asado.http
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.scalatra.{BadRequest, Ok, ScalatraServlet}
-import sss.asado.balanceledger.TxIndex
+import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
 import sss.asado.block._
+import sss.asado.contract.{NullEncumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc, SinglePrivateKey}
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
@@ -14,6 +15,7 @@ import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.{MessageKeys, PublishedMessageKeys}
 
+import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
@@ -24,13 +26,24 @@ import scala.util.{Failure, Success, Try}
 class ClaimServlet(actorSystem:ActorSystem,
                    stateMachine: ActorRef,
                    messageRouter: ActorRef,
+                   balanceLedger: BalanceLedger,
                    integratedWallet: IntegratedWallet) extends ScalatraServlet {
 
   import ClaimServlet._
 
+  val crlf = System.getProperty("line.separator")
+
   implicit val timeout = Duration(30, SECONDS)
 
   private val claimsActor = actorSystem.actorOf(Props(classOf[ClaimsResultsActor], stateMachine, messageRouter, integratedWallet))
+
+  get("/balanceledger") {
+
+    Ok(balanceLedger.map( _ match {
+      case TxOutput(amount, enc) => s"$amount locked to $enc"
+    }).mkString(crlf))
+
+  }
 
   get("/debit") {
     params.get("to") match {
@@ -108,6 +121,19 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
           }
         case Success(_) =>
       }
+
+    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      Try {
+        val txMsg = bytes.toTxMessage
+        val hexId = txMsg.txId.toVarChar
+        val claimTracker = inFlightClaims(hexId)
+        context.system.scheduler.scheduleOnce(5 seconds, messageRouter, claimTracker.claiming.netMsg)
+      } match {
+        case Success(_) =>
+        case Failure(e) => log.warning(e.toString)
+      }
+
+
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage

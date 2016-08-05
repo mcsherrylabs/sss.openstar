@@ -41,6 +41,8 @@ case class SaleOrReturnSecretEnc(
                                   returnBlockHeight: Long
                                 ) extends Encumbrance with ByteArrayComparisonOps {
 
+  override def toString: String = s"SaleOrReturnSecretEnc for claimant $claimant from $returnIdentity after $returnBlockHeight"
+
   def decumber(params: Seq[Array[Byte]], context: LedgerContext, decumbrance: Decumbrance): Boolean = {
 
     val currentBlockHeight: Long = context.blockHeight.get

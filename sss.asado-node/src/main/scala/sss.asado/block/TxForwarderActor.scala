@@ -41,6 +41,7 @@ class TxForwarderActor(
       messageRouter ! Register(MessageKeys.SignedTxAck)
       messageRouter ! Register(MessageKeys.SignedTxNack)
       messageRouter ! Register(MessageKeys.AckConfirmTx)
+      messageRouter ! Register(MessageKeys.TempNack)
 
       context watch who.handlerRef
       context.become(forwardMode(who.handlerRef))
@@ -59,6 +60,7 @@ class TxForwarderActor(
       messageRouter ! UnRegister(MessageKeys.SignedTxAck)
       messageRouter ! UnRegister(MessageKeys.SignedTxNack)
       messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
+      messageRouter ! UnRegister(MessageKeys.TempNack)
       context.become(noForward)
 
 
@@ -80,7 +82,11 @@ class TxForwarderActor(
     case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
       decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
         txs.get(txAck.blockTxId.txId.asHexStr) map (_ ! m)
+      }
 
+    case m @ NetworkMessage(MessageKeys.TempNack, bytes) =>
+      decode(MessageKeys.TempNack, bytes.toTxMessage) { tempNack =>
+        txs.get(tempNack.txId.asHexStr) map (_ ! m)
       }
 
     case m @ NetworkMessage(MessageKeys.SignedTxNack, bytes) =>

@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 object Block extends Logging {
   private val blockTableNamePrefix = "block_"
-  private lazy val blockCache = new SynchronizedLruMap[Long, Block](3)
+  private lazy val blockCache = new SynchronizedLruMap[Long, Block](100)
   private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
   def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
 
