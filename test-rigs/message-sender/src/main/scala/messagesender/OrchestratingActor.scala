@@ -3,7 +3,7 @@ package messagesender
 import akka.actor.{Actor, ActorLogging, Cancellable, Props}
 import messagesender.CheckInBoxForCash.CheckInBox
 import sss.asado.MessageKeys
-import sss.asado.balanceledger.{TxIndex, TxOutput}
+import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
 import sss.asado.block.BlockChainTxId
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.message.MessageInBox
@@ -28,13 +28,17 @@ class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: Ci
   override def receive: Receive = {
     case StateMachineInitialised =>
       startNetwork
+      val bal = integratedWallet.balance
+      log.info(s"StateMachineInitialised balance is $bal")
       context.system.scheduler.scheduleOnce(
-        FiniteDuration(1, MINUTES),
+        FiniteDuration(15, SECONDS),
         self, ConnectHome)
 
     case ConnectHome => connectHome
 
     case ReadyStateEvent =>
+
+
       /*val inBox = MessageInBox(nodeIdentity.id)
 
       val messageSendingActorRef = context.system.actorOf(Props(classOf[MessageSendingActor], client, inBox, prefix, circSeq))
@@ -49,24 +53,24 @@ class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: Ci
 
       messageSendingActorRef ! TrySendMail
       checkInBoxForCashRef ! CheckInBox*/
-      implicit val timeout = Duration(10, SECONDS)
+      implicit val timeout = Duration(3, MINUTES)
 
       val payment = Payment(client.nodeIdentity.id, 1)
 
       val bal = integratedWallet.balance
       log.info(s"About to start balance is $bal")
       if(bal > 0) {
-        for (j <- 0 until 5) {
-          for (i <- 0 until 5) {
+        for (j <- 0 until 5000) {
+          for (i <- 0 until 5000) {
             integratedWallet.pay(payment) match {
               case TxSuccess(blockChainTxId: BlockChainTxId, txIndex: TxIndex, txIdentifier: Option[String]) =>
                 val txOutput = TxOutput(1, SingleIdentityEnc(client.nodeIdentity.id, 0))
                 integratedWallet.credit(Lodgement(txIndex, txOutput, blockChainTxId.height))
               case TxFailure(txMessage, txIdentifier) =>
                 log.error(s"PROBLEM: ${txMessage}")
+
             }
           }
-          Thread.sleep(100)
         }
       }
 

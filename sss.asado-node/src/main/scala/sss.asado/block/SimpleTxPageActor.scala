@@ -35,12 +35,12 @@ class SimpleTxPageActor(maxSignatures: Int,
 
     case EndOfBlock(ref, blockId) =>
       val closeBytes = DistributeClose(BlockSignatures(blockId.blockHeight).signatures(maxSignatures), blockId).toBytes
-      ref ! NetworkMessage(CloseBlock, closeBytes)
+      ref ! NetworkMessage(SimpleCloseBlock, closeBytes)
 
-    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(EndPageTx, getTxPageBytes)
+    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(SimpleEndPageTx, getTxPageBytes)
 
     case TxToReturn(ref, blockChainTx) =>
-      ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
+      ref ! NetworkMessage(MessageKeys.SimplePagedTx, blockChainTx.toBytes)
 
     case getTxPageRef @ GetTxPageRef(ref, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 

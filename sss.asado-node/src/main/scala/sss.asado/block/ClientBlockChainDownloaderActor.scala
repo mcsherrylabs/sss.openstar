@@ -38,9 +38,9 @@ class ClientBlockChainDownloaderActor(
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
 
-  messageRouter ! Register(PagedTx)
-  messageRouter ! Register(EndPageTx)
-  messageRouter ! Register(CloseBlock)
+  messageRouter ! Register(SimplePagedTx)
+  messageRouter ! Register(SimpleEndPageTx)
+  messageRouter ! Register(SimpleCloseBlock)
   messageRouter ! Register(SimpleGetPageTxEnd)
 
 
@@ -71,8 +71,8 @@ class ClientBlockChainDownloaderActor(
         nc ! SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxs.toBytes), _ => Set(connectionToSyncWith) )
 
 
-    case NetworkMessage(MessageKeys.PagedTx, bytes) =>
-      decode(PagedTx, bytes.toBlockChainTx) { blockChainTx =>
+    case NetworkMessage(MessageKeys.SimplePagedTx, bytes) =>
+      decode(SimplePagedTx, bytes.toBlockChainTx) { blockChainTx =>
         Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
           case Failure(e) => log.error(e, s"Ledger cannot sync PagedTx, game over man, game over.")
           case Success(txDbId) => log.debug(s"CONFIRMED Up to $txDbId")
@@ -80,7 +80,7 @@ class ClientBlockChainDownloaderActor(
       }
 
 
-    case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
+    case NetworkMessage(MessageKeys.SimpleEndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
@@ -101,8 +101,8 @@ class ClientBlockChainDownloaderActor(
       }
     }
 
-    case NetworkMessage(CloseBlock, bytes) =>
-      decode(CloseBlock, bytes.toDistributeClose) { distClose =>
+    case NetworkMessage(SimpleCloseBlock, bytes) =>
+      decode(SimpleCloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence = BlockSignatures(distClose.blockId.blockHeight)
         distClose.blockSigs.foreach { sig =>
           blockSignaturePersistence.write(sig)

@@ -24,6 +24,9 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val BlockNewSig: Byte = 46
   val SimpleGetPageTx: Byte = 47
   val SimpleGetPageTxEnd: Byte = 48
+  val SimplePagedTx: Byte = 49
+  val SimpleEndPageTx: Byte = 50
+  val SimpleCloseBlock: Byte = 51
 
   val MessageQuery: Byte = 60
   val MessageMsg: Byte = 61

@@ -5,9 +5,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.network.MessageRouter.{Register, RegisterRef, UnRegister}
 import sss.asado.network.{NetworkMessage, NodeId}
-import sss.asado.state.AsadoStateProtocol.{NotSynced, Synced}
+import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -44,8 +44,8 @@ class BlockChainSynchronizationActor(quorum: Int,
 
   val pageResponder = context.actorOf(Props(classOf[TxPageActor], maxSignatures, bc, db))
 
-  messageRouter ! Register(MessageKeys.NackConfirmTx)
-  messageRouter ! Register(MessageKeys.AckConfirmTx)
+  stateMachine ! RegisterStateEvents
+
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
   messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)
 
@@ -63,6 +63,15 @@ class BlockChainSynchronizationActor(quorum: Int,
   private case class ClientTx(client : ActorRef, blockChainTxId: BlockChainTxId)
 
   private def awaitConfirms(blockChainActor: ActorRef): Receive = {
+
+    case RemoteLeaderEvent(_) =>
+      messageRouter ! UnRegister(MessageKeys.NackConfirmTx)
+      messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
+
+    case LocalLeaderEvent =>
+      messageRouter ! Register(MessageKeys.NackConfirmTx)
+      messageRouter ! Register(MessageKeys.AckConfirmTx)
+
     case DistributeTx(client, btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {

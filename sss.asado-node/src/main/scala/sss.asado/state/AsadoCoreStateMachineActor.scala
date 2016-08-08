@@ -41,14 +41,13 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
 
   private def init: Receive = {
     case InitWithActorRefs(
-                              chainDownloaderRef,
                               leaderRef,
                               messageRouter,
                               txRouter,
                               blockChainActor,
                               txForwarder) =>
       log.info("AsadoCoreStateMachine actor has been initialized...")
-      context.become(stateTransitionTasks(chainDownloaderRef,
+      context.become(stateTransitionTasks(
         leaderRef,
         messageRouter,
         txRouter,
@@ -57,7 +56,7 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
 
   }
 
-  def stateTransitionTasks(chainDownloaderRef: ActorRef,
+  def stateTransitionTasks(
                            leaderRef: ActorRef,
                            messageRouter: ActorRef,
                            txRouter: ActorRef,

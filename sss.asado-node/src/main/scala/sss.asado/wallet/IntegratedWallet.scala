@@ -158,6 +158,9 @@ class IntegratedWallet(wallet: Wallet,
       case txs @ TxSuccess(blockChainTxId, _, _) =>
         wallet.update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
         txs
+      case f@TxFailure(TxMessage(tpe, id, msg), _) if(msg.contains("does not exist"))=> wallet.markSpent(tx.ins);f
+      case x => x
+
     }, timeout)
 
   }

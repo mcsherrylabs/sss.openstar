@@ -39,7 +39,7 @@ class WalletPersistence(uniqueTag :String, db: Db) {
   def tx[T] = db.tx[T] _
 
   def markSpent(txIndex: TxIndex) = {
-    table.toLongIdOpt(txIdCol -> txIndex.txId.toVarChar).map { id =>
+    table.toLongIdOpt(txIdCol -> txIndex.txId.toVarChar, txIdIndxCol -> txIndex.index).map { id =>
       table.update(Map(idCol -> id,
         txIdIndxCol -> txIndex.index,
         statusCol -> spent))

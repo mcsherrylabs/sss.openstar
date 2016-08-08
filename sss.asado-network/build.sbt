@@ -25,7 +25,7 @@ libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
 libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.12"
+libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.13"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

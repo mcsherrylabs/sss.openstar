@@ -9,11 +9,11 @@ import sss.asado.account.NodeIdentity
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.ledger.Ledgers
-import sss.asado.network.MessageRouter.Register
+import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
 import sss.asado.state.AsadoStateProtocol
-import sss.asado.state.AsadoStateProtocol.{ClientSynced, RegisterStateEvents, RemoteLeaderEvent, SplitRemoteLocalLeader}
+import sss.asado.state.AsadoStateProtocol.{Synced => _, _}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -55,13 +55,13 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
 
-  stateMachine ! RegisterStateEvents
+  messageRouter ! Register(Synced)
   messageRouter ! Register(PagedTx)
   messageRouter ! Register(EndPageTx)
-  messageRouter ! Register(ConfirmTx)
   messageRouter ! Register(CloseBlock)
   messageRouter ! Register(BlockSig)
-  messageRouter ! Register(Synced)
+  stateMachine ! RegisterStateEvents
+
 
   log.info(s"BlockChainDownloader actor has started... $self")
 
@@ -73,7 +73,16 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
   private def syncLedgerWithLeader: Receive = {
 
-    case RemoteLeaderEvent(conn) => self ! SynchroniseWith(conn)
+    case LocalLeaderEvent =>
+      messageRouter ! UnRegister(ConfirmTx)
+
+
+    case RemoteLeaderEvent(conn) =>
+      messageRouter ! Register(ConfirmTx)
+
+
+      context.system.scheduler.scheduleOnce(1 seconds, self, SynchroniseWith(conn))
+
 
     case SynchroniseWith(who) =>
         val getTxs = {

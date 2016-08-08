@@ -285,7 +285,6 @@ trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
   override def initStateMachine = {
 
     stateMachineActor ! InitWithActorRefs(
-      blockChainDownloaderActor,
       leaderActor,
       messageRouterActor,
       txRouter,
@@ -315,6 +314,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
     BlockChainBuilder with
     MessageDownloadServiceBuilder with
     ClientBlockChainDownloaderBuilder with
+    TxForwarderActorBuilder with
     EventListenerBuilder with
     MessageRouterActorBuilder =>
 
@@ -323,7 +323,8 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
   override  def initStateMachine = {
     stateMachineActor ! InitWithActorRefs(messageDownloaderActor,
       blockChainDownloaderActor,
-      messageRouterActor)
+      messageRouterActor,
+      txForwarderActor)
   }
 
   def buildClientStateMachine : ActorRef = {
@@ -401,6 +402,7 @@ trait CoreNode extends MinimumNode with
     LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
+  blockChainDownloaderActor
 }
 
 trait ServicesNode extends CoreNode with
@@ -412,6 +414,7 @@ trait ServicesNode extends CoreNode with
 trait ClientNode extends MinimumNode with
     ClientBlockChainDownloaderBuilder with
     EventListenerBuilder with
+    TxForwarderActorBuilder with
     ClientStateMachineActorBuilder with
     MessageDownloadServiceBuilder with
     HomeDomainBuilder {

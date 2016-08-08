@@ -54,31 +54,32 @@ object MerklePersist {
          |parentId INT);
          |""".stripMargin
 
-    private def createIndexSql(name: String, col: String) = s"CREATE INDEX ${name}_${col}_indx ON $name ($col);"
+    private def createIndexSql(name: String, col: String) = s"CREATE INDEX IF NOT EXISTS ${name}_${col}_indx ON $name ($col);"
 
     def persist(tag: String): Unit = {
 
-      db.executeSqls(Seq(createTableSql(tag),createIndexSql(tag, "id"), createIndexSql(tag, "parentId")))
+      db.inTransaction {
+        db.executeSqls(Seq(createTableSql(tag), createIndexSql(tag, "id"), createIndexSql(tag, "parentId")))
+        val table = db.table(tag)
+        persist(mt, None)
 
-      val table = db.table(tag)
+        def persist(subTree: MerkleTree[_], parentIdOpt: Option[Int]): Unit = {
 
-      table.inTransaction {persist(mt, None)}
+          val nextParentId = Option(table.insert(Map("hash" -> subTree.root, "parentId" -> parentIdOpt))[Int]("id"))
 
-      def persist(subTree: MerkleTree[_],parentIdOpt: Option[Int]): Unit = {
+          subTree match {
+            case mtb: MerkleTreeBranch[_] => {
+              persist(mtb.left, nextParentId)
+              if (mtb.left != mtb.right) persist(mtb.right, nextParentId)
+            }
+            case MerkleTreeLeaf(left: mutable.WrappedArray[_], right: mutable.WrappedArray[_]) => {
+              table.insert(Map("hash" -> left, "parentId" -> nextParentId))
+              if (left != right) table.insert(Map("hash" -> right, "parentId" -> nextParentId))
+            }
 
-        val nextParentId = Option(table.insert(Map("hash" -> subTree.root, "parentId" -> parentIdOpt))[Int]("id"))
-
-        subTree match {
-          case mtb: MerkleTreeBranch[_] => {
-            persist(mtb.left, nextParentId)
-            if(mtb.left != mtb.right) persist(mtb.right, nextParentId)
           }
-          case MerkleTreeLeaf(left: mutable.WrappedArray[_] , right: mutable.WrappedArray[_]) => {
-            table.insert(Map("hash" -> left, "parentId" -> nextParentId))
-            if(left != right) table.insert(Map("hash" -> right, "parentId" -> nextParentId))
-          }
-
         }
+
       }
     }
   }

@@ -3,6 +3,7 @@ package sss.asado.wallet
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
+import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
@@ -157,8 +158,8 @@ class Wallet(identity: NodeIdentity,
       }
 
       case None =>
-        if (lodgement.inBlock == atBlockHeight) {
-          // the lodgement is in the current block, but as this block has not been closed
+        if (lodgement.inBlock == atBlockHeight || lodgement.inBlock == atBlockHeight + 1) {
+          // the lodgement is in the current block or next block, but as this block has not been closed
           // it will not be in the balanceledger.
           Option(UnSpent(lodgement.txIndex, lodgement.txOutput))
         } else None

@@ -30,7 +30,7 @@ trait AsadoClientStateMachine
       eventListener ! OrderedState
     case _ -> ConnectingState => eventListener ! ConnectingState
     case _ -> ReadyState =>
-      eventListener ! ReadyState
+      eventListener ! ReadyStateEvent
   }
 
   when(OrderedState) {

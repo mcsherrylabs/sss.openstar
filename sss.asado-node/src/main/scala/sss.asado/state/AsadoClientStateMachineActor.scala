@@ -30,24 +30,27 @@ class AsadoClientStateMachineActor(thisNodeId: String,
   private def init: Receive = {
     case InitWithActorRefs(messageDownloader,
                               chainDownloaderRef,
-                              messageRouter) =>
+                              messageRouter,
+                              txForwarder) =>
       log.info("AsadoClientStateMachine actor has been initialized...")
       context.become(stateTransitionTasks(
         messageDownloader,
         chainDownloaderRef,
-        messageRouter) orElse super.receive)
+        messageRouter,
+        txForwarder) orElse super.receive)
       eventListener ! StateMachineInitialised
   }
 
 
   def stateTransitionTasks(messageDownloader: ActorRef,
                            chainDownloaderRef: ActorRef,
-                           messageRouter: ActorRef
-                           ): Receive = {
+                           messageRouter: ActorRef,
+                             txForwarder: ActorRef): Receive = {
 
     case  swl @ RemoteLeaderEvent(conn) =>
       eventListener ! swl
       chainDownloaderRef ! SynchroniseWith(conn)
+      txForwarder ! Forward(conn)
       messageDownloader ! CheckForMessages
 
   }

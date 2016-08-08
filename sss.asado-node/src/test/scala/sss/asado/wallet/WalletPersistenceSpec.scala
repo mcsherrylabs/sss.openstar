@@ -27,6 +27,7 @@ class WalletPersistenceSpec extends FlatSpec with Matchers with ByteArrayCompari
   val txOutput0 = TxOutput(50, NullEncumbrance)
 
   val txIndex1 = TxIndex(txId1, 0)
+  val txIndex2 = TxIndex(txId1, 1)
 
   "A TxIndex " should " be persistable " in {
     assert(wp.listUnSpent.isEmpty)
@@ -61,6 +62,13 @@ class WalletPersistenceSpec extends FlatSpec with Matchers with ByteArrayCompari
   it should " allow marking a second index spent" in {
     wp.markSpent(txIndex1)
     wp.markSpent(txIndex0)
+    assert(wp.listUnSpent.isEmpty)
+  }
+
+  it should " allow marking a second index on the same tx spent" in {
+    wp.track(Lodgement(txIndex2, txOutput0, 0))
+    wp.markSpent(txIndex1)
+    wp.markSpent(txIndex2)
     assert(wp.listUnSpent.isEmpty)
   }
 }

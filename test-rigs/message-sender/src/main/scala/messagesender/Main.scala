@@ -82,13 +82,6 @@ class MessageSenderClient(val newBndSettings: BindControllerSettings,
     val idStr = s"${prefix}${bindSettings.port}"
     val defTag = "defaultTag"
 
-    Try {
-      claim(idStr, defTag, new String(phrase.get))
-    } match {
-      case Failure(e) => log.error(e.toString)
-      case Success(s) => log.info(s"Claim ok $s")
-    }
-
     NodeIdentity(idStr, defTag, new String(phrase.get))
   }
 
