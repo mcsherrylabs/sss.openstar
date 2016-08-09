@@ -172,6 +172,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
     case LocalLeaderEvent => weAreLeader = true
 
     case sbc @ StartBlockChain(ref, any) if(weAreLeader) =>
+      log.info("Starting the blockchain... we are leader")
       context.become(handleRouterDeath orElse startingBlockChain(sbc, bc.lastBlockHeader))
       writersRouterRef ! GetRoutees
 
@@ -222,7 +223,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
           context.become(handleRouterDeath orElse waiting(newLastBlock))
           startTimer(secondsToWait(newLastBlock.time))
-        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
+        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...' {}", e)
       }
 
     case Routees(writers: IndexedSeq[_]) =>

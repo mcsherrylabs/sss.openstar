@@ -37,7 +37,7 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
   }
 
   private def write(blockHeight: Long, txIdAsStr: String): Unit = {
-    table.insert(blockHeight, txIdAsStr, new Date().getTime)
+    table.insert(Map(block_height_str -> blockHeight, txId_str -> txIdAsStr, when_str -> new Date().getTime))
   }
 
   private def getTxIdForBlockHeight(blockHeight: Long): Option[String] =

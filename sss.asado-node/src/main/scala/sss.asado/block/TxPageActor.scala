@@ -11,6 +11,7 @@ import sss.db.Db
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import sss.asado.ledger._
+
 import scala.language.postfixOps
 /**
   * Sends pages of txs to a client trying to download the whole chain.
@@ -21,6 +22,7 @@ import scala.language.postfixOps
 class TxPageActor(maxSignatures: Int,
                   bc: BlockChain with BlockChainSignatures)(implicit db: Db) extends Actor with ActorLogging {
 
+  private case class ForwardClientSynched(cl:ClientSynched)
   private case class GetTxPageWithRef(ref: ActorRef, servicePaused: Boolean, getTxPage: GetTxPage)
   private case class EndOfPage(ref: ActorRef, bytes: Array[Byte])
   private case class EndOfBlock(ref: ActorRef, blockId: BlockId)
@@ -46,7 +48,7 @@ class TxPageActor(maxSignatures: Int,
 
     case getTxPageRef @ GetTxPageWithRef(ref, servicePaused, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
-      log.info(s"Another node asking me for $getTxPage")
+      log.info(s"${ref} asking me for $getTxPage")
       lazy val nextPage = bc.block(blockHeight).page(index, pageSize)
       lazy val lastBlockHeader = bc.lastBlockHeader
       //TODO Does this still work post sync to index changes??
@@ -66,7 +68,7 @@ class TxPageActor(maxSignatures: Int,
             self ! TxToReturn(ref, bctx)
           }
           if (nextPage.size == pageSize) self ! EndOfPage(ref, pageIncremented.toBytes)
-          else if (maxHeight == blockHeight) context.parent ! ClientSynched(ref, pageIncremented)
+          else if (maxHeight == blockHeight) self ! ForwardClientSynched(ClientSynched(ref, pageIncremented))
           else self ! EndOfBlock(ref, BlockId(blockHeight, index + nextPage.size))
         } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
       }
@@ -83,6 +85,9 @@ class TxPageActor(maxSignatures: Int,
           context.parent ! DistributeSig(newSig)
       }
 
+
+    // route it through here to keep the send ordering correct (although perhaps not the order it arrives in)
+    case f @ ForwardClientSynched(cl) => context.parent ! cl
 
   }
 }

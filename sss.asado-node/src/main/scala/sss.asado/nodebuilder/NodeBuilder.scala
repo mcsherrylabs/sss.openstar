@@ -290,6 +290,8 @@ trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
       txRouter,
       blockChainActor,
       txForwarderActor)
+
+    blockChainDownloaderActor
   }
 
 
@@ -402,7 +404,6 @@ trait CoreNode extends MinimumNode with
     LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
-  blockChainDownloaderActor
 }
 
 trait ServicesNode extends CoreNode with

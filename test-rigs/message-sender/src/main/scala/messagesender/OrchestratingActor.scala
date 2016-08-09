@@ -31,7 +31,7 @@ class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: Ci
       val bal = integratedWallet.balance
       log.info(s"StateMachineInitialised balance is $bal")
       context.system.scheduler.scheduleOnce(
-        FiniteDuration(15, SECONDS),
+        FiniteDuration(5, SECONDS),
         self, ConnectHome)
 
     case ConnectHome => connectHome

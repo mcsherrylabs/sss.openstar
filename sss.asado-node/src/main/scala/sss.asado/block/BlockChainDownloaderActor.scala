@@ -128,6 +128,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
 
                 serverRef ! NetworkMessage(MessageKeys.BlockNewSig, newSig.toBytes)
               }
+              assert(blockHeader.height == blockId.blockHeight, s"How can ${blockHeader} differ from ${blockId}")
               if (!synced) {
                 val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
                 serverRef ! NetworkMessage(MessageKeys.GetPageTx, nextBlockPage.toBytes)

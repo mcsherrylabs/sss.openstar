@@ -94,7 +94,8 @@ class ClientBlockChainDownloaderActor(
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
               log.info(s"Client syncing - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
-              val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
+              assert(blockHeader.height == blockId.blockHeight, s"(C)How can ${blockHeader} differ from ${blockId}")
+              val nextBlockPage = GetTxPage(blockId.blockHeight + 1, 0)
               serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx, nextBlockPage.toBytes)
               Block.drop(blockId.blockHeight - numBlocksCached)
           }
@@ -110,10 +111,11 @@ class ClientBlockChainDownloaderActor(
         self ! CommitBlock(sender(), distClose.blockId)
       }
 
-    case NetworkMessage(SimpleGetPageTxEnd, _) =>
+    case NetworkMessage(SimpleGetPageTxEnd, getTxPage) =>
       stateMachine ! ClientSynced
-      log.info(s"Client downloader is synced pausing for 20 seconds")
-      context.system.scheduler.scheduleOnce(20 seconds, self, SynchroniseWithConn)
+      log.info(s"Client downloader is synced, pausing for 20 seconds")
+      context.system.scheduler.scheduleOnce(20 seconds, nc,
+        SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxPage), _ => Set(connectionToSyncWith) ))
 
   }
 

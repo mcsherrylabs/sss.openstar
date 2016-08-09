@@ -14,6 +14,7 @@ class TxPageActorSpec(_system: ActorSystem) extends TestKit(_system) with Implic
   "A Tx Actor" must {
 
     "send back messages unchanged" in {
+
       val echo = system.actorOf(TestActors.echoActorProps)
       echo ! "hello world"
       expectMsg("hello world")
