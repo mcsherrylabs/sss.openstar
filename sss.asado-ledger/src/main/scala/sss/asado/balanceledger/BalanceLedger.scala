@@ -22,6 +22,7 @@ object BalanceLedger {
 trait BalanceLedgerQuery {
   def balance: Int
   def entry(inIndex: TxIndex): Option[TxOutput]
+  def map[M](f: (TxOutput) => M): Seq[M]
 }
 
 class BalanceLedger(storage: UTXODBStorage,
@@ -32,6 +33,15 @@ class BalanceLedger(storage: UTXODBStorage,
   private val contextTemplate: Map[String, Any]  = Map(identityServiceKey -> identityService)
 
   override def entry(inIndex: TxIndex): Option[TxOutput] = storage.get(inIndex)
+
+  /**
+    * Used for debug only.
+    *
+    * @param f
+    * @tparam M
+    * @return
+    */
+  def map[M](f: (TxOutput) => M): Seq[M] = storage.entries.map(f)
 
   def apply(stx: SignedTxEntry, blockHeight: Long) {
 
@@ -59,7 +69,9 @@ class BalanceLedger(storage: UTXODBStorage,
               totalIn += in.amount
               coinbaseValidator.validate(blockHeight, stx.signatures, tx)
               // No need to delete from storage becfause it's not in storage.
-              log.info(s"Balance ledger balance is ${balance} at height $blockHeight, adding ${in.amount} via coinbase")
+              if(blockHeight % 100 == 0) {
+                log.info(s"Balance ledger balance is ${balance} at height $blockHeight, adding ${in.amount} via coinbase")
+              }
 
             case TxIndex(coinbaseTxId, _) if CoinbaseTxId sameElements coinbaseTxId =>
               throw new IllegalArgumentException(s"Only one coinbase tx allowed ${in.txIndex}.")

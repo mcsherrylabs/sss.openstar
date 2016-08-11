@@ -42,7 +42,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   def errorNoLedger(txId: TxId): Unit = {
     val msg = "No ledger open, retry later."
     log.error(msg)
-    sender() ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(0.toByte, txId, msg).toBytes)
+    sender() ! NetworkMessage(MessageKeys.TempNack, TxMessage(0.toByte, txId, msg).toBytes)
   }
 
   def errorBadMessage: Unit = {

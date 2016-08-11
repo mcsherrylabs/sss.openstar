@@ -12,6 +12,7 @@ trait PublishedMessageKeys {
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
   val NackConfirmTx: Byte = 106
+  val TempNack: Byte = 107
 
   val MalformedMessage: Byte = 20
   val GenericErrorMessage: Byte = 21

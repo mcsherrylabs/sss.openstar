@@ -15,7 +15,7 @@ trait BlockChainActorsBuilder {
     ActorSystemBuilder with
     MessageRouterActorBuilder with
     NodeIdentityBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
     LedgersBuilder with
@@ -43,6 +43,7 @@ trait BlockChainActorsBuilder {
     actorSystem.actorOf(Props(classOf[BlockChainActor],
       nodeIdentity,
       nodeConfig.blockChainSettings, bc,
+      stateMachineActor,
       txRouter,
       blockChainSynchronizationActor,
       wallet,
@@ -62,7 +63,7 @@ trait BlockChainDownloaderBuilder {
     MessageRouterActorBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
     LedgersBuilder =>
@@ -82,7 +83,7 @@ trait ClientBlockChainDownloaderBuilder {
     MessageRouterActorBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
     LedgersBuilder =>
@@ -100,12 +101,14 @@ trait TxForwarderActorBuilder {
   self : NodeConfigBuilder with
     ActorSystemBuilder with
     MessageRouterActorBuilder with
-    NetworkContollerBuilder =>
+    StateMachineActorBuilder with
+    NetworkControllerBuilder =>
 
   lazy val txForwarderActor : ActorRef = buildTxForwarder
 
   def buildTxForwarder =
     actorSystem.actorOf(Props(classOf[TxForwarderActor],
+      stateMachineActor,
       messageRouterActor,
       nodeConfig.conf.getInt("clientRefCacheSize")))
 

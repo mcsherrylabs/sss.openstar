@@ -1,6 +1,7 @@
 package sss.asado.nodebuilder
 
 import sss.ancillary.{DynConfig, InitServlet, ServerConfig, ServerLauncher}
+import sss.asado.balanceledger.BalanceLedger
 import sss.asado.console.ConsoleServlet
 import sss.asado.http.ClaimServlet
 
@@ -16,7 +17,7 @@ trait HttpServerBuilder {
           MessageRouterActorBuilder with
           IdentityServiceBuilder with
           WalletBuilder with
-          NetworkContollerBuilder =>
+          NetworkControllerBuilder =>
 
   lazy val httpServer =  {
     ServerLauncher.singleContext(DynConfig[ServerConfig](nodeConfig.conf.getConfig("httpServerConfig")))
@@ -44,11 +45,13 @@ trait ClaimServletBuilder {
     MessageRouterActorBuilder with
     ActorSystemBuilder with
     IntegratedWalletBuilder with
+    StateMachineActorBuilder with
+    BalanceLedgerBuilder with
     HttpServerBuilder =>
 
 
   def buildClaimServlet: Option[ClaimServlet] = {
-    Option(new ClaimServlet(actorSystem, messageRouterActor, integratedWallet))
+    Option(new ClaimServlet(actorSystem, stateMachineActor, messageRouterActor, balanceLedger,integratedWallet))
   }
 
   def addClaimServlet = {

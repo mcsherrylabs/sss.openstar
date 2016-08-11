@@ -25,6 +25,8 @@ class WalletSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     override def balance: Int = mocks.map(_._2.amount).sum
 
     override def entry(inIndex: TxIndex): Option[TxOutput] = mocks.get(inIndex)
+
+    override def map[M](f: (TxOutput) => M): Seq[M] = ???
   }
 
   implicit val db = Db()

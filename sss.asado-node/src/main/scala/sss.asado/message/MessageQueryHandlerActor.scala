@@ -11,8 +11,10 @@ import sss.asado.ledger._
 import sss.asado.balanceledger._
 import sss.asado.block._
 import sss.db.Db
-
+import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
+import scala.language.postfixOps
+import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
   * Created by alan on 6/8/16.
@@ -26,7 +28,7 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
 
   log.info("MessageQueryHandler actor has started ...")
 
-  case class MessageTracker(sndr: ActorRef, to: String, index: Long)
+  case class MessageTracker(sndr: ActorRef, to: String, index: Long, resendNetMsg: NetworkMessage)
 
   private var messageSenders: Map[String, MessageTracker] = Map()
 
@@ -49,6 +51,12 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
         }
       }
       messageSenders -= bId.blockTxId.txId.asHexStr
+
+    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      val txMsg = bytes.toTxMessage
+      messageSenders.get(txMsg.txId.asHexStr) foreach { tracker =>
+        context.system.scheduler.scheduleOnce(5 seconds, messageRouter, tracker.resendNetMsg)
+      }
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
@@ -100,8 +108,9 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
             val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
             val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
             val index = MessagePersist(toId).pending(nId.id, addrMsg.msg, addrMsg.ledgerItem.toBytes)
-            messageSenders += (addrMsg.ledgerItem.txId.asHexStr -> MessageTracker(sender(), toId, index))
-            messageRouter ! NetworkMessage(MessageKeys.SignedTx, addrMsg.ledgerItem.toBytes)
+            val netMsg = NetworkMessage(MessageKeys.SignedTx, addrMsg.ledgerItem.toBytes)
+            messageSenders += (addrMsg.ledgerItem.txId.asHexStr -> MessageTracker(sender(), toId, index, netMsg))
+            messageRouter ! netMsg
 
           } match {
             case Failure(e) =>

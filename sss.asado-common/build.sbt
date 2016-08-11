@@ -9,7 +9,7 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 libraryDependencies += "mcsherrylabs.com" %% "scrypto" % "1.2.0-SNAPSHOT"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.12"
+libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.13"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 

@@ -41,6 +41,8 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
     )
   }
 
+  private lazy val makeSecret = SeedBytes(16)
+
   private var failFactor = 1
 
   override def receive: Receive = {
@@ -53,7 +55,7 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
         val baseTx = wallet.createTx(chargePerMessage + amountBuriedInMail)
 
         val changeTxOut = baseTx.outs.take(1)
-        val secret = SeedBytes(16)
+        val secret = makeSecret
 
         val accounts = identityService.accounts(to)
         if (accounts.nonEmpty) {

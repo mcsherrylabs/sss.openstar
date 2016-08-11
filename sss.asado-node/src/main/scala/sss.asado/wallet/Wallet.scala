@@ -3,6 +3,7 @@ package sss.asado.wallet
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
+import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
@@ -125,9 +126,12 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def unSpentOpt(lodgement: Lodgement, atBlockHeight: Long): Option[UnSpent] = {
 
+    //log.info(s"Is ${lodgement.txIndex.txId.asHexStr} unspent?")
     balanceLedger.entry(lodgement.txIndex) match {
       case Some(txOut) => txOut.encumbrance match {
         case SinglePrivateKey(pKey, minBlockHeight) =>
+          //log.info(s"${lodgement.txIndex.txId.asHexStr} is a SinglePrivateKey with minBlkH $minBlockHeight")
+          //if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
           identityServiceQuery.identify(pKey).flatMap { acc =>
             if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
             else None
@@ -154,8 +158,8 @@ class Wallet(identity: NodeIdentity,
       }
 
       case None =>
-        if (lodgement.inBlock == atBlockHeight) {
-          // the lodgement is in the current block, but as this block has not been closed
+        if (lodgement.inBlock == atBlockHeight || lodgement.inBlock == atBlockHeight + 1) {
+          // the lodgement is in the current block or next block, but as this block has not been closed
           // it will not be in the balanceledger.
           Option(UnSpent(lodgement.txIndex, lodgement.txOutput))
         } else None
@@ -166,10 +170,10 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def findUnSpent(atBlockHeight: Long): Seq[UnSpent] =  {
     val allWalletEntries = walletPersistence.listUnSpent
-    log.info(s"There are ${allWalletEntries.size} unspent wallet entries. Printing last 10")
-    allWalletEntries.reverse.take(10).foreach { we =>
-      log.info(s"Blk ${we.inBlock}, Amnt ${we.txOutput.amount}, Type ${we.txOutput.encumbrance.getClass.toGenericString}")
-    }
+//    log.info(s"There are ${allWalletEntries.size} unspent wallet entries. Printing last 10")
+//    allWalletEntries.reverse.take(10).foreach { we =>
+//      log.info(s"Blk ${we.inBlock}, Amnt ${we.txOutput.amount}, Type ${we.txOutput.encumbrance.getClass.toGenericString}")
+//    }
     allWalletEntries.foldLeft(Seq[UnSpent]()) ((acc: Seq[UnSpent], lodgement: Lodgement) =>
       unSpentOpt(lodgement, atBlockHeight) match {
         case Some(u) => acc :+ u

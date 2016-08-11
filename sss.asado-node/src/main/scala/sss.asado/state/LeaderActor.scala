@@ -10,7 +10,8 @@ import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound}
+import sss.asado.state.AsadoState.QuorumState
+import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound, QuorumStateEvent, RegisterStateEvents}
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -32,6 +33,8 @@ class LeaderActor(thisNodeId: String,
   messageRouter ! Register(MessageKeys.FindLeader)
   messageRouter ! Register(MessageKeys.Leader)
   messageRouter ! Register(MessageKeys.VoteLeader)
+  stateMachine ! RegisterStateEvents
+
 
   log.info("Leader actor has started...")
 
@@ -46,6 +49,8 @@ class LeaderActor(thisNodeId: String,
 
 
   private def handleNoLeader(leaderConfirms: Set[String]): Receive = {
+
+    case QuorumStateEvent => self ! FindTheLeader
 
     case FindTheLeader =>
       val findMsg = makeFindLeaderNetMsg
@@ -104,6 +109,7 @@ class LeaderActor(thisNodeId: String,
         log.info(s"The leader is $thisNodeId (me), telling the network...")
         stateMachine ! LeaderFound(thisNodeId)
         ncRef ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
+
         /*log.info(s"The leader is $thisNodeId (me), closing partial block.")
         Try(BlockChainLedger(bc.lastBlockHeader.height + 1).commit) match {
           case Failure(e) => log.error(e, s"Failed to commit outstanding txs in partial block")
@@ -129,11 +135,13 @@ class LeaderActor(thisNodeId: String,
     case NetworkMessage(MessageKeys.VoteLeader,bytes) => log.info(s"Got an surplus vote from ${bytes.toVoteLeader.nodeId}, leader is $leader")
     case NetworkMessage(MessageKeys.Leader,bytes) => log.info(s"Got an unneeded leader indicator ${bytes.toLeader.nodeId}, leader is $leader")
 
-    case FindTheLeader =>  {
+    case QuorumStateEvent => self ! FindTheLeader
+
+    case FindTheLeader =>
       log.info("Sending FindLeader to myself.")
       context.become(handleNoLeader(Set.empty))
-      self forward FindTheLeader
-    }
-    case x => log.info(s"Spurious leadership message $x")
+      self ! FindTheLeader
+
+    //case x => log.info(s"Spurious leadership message $x")
   }
 }

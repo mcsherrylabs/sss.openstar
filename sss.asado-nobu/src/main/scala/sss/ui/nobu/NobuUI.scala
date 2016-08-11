@@ -5,7 +5,7 @@ import java.io.File
 import com.vaadin.annotations.{Push, Theme}
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
-import com.vaadin.server.VaadinRequest
+import com.vaadin.server.{VaadinRequest, VaadinSession}
 import com.vaadin.ui.UI
 import sss.ancillary.{Configure, DynConfig}
 import sss.asado.account.NodeIdentity
@@ -26,12 +26,15 @@ class NobuUI extends UI with ViewChangeListener with Configure {
 
   override def init(vaadinRequest: VaadinRequest): Unit = {
 
+    VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1)
+
+
     val uiReactor = UIReactor(this)
     val navigator = new Navigator(this, this)
     navigator.addViewChangeListener(this)
 
     val keyFolder = config.getString("keyfolder")
-
+    new File(keyFolder).mkdirs()
 
     val claimUnlockView = new UnlockClaimView(uiReactor, keyFolder, NobuNode.NodeBootstrap.homeDomain)
     navigator.addView(UnlockClaimView.name, claimUnlockView)

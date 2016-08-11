@@ -22,7 +22,7 @@ packageSummary in Linux := "asado node"
 
 dependencyOverrides += "mcsherrylabs.com" %% "scrypto" % "1.2.0-SNAPSHOT"
 
-dependencyOverrides += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.12"
+dependencyOverrides += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.13"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
@@ -34,7 +34,7 @@ libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
 libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.30"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.31"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.2"
 
@@ -57,8 +57,6 @@ libraryDependencies += "org.scalatra" % "scalatra_2.11" % "2.4.0"
 libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 
 libraryDependencies += "us.monoid.web" % "resty" % "0.3.2" % Test
-
-javaOptions in Universal ++= Seq( "-javaagent:/opt/docker/data/plumbr.jar", "-Dconfig.file=./conf/application.conf")
 
 //updateOptions := updateOptions.value.withCachedResolution(false)
 

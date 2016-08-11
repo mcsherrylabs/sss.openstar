@@ -17,6 +17,8 @@ case class SinglePrivateKey(pKey: PublicKey, minBlockHeight: Long = 0) extends E
     case _ => false
   }
 
+  override def toString: String = s"SinglePrivateKey at min block height $minBlockHeight with pKey ${pKey.asHexStr}"
+
   override def hashCode(): Int = pKey.hash
 
   def decumber(params: Seq[Array[Byte]], context: LedgerContext, decumbrance: Decumbrance): Boolean = {

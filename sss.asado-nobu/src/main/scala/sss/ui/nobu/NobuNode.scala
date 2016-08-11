@@ -34,6 +34,8 @@ object NobuNode {
     DbBuilder with
     WalletPersistenceBuilder with
     NodeConfigName {
+
+    override val phrase: Option[String] = Option("password")
     lazy override val nodeIdentity: NodeIdentity = nodeId
   }
 
@@ -53,6 +55,7 @@ class NobuNode(override val configName: String,
   require(Option(aHttpServer).isDefined, "The httpServer has not been initialised yet")
   require(Option(anActorSystem).isDefined, "The Actor System has not been initialised yet")
 
+  override val phrase: Option[String] = Option("password")
   lazy override val actorSystem: ActorSystem = anActorSystem
   lazy override val nodeIdentity: NodeIdentity = nId
   lazy override val httpServer: ServerLauncher = aHttpServer
@@ -62,12 +65,20 @@ class NobuNode(override val configName: String,
   startNetwork
   connectHome
 
-  val ref = uiReactor.actorOf(Props(classOf[NobuNodeBridge], this, homeDomain, balanceLedger, identityService, 1, 2))
+
+  lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
+  lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
+  lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
+
+
+  val ref = uiReactor.actorOf(Props(classOf[NobuNodeBridge], this, homeDomain, balanceLedger,
+    identityService, minNumBlocksInWhichToClaim, chargePerMessage, amountBuriedInMail))
   ref ! Register(NobuNodeBridge.NobuCategory)
 
 
   messageRouterActor ! RegisterRef( MessageKeys.SignedTxAck, ref)
   messageRouterActor ! RegisterRef( MessageKeys.AckConfirmTx, ref)
+  messageRouterActor ! RegisterRef( MessageKeys.TempNack, ref)
   messageRouterActor ! RegisterRef( MessageKeys.SignedTxNack, ref)
   messageRouterActor ! RegisterRef( MessageKeys.MessageResponse, ref)
 }

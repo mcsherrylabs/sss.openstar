@@ -9,7 +9,7 @@ import sss.asado.MessageKeys.decode
 import sss.asado.ledger._
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.StopAcceptingTransactions
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RegisterStateEvents, RemoteLeaderEvent, StopAcceptingTransactions}
 import sss.asado.util.SeqSerializer
 
 
@@ -20,30 +20,37 @@ case class Forward(who: Connection)
 
 
 class TxForwarderActor(
-
+                       stateMachine: ActorRef,
                        messageRouter: ActorRef,
                        clientRefCacheSize: Int
                              ) extends Actor with ActorLogging {
 
-
   private var txs = new SynchronizedLruMap[String, ActorRef](clientRefCacheSize)
+
+  stateMachine ! RegisterStateEvents
 
   log.info("TxForwarder actor has started...")
 
   private def noForward: Receive = {
+
+    case RemoteLeaderEvent(con) => self ! Forward(con)
+
     case Forward(who) =>
       messageRouter ! Register(MessageKeys.SignedTx)
       messageRouter ! Register(MessageKeys.SeqSignedTx)
       messageRouter ! Register(MessageKeys.SignedTxAck)
       messageRouter ! Register(MessageKeys.SignedTxNack)
       messageRouter ! Register(MessageKeys.AckConfirmTx)
+      messageRouter ! Register(MessageKeys.TempNack)
 
       context watch who.handlerRef
       context.become(forwardMode(who.handlerRef))
 
-
   }
+
   private def forwardMode(leaderRef: ActorRef): Receive = {
+
+    case NotReadyEvent =>  self ! StopAcceptingTransactions
 
     case Terminated(leaderRef) => self ! StopAcceptingTransactions
 
@@ -53,6 +60,7 @@ class TxForwarderActor(
       messageRouter ! UnRegister(MessageKeys.SignedTxAck)
       messageRouter ! UnRegister(MessageKeys.SignedTxNack)
       messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
+      messageRouter ! UnRegister(MessageKeys.TempNack)
       context.become(noForward)
 
 
@@ -74,7 +82,11 @@ class TxForwarderActor(
     case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
       decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
         txs.get(txAck.blockTxId.txId.asHexStr) map (_ ! m)
+      }
 
+    case m @ NetworkMessage(MessageKeys.TempNack, bytes) =>
+      decode(MessageKeys.TempNack, bytes.toTxMessage) { tempNack =>
+        txs.get(tempNack.txId.asHexStr) map (_ ! m)
       }
 
     case m @ NetworkMessage(MessageKeys.SignedTxNack, bytes) =>

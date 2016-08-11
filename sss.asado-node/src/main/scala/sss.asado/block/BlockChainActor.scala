@@ -9,7 +9,9 @@ import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
+import sss.asado.network.MessageRouter.{RegisterRef, UnRegisterRef}
 import sss.asado.network.NetworkMessage
+import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.SeqSerializer
 import sss.asado.wallet.Wallet
 import sss.asado.wallet.WalletPersistence.Lodgement
@@ -41,7 +43,7 @@ case class StartBlockChain(refToInform: ActorRef, something: Any)
 case class BlockChainStarted(something: Any)
 case class StopBlockChain(refToInform: ActorRef, something: Any)
 case class CommandFailed(something: Any)
-case class BlockChainStopped(wasRunning: Boolean, something: Any)
+case class BlockChainStopped(something: Any)
 case class TryCloseBlock(height: Long)
 case class OkToCloseBlock(height: Long)
 case object AcknowledgeNewLedger
@@ -62,6 +64,7 @@ case object AcknowledgeNewLedger
 class BlockChainActor(nodeIdentity: NodeIdentity,
                       blockChainSettings: BlockChainSettings,
                       bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
+                      stateMachine: ActorRef,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef,
                       wallet:Wallet
@@ -73,6 +76,8 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
   context watch writersRouterRef
 
   blockChainSyncingActor ! InitWithActorRefs(self)
+
+  stateMachine ! RegisterStateEvents
 
   log.info("BlockChain actor has started...")
 
@@ -146,11 +151,11 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
     case Routees(writers: IndexedSeq[_]) =>
       routees = writers
-      context.become(awaitAcks(BlockChainStopped(true, stopMsg)) orElse stoppingBlockChain(stopMsg, lastBlockHeader))
+      context.become(awaitAcks(BlockChainStopped(stopMsg)) orElse stoppingBlockChain(stopMsg, lastBlockHeader))
       writersRouterRef ! Broadcast(BlockLedger(self, None))
 
-    case BlockChainStopped(_, StopBlockChain(ref, any)) =>
-      ref ! BlockChainStopped(true, any)
+    case BlockChainStopped(StopBlockChain(ref, any)) =>
+      ref ! BlockChainStopped(any)
       context.become(initialize)
 
     case StartBlockChain(ref, any) => ref ! CommandFailed(any)
@@ -158,14 +163,20 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
   }
 
+  private var weAreLeader = false
 
   private def initialize: Receive = {
 
-    case sbc @ StartBlockChain(ref, any) =>
+    case NotOrderedEvent => weAreLeader = false
+
+    case LocalLeaderEvent => weAreLeader = true
+
+    case sbc @ StartBlockChain(ref, any) if(weAreLeader) =>
+      log.info("Starting the blockchain... we are leader")
       context.become(handleRouterDeath orElse startingBlockChain(sbc, bc.lastBlockHeader))
       writersRouterRef ! GetRoutees
 
-    case sbc @ StopBlockChain(ref, any) => ref ! BlockChainStopped(false, any)
+    case sbc @ StopBlockChain(ref, any) => ref ! BlockChainStopped(any)
 
   }
 
@@ -212,7 +223,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
 
           context.become(handleRouterDeath orElse waiting(newLastBlock))
           startTimer(secondsToWait(newLastBlock.time))
-        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...'", e)
+        case Failure(e) => log.error("FAILED TO CLOSE BLOCK! 'Game over man, game over...' {}", e)
       }
 
     case Routees(writers: IndexedSeq[_]) =>

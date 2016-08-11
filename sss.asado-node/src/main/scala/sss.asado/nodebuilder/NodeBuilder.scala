@@ -49,6 +49,10 @@ trait BindControllerSettingsBuilder {
   lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
 }
 
+trait LeaderAgentBuilder {
+  val leader = Agent[Option[Connection]](None)
+}
+
 trait NodeConfigBuilder {
   self : ConfigNameBuilder with
     ConfigBuilder with
@@ -192,7 +196,8 @@ trait LeaderActorBuilder {
     NodeIdentityBuilder with
     MessageRouterActorBuilder with
     IdentityServiceBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
+    LeaderAgentBuilder with
     StateMachineActorBuilder =>
 
   lazy val leaderActor: ActorRef = buildLeaderActor
@@ -238,7 +243,7 @@ trait MessageDownloadServiceBuilder  {
     ActorSystemBuilder with
     NodeIdentityBuilder with
     HomeDomainBuilder with
-   NetworkContollerBuilder =>
+   NetworkControllerBuilder =>
 
   lazy val messageDownloaderActor = actorSystem.actorOf(Props(classOf[MessageDownloadActor],
     nodeIdentity.id, homeDomain, messageRouterActor,ncRef,db))
@@ -280,12 +285,13 @@ trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
   override def initStateMachine = {
 
     stateMachineActor ! InitWithActorRefs(
-      blockChainDownloaderActor,
       leaderActor,
       messageRouterActor,
       txRouter,
       blockChainActor,
       txForwarderActor)
+
+    blockChainDownloaderActor
   }
 
 
@@ -310,6 +316,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
     BlockChainBuilder with
     MessageDownloadServiceBuilder with
     ClientBlockChainDownloaderBuilder with
+    TxForwarderActorBuilder with
     EventListenerBuilder with
     MessageRouterActorBuilder =>
 
@@ -318,7 +325,8 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
   override  def initStateMachine = {
     stateMachineActor ! InitWithActorRefs(messageDownloaderActor,
       blockChainDownloaderActor,
-      messageRouterActor)
+      messageRouterActor,
+      txForwarderActor)
   }
 
   def buildClientStateMachine : ActorRef = {
@@ -333,7 +341,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
 }
 
 
-trait NetworkContollerBuilder {
+trait NetworkControllerBuilder {
 
   self : ActorSystemBuilder with
     DbBuilder with
@@ -370,7 +378,7 @@ trait MinimumNode extends Logging with
     BlockChainBuilder with
     StateMachineActorBuilder with
     NetworkInterfaceBuilder with
-    NetworkContollerBuilder with
+    NetworkControllerBuilder with
     BalanceLedgerBuilder with
     LedgersBuilder with
     WalletPersistenceBuilder with
@@ -393,6 +401,7 @@ trait CoreNode extends MinimumNode with
     TxForwarderActorBuilder with
     CoreStateMachineActorBuilder with
     LeaderActorBuilder with
+    LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
 }
@@ -406,6 +415,7 @@ trait ServicesNode extends CoreNode with
 trait ClientNode extends MinimumNode with
     ClientBlockChainDownloaderBuilder with
     EventListenerBuilder with
+    TxForwarderActorBuilder with
     ClientStateMachineActorBuilder with
     MessageDownloadServiceBuilder with
     HomeDomainBuilder {

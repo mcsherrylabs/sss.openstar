@@ -38,9 +38,9 @@ class ClientBlockChainDownloaderActor(
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
 
-  messageRouter ! Register(PagedTx)
-  messageRouter ! Register(EndPageTx)
-  messageRouter ! Register(CloseBlock)
+  messageRouter ! Register(SimplePagedTx)
+  messageRouter ! Register(SimpleEndPageTx)
+  messageRouter ! Register(SimpleCloseBlock)
   messageRouter ! Register(SimpleGetPageTxEnd)
 
 
@@ -62,7 +62,7 @@ class ClientBlockChainDownloaderActor(
 
         val getTxs = {
             val lb = bc.lastBlockHeader
-            val blockStorage = Block(lb.height + 1)
+            val blockStorage = bc.block(lb.height + 1)
             val indexOfLastRow = blockStorage.maxMonotonicCommittedIndex
             val startAtNextIndex = indexOfLastRow + 1
             GetTxPage(lb.height + 1, startAtNextIndex, 50)
@@ -71,8 +71,8 @@ class ClientBlockChainDownloaderActor(
         nc ! SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxs.toBytes), _ => Set(connectionToSyncWith) )
 
 
-    case NetworkMessage(MessageKeys.PagedTx, bytes) =>
-      decode(PagedTx, bytes.toBlockChainTx) { blockChainTx =>
+    case NetworkMessage(MessageKeys.SimplePagedTx, bytes) =>
+      decode(SimplePagedTx, bytes.toBlockChainTx) { blockChainTx =>
         Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
           case Failure(e) => log.error(e, s"Ledger cannot sync PagedTx, game over man, game over.")
           case Success(txDbId) => log.debug(s"CONFIRMED Up to $txDbId")
@@ -80,7 +80,7 @@ class ClientBlockChainDownloaderActor(
       }
 
 
-    case NetworkMessage(MessageKeys.EndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
+    case NetworkMessage(MessageKeys.SimpleEndPageTx, bytes) => sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
@@ -94,15 +94,16 @@ class ClientBlockChainDownloaderActor(
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
               log.info(s"Client syncing - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
-              val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
+              assert(blockHeader.height == blockId.blockHeight, s"(C)How can ${blockHeader} differ from ${blockId}")
+              val nextBlockPage = GetTxPage(blockId.blockHeight + 1, 0)
               serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx, nextBlockPage.toBytes)
               Block.drop(blockId.blockHeight - numBlocksCached)
           }
       }
     }
 
-    case NetworkMessage(CloseBlock, bytes) =>
-      decode(CloseBlock, bytes.toDistributeClose) { distClose =>
+    case NetworkMessage(SimpleCloseBlock, bytes) =>
+      decode(SimpleCloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence = BlockSignatures(distClose.blockId.blockHeight)
         distClose.blockSigs.foreach { sig =>
           blockSignaturePersistence.write(sig)
@@ -110,10 +111,11 @@ class ClientBlockChainDownloaderActor(
         self ! CommitBlock(sender(), distClose.blockId)
       }
 
-    case NetworkMessage(SimpleGetPageTxEnd, _) =>
+    case NetworkMessage(SimpleGetPageTxEnd, getTxPage) =>
       stateMachine ! ClientSynced
-      log.info(s"Client downloader is synced pausing for 20 seconds")
-      context.system.scheduler.scheduleOnce(20 seconds, self, SynchroniseWithConn)
+      log.info(s"Client downloader is synced, pausing for 20 seconds")
+      context.system.scheduler.scheduleOnce(20 seconds, nc,
+        SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxPage), _ => Set(connectionToSyncWith) ))
 
   }
 

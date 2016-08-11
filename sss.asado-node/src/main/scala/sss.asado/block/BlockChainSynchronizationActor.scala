@@ -5,9 +5,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.network.MessageRouter.{Register, RegisterRef, UnRegister}
 import sss.asado.network.{NetworkMessage, NodeId}
-import sss.asado.state.AsadoStateProtocol.{NotSynced, Synced}
+import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage, blockChainNeedsReStarting: Boolean)
+case class ClientSynched(ref: ActorRef, lastTxPage: GetTxPage)
 case class EnsureConfirms[T](ref: ActorRef, height: Long, t: T, retryCount: Int = 1)
 
 /**
@@ -44,8 +44,8 @@ class BlockChainSynchronizationActor(quorum: Int,
 
   val pageResponder = context.actorOf(Props(classOf[TxPageActor], maxSignatures, bc, db))
 
-  messageRouter ! Register(MessageKeys.NackConfirmTx)
-  messageRouter ! Register(MessageKeys.AckConfirmTx)
+  stateMachine ! RegisterStateEvents
+
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
   messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)
 
@@ -63,6 +63,15 @@ class BlockChainSynchronizationActor(quorum: Int,
   private case class ClientTx(client : ActorRef, blockChainTxId: BlockChainTxId)
 
   private def awaitConfirms(blockChainActor: ActorRef): Receive = {
+
+    case RemoteLeaderEvent(_) =>
+      messageRouter ! UnRegister(MessageKeys.NackConfirmTx)
+      messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
+
+    case LocalLeaderEvent =>
+      messageRouter ! Register(MessageKeys.NackConfirmTx)
+      messageRouter ! Register(MessageKeys.AckConfirmTx)
+
     case DistributeTx(client, btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
 
       def toMapElement(upToDatePeer: ActorRef) = {
@@ -152,15 +161,13 @@ class BlockChainSynchronizationActor(quorum: Int,
     case BlockChainStarted(lastTxPage) =>
       log.info(s"Blockchain started up again, client synced to $lastTxPage")
 
-    case ClientSynched(clientRef, lastTxPage, restartBlockChain) =>
+    case ClientSynched(clientRef, lastTxPage) =>
       context watch clientRef
       updateToDatePeers = updateToDatePeers + clientRef
       //We may be restarting the blockchain after a pause for client syncing.
-      if(restartBlockChain)blockChainActor ! StartBlockChain(self, lastTxPage)
+      blockChainActor ! StartBlockChain(self, lastTxPage)
       if (updateToDatePeers.size == quorum) stateMachine ! Synced
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
-
-
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc
   }

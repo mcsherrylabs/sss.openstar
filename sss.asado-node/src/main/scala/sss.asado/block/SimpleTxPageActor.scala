@@ -35,16 +35,16 @@ class SimpleTxPageActor(maxSignatures: Int,
 
     case EndOfBlock(ref, blockId) =>
       val closeBytes = DistributeClose(BlockSignatures(blockId.blockHeight).signatures(maxSignatures), blockId).toBytes
-      ref ! NetworkMessage(CloseBlock, closeBytes)
+      ref ! NetworkMessage(SimpleCloseBlock, closeBytes)
 
-    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(EndPageTx, getTxPageBytes)
+    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(SimpleEndPageTx, getTxPageBytes)
 
     case TxToReturn(ref, blockChainTx) =>
-      ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
+      ref ! NetworkMessage(MessageKeys.SimplePagedTx, blockChainTx.toBytes)
 
     case getTxPageRef @ GetTxPageRef(ref, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
-      log.info(s"Another node asking me for $getTxPage")
+      log.info(s"${ref} asking me for $getTxPage")
       lazy val nextPage = bc.block(blockHeight).page(index, pageSize)
       lazy val lastBlockHeader = bc.lastBlockHeader
       val maxHeight = lastBlockHeader.height + 1
@@ -56,7 +56,7 @@ class SimpleTxPageActor(maxSignatures: Int,
            self ! TxToReturn(ref, bctx)
         }
         if (nextPage.size == pageSize) self ! EndOfPage(ref, pageIncremented.toBytes)
-        else if (maxHeight == blockHeight) ref ! NetworkMessage(SimpleGetPageTxEnd, Array())
+        else if (maxHeight == blockHeight) ref ! NetworkMessage(SimpleGetPageTxEnd, pageIncremented.toBytes)
         else self ! EndOfBlock(ref, BlockId(blockHeight, index + nextPage.size))
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
 

@@ -48,6 +48,7 @@ class NobuNodeBridge(nobuNode: NobuNode,
                      homeDomain: HomeDomain,
                      balanceLedgerQuery: BalanceLedgerQuery,
                      identityService: IdentityServiceQuery,
+                     minNumBlocksInWhichToClaim: Int,
                      chargePerMessage: Int,
                      amountBuriedInMail: Int = 10) extends UIEventActor {
 
@@ -64,7 +65,8 @@ class NobuNodeBridge(nobuNode: NobuNode,
   private def createPaymentOuts(to: Identity, secret: Array[Byte]): Seq[TxOutput] = {
     Seq(
       TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
-      TxOutput(amountBuriedInMail, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret, nobuNode.currentBlockHeight + 100))
+      TxOutput(amountBuriedInMail, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
+        nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim))
     )
   }
 
@@ -97,6 +99,11 @@ class NobuNodeBridge(nobuNode: NobuNode,
     case NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
       val bId = bytes.toBlockChainIdTx
       //push(Notification.show(s"Got ACK $bId"))
+
+    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      val m = bytes.toTxMessage
+      //push(Notification.show(s"Got NACK ${m.msg}"))
+      watchingBounties -= m.txId.asHexStr
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage

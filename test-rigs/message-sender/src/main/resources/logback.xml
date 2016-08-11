@@ -20,7 +20,7 @@
     </appender>
 
     <root>
-        <!-- appender-ref ref="CONSOLE"/-->
+        <appender-ref ref="CONSOLE"/>
         <appender-ref ref="ERRFILE"/>
     </root>
     <logger name="com.zaxxer.hikari">
