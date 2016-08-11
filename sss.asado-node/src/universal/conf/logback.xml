@@ -25,5 +25,8 @@
     <logger name="com.zaxxer.hikari">
         <level value="error"/>
     </logger>
+    <logger name="sss.db">
+        <level value="WARN"/>
+    </logger>
 
 </configuration>

@@ -48,6 +48,7 @@ class NobuNodeBridge(nobuNode: NobuNode,
                      homeDomain: HomeDomain,
                      balanceLedgerQuery: BalanceLedgerQuery,
                      identityService: IdentityServiceQuery,
+                     minNumBlocksInWhichToClaim: Int,
                      chargePerMessage: Int,
                      amountBuriedInMail: Int = 10) extends UIEventActor {
 
@@ -64,7 +65,8 @@ class NobuNodeBridge(nobuNode: NobuNode,
   private def createPaymentOuts(to: Identity, secret: Array[Byte]): Seq[TxOutput] = {
     Seq(
       TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
-      TxOutput(amountBuriedInMail, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret, nobuNode.currentBlockHeight + 100))
+      TxOutput(amountBuriedInMail, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
+        nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim))
     )
   }
 

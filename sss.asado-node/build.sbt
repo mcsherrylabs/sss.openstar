@@ -58,8 +58,6 @@ libraryDependencies += "io.spray" %%  "spray-json" % "1.3.2"
 
 libraryDependencies += "us.monoid.web" % "resty" % "0.3.2" % Test
 
-javaOptions in Universal ++= Seq(  "-Dconfig.file=./conf/application.conf")
-
 //updateOptions := updateOptions.value.withCachedResolution(false)
 
 // https://mvnrepository.com/artifact/com.typesafe.akka/akka-slf4j_2.11

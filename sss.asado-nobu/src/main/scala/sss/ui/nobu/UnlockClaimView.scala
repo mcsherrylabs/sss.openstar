@@ -115,28 +115,35 @@ class UnlockClaimView(
         if(NodeIdentity.keyExists(claim, claimTag)) {
           push(Notification.show(s"Identity $claim, $claimTag exists, try loading it instead?"))
         } else {
-          val phrase = claimPhrase.getValue
-          val nId = NodeIdentity(claim, claimTag, phrase)
-          val publicKey = nId.publicKey.toVarChar
-          val http = homeDomain.http
-          Try(new Resty().text(s"$http/claim?claim=$claim&tag=$claimTag&pKey=$publicKey")) match {
-            case Failure(e) =>
-              NodeIdentity.deleteKey(claim, claimTag)
-              log.error(s"Failed to claim $claim $e")
-              push(Notification.show(s"Failed to claim identity from domain $homeDomain, see error log for details."))
-            case Success(resultText) => resultText.toString match {
-              case msg if msg.startsWith("ok:") =>
-                val asAry = msg.substring(3).split(":")
-                val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
-                val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(nId.id, 0))
-                val inBlock = asAry(3).toLong
-                NodeBootstrapWallet(nId).walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
-                gotoMainView(nId)
+          Try {
+            val phrase = claimPhrase.getValue
+            val nId = NodeIdentity(claim, claimTag, phrase)
+            val publicKey = nId.publicKey.toVarChar
+            val http = homeDomain.http
+            (http, publicKey, nId)
+          } match {
+            case Failure(e) => push(Notification.show(s"${e.getMessage}"))
+            case Success((http, publicKey, nId)) =>
 
-              case errMsg =>
-                NodeIdentity.deleteKey(claim, claimTag)
-                push(Notification.show(s"$errMsg"))
-            }
+              Try(new Resty().text(s"$http/claim?claim=$claim&tag=$claimTag&pKey=$publicKey")) match {
+                case Failure(e) =>
+                  NodeIdentity.deleteKey(claim, claimTag)
+                  log.error(s"Failed to claim $claim $e")
+                  push(Notification.show(s"Failed to claim identity from domain $homeDomain, see error log for details."))
+                case Success(resultText) => resultText.toString match {
+                  case msg if msg.startsWith("ok:") =>
+                    val asAry = msg.substring(3).split(":")
+                    val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
+                    val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(nId.id, 0))
+                    val inBlock = asAry(3).toLong
+                    NodeBootstrapWallet(nId).walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
+                    gotoMainView(nId)
+
+                  case errMsg =>
+                    NodeIdentity.deleteKey(claim, claimTag)
+                    push(Notification.show(s"$errMsg"))
+                }
+              }
           }
         }
 
