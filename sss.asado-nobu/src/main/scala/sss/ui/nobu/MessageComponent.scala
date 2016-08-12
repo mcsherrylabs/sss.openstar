@@ -6,6 +6,7 @@ import com.vaadin.ui.{Button, Component, Layout}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
+import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
@@ -21,7 +22,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 6/10/16.
   */
-object MessageComponent {
+object MessageComponent extends Logging {
  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
   def toDetails(savedMsg: SavedAddressedMessage)

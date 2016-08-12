@@ -126,14 +126,14 @@ class NetworkController(messageRouter: ActorRef,
 
       peers().find(_.handlerRef == ref) match {
         case Some(found) =>
-          peers.alter(_.filterNot(_ == found)) map { conns =>
+          peers.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
             if (conns.size + 1 == quorum) stateController ! QuorumLost
             else stateController ! PeerConnectionLost(found, conns)
             //self ! ConnectTo(found.nodeId)
           }
         case None =>
           clientConnnections().find(_.handlerRef == ref) map { found =>
-            clientConnnections.alter(_.filterNot(_ == found)) map { conns =>
+            clientConnnections.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
               stateController ! ConnectionLost(found, conns)
             }
           }

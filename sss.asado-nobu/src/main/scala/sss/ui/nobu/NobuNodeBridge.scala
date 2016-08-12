@@ -63,10 +63,12 @@ class NobuNodeBridge(nobuNode: NobuNode,
   }
 
   private def createPaymentOuts(to: Identity, secret: Array[Byte]): Seq[TxOutput] = {
+    // Add 4 blocks to min to allow for the local ledger being some blocks behind the
+    // up to date ledger.
     Seq(
       TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
       TxOutput(amountBuriedInMail, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
-        nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim))
+        nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim + 4))
     )
   }
 

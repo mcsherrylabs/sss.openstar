@@ -9,12 +9,15 @@ import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.message.MessageInBox.MessagePage
 import sss.asado.message.{AddressedMessage, CheckForMessages, ForceCheckForMessages, Message, MessageInBox, SavedAddressedMessage}
 import sss.db.Db
+
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 import sss.ui.design.NobuMainDesign
 import sss.ui.nobu.NobuNodeBridge.ShowInBox
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
+
+import scala.util.{Failure, Try}
 
 /**
   * Created by alan on 6/10/16.
@@ -90,8 +93,6 @@ class NobuMainLayout(uiReactor: UIReactor, nobuNode: NobuNode) extends NobuMainD
 
   }
 
-
-
   setSizeFull
 
   object NobuMainActor extends UIEventActor {
@@ -112,18 +113,28 @@ class NobuMainLayout(uiReactor: UIReactor, nobuNode: NobuNode) extends NobuMainD
       case ShowInBox =>
         pager = initInBoxPager
         nobuNode.messageDownloaderActor ! ForceCheckForMessages
-        push(updatePagingAreas(pager))
+        Try(push(updatePagingAreas(pager))) match {
+          case Failure(e) => push(Notification.show(e.getMessage))
+          case _ =>
+        }
 
       case ComponentEvent(`prevBtn`, _) =>
         if(pager.hasNext) {
           pager = pager.next
-          push(updatePagingAreas(pager))
+          Try(push(updatePagingAreas(pager)))  match {
+            case Failure(e) => push(Notification.show(e.getMessage))
+            case _ =>
+          }
         }
 
       case ComponentEvent(`nextBtn`, _) =>
         if(pager.hasPrev) {
           pager = pager.prev
-          push(updatePagingAreas(pager))
+          Try(push(updatePagingAreas(pager)))  match {
+            case Failure(e) => push(Notification.show(e.getMessage))
+            case _ =>
+          }
+
         }
 
       case ComponentEvent(`writeBtn`, _) =>
@@ -131,14 +142,21 @@ class NobuMainLayout(uiReactor: UIReactor, nobuNode: NobuNode) extends NobuMainD
 
       case ComponentEvent(`sentBtn`, _) =>
         pager = initSentPager
-        push(updatePagingAreas(pager))
+        Try(push(updatePagingAreas(pager)))  match {
+          case Failure(e) => push(Notification.show(e.getMessage))
+          case _ =>
+        }
+
 
       case ComponentEvent(`inBoxBtn`, _) =>
         self ! ShowInBox
 
       case ComponentEvent(`archiveBtn`, _) =>
         pager = initArchivedPager
-        push(updatePagingAreas(pager, isForDeletion = true))
+        Try(push(updatePagingAreas(pager, isForDeletion = true)))  match {
+          case Failure(e) => push(Notification.show(e.getMessage))
+          case _ =>
+        }
 
       case ce @ ComponentEvent(`balBtnLbl`, _) =>
         val bal =  nobuNode.wallet.balance()
