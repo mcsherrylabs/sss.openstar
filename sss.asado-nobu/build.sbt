@@ -55,4 +55,6 @@ libraryDependencies ++= Seq(
 
 mappings in Universal ++= directory("WebContent")
 
+scriptClasspath := Seq("*")
+
 mainClass in (Compile, run) := Some("sss.ui.Main")

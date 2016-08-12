@@ -2,7 +2,7 @@
 nodeId=$1
 export nodeId
 
-JAVA_OPTS="${JAVA_OPTS} -javaagent:/extra/home/alan/$nodeId/plumbr/plumbr.jar"
-export JAVA_OPTS
+##JAVA_OPTS="${JAVA_OPTS} -javaagent:/extra/home/alan/$nodeId/plumbr/plumbr.jar"
+##export JAVA_OPTS
 
 ./bin/sss-asado-node -main "sss.asado.ServicesMain" "$@"
