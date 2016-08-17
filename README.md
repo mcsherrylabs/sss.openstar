@@ -18,6 +18,7 @@ The core code modules are ...
 ## Testing
 There are automated tests for the non reactive code and the state machine at the heart of the state transitions.
  
+ 
 ## Thanks
 
 Depends on -> https://github.com/ScorexProject/scrypto
