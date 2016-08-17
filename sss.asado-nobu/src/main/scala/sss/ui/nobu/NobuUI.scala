@@ -18,8 +18,6 @@ import sss.ui.reactor.{ReactorActorSystem, UIReactor}
   * Created by alan on 6/10/16.
   */
 
-
-
 @Theme("template")
 @Push
 class NobuUI extends UI with ViewChangeListener with Configure {

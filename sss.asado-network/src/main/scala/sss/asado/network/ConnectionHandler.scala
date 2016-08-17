@@ -29,6 +29,8 @@ class ConnectionHandler(
 
   override def preStart: Unit = connection ! ResumeReading
 
+  override def postStop(): Unit = log.info(s"Connection handler $self down")
+
   // there is not recovery for broken connections
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
