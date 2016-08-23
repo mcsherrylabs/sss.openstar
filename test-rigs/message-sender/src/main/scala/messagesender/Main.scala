@@ -15,7 +15,7 @@ import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.nodebuilder.{BindControllerSettingsBuilder, ClientNode, ConfigBuilder, ConfigNameBuilder}
 import us.monoid.web.Resty
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 
 import scala.util.{Failure, Success, Try}
@@ -89,7 +89,7 @@ class MessageSenderClient(val newBndSettings: BindControllerSettings,
 
     val http = homeDomain.http
     val nId = NodeIdentity(claim, claimTag, phrase)
-    val publicKey = nId.publicKey.toVarChar
+    val publicKey = nId.publicKey.toBase64Str
 
     Try(new Resty().text(s"$http/claim?claim=$claim&tag=$claimTag&pKey=$publicKey")) match {
       case Failure(e) =>

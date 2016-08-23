@@ -1,11 +1,11 @@
 package sss.asado
 
-import javax.xml.bind.DatatypeConverter
 
 import sss.asado.balanceledger.serialize._
 import sss.asado.contract.{Decumbrance, Encumbrance}
 import sss.asado.ledger._
-import sss.asado.util.{ByteArrayComparisonOps, SeqSerializer}
+import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.util.{ByteArrayComparisonOps}
 import sss.asado.util.Serialize._
 import sss.asado.util.hash.SecureCryptographicHash
 
@@ -24,7 +24,7 @@ package object balanceledger extends ByteArrayComparisonOps {
 
     override def hashCode(): Int = (17 + index) * txId.hash
 
-    override def toString : String = DatatypeConverter.printHexBinary(txId) + ":" + index
+    override def toString : String = txId.toBase64Str + ":" + index
   }
   case class TxInput(txIndex: TxIndex, amount: Int, sig: Decumbrance)
   case class TxOutput(amount: Int, encumbrance: Encumbrance)

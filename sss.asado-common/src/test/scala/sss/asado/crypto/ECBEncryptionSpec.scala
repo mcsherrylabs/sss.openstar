@@ -21,7 +21,10 @@ class ECBEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
     val decrypted = ECBEncryption.decrypt(encKey, encrypted)
     assert(new String(decrypted) == encValue)
 
-    intercept[Exception](ECBEncryption.decrypt(encKey + "!", encrypted))
+    intercept[Exception] {
+      val badDcrypt = ECBEncryption.decrypt(encKey + "!", encrypted)
+      assert(badDcrypt == encrypted, "Value correctly decrypted with wrong key!")
+    }
 
   }
 

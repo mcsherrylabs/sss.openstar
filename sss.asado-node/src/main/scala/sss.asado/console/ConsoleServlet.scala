@@ -11,7 +11,7 @@ import sss.asado.network.NetworkController.ConnectTo
 import sss.asado.network.{Connection, NodeId}
 import sss.asado.wallet.Wallet
 import sss.db.{Db, Where}
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 

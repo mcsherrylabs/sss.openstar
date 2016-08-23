@@ -7,6 +7,7 @@ import java.util
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions._
 import sss.db.{Db, OrderAsc, Row, Where}
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 import scala.util.{Failure, Success, Try}
 
@@ -16,6 +17,7 @@ import scala.util.{Failure, Success, Try}
 trait BlockSignatures {
   import BlockSignatures._
   def signatures(maxToReturn: Int): Seq[BlockSignature]
+  def write(blkSigs: Seq[BlockSignature]): Seq[BlockSignature]
   def write(blkSig: BlockSignature): BlockSignature
   def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String): BlockSignature
   def indexOfBlockSignature(nodeId: String): Option[Int]
@@ -24,7 +26,6 @@ trait BlockSignatures {
 object BlockSignatures {
 
   import sss.asado.util.ByteArrayComparisonOps._
-  import sss.asado.util.ByteArrayVarcharOps._
 
   case class BlockSignature(index: Int,
                             savedAt: DateTime,
@@ -51,8 +52,8 @@ object BlockSignatures {
     override def toString: String = s"Index: $index, " +
       s"SavedAt: $savedAt, " +
       s"Height: $height, NodeId: $nodeId, " +
-      s"PK:${publicKey.toVarChar}, " +
-      s"Sig: ${signature.toVarChar}"
+      s"PK:${publicKey.toBase64Str}, " +
+      s"Sig: ${signature.toBase64Str}"
 
 
     override def hashCode(): Int =
@@ -104,6 +105,10 @@ object BlockSignatures {
         case Failure(e) => throw e
         case Success(row) => apply(row)
       }
+    }
+
+    override def write(blkSigs: Seq[BlockSignature]): Seq[BlockSignature] = {
+      table.tx(blkSigs.map(write(_)))
     }
 
     override def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {

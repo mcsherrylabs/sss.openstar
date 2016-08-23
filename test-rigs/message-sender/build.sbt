@@ -29,7 +29,7 @@ libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
 libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.31"
+libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.33"
 
 libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.2"
 

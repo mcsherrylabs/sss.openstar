@@ -1,7 +1,7 @@
 package sss.asado.network
 
 import java.net.InetSocketAddress
-import javax.xml.bind.DatatypeConverter
+import java.util.Base64
 
 import akka.actor.{Actor, ActorLogging, ActorRef, SupervisorStrategy}
 import akka.io.Tcp
@@ -87,7 +87,7 @@ class ConnectionHandler(
 
             val mySig = netInf.handshakeVerifier.sign(Longs.toByteArray(shake.fromNonce))
             val signedShake = netInf.createHandshake(shake.fromNonce, mySig)
-            val sigStr = DatatypeConverter.printHexBinary(signedShake.sig)
+            val sigStr = Base64.getEncoder.encodeToString(signedShake.sig)
             log.info(s"Signing ${signedShake.fromNonce} ${signedShake.nodeId}, ${signedShake.tag}, ${sigStr}")
             connection ! Write(ByteString(signedShake.bytes))
             sentHandShake = true

@@ -7,7 +7,7 @@ import sss.ancillary.Logging
 import sss.asado.account.PublicKeyAccount
 import sss.asado.balanceledger.Tx
 import sss.db._
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -49,7 +49,9 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
     in.sig match {
       case CoinbaseDecumbrance(blockHeight) =>
         getTxIdForBlockHeight(blockHeight) match {
-          case Some(alreadyDone) => log.debug(s"A coinbase Tx ${alreadyDone} already exists for block height $blockHeight")
+          case Some(alreadyDone) =>
+            log.debug(s"A coinbase Tx ${alreadyDone} already exists for block height $blockHeight")
+
           case None =>
             //TODO Strategy for block rewards
             //require(in.amount == rewardPerBlockAmount, s"${in.amount} is not the amount allowed for a block ($rewardPerBlockAmount)")
@@ -77,7 +79,7 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
             require(PublicKeyAccount(pKey.get).verify(sigOfTx, tx.txId),
               "The signature provided did not match the tx and key.")
 
-            write(currentBlockHeight, tx.txId.toVarChar)
+            write(currentBlockHeight, tx.txId.toBase64Str)
           }
 
       case _ => require(false, "Must use CoinbaseDecumbrance to decumber coinbase tx.")

@@ -1,13 +1,12 @@
 package sss.asado
 
 import sss.asado.util.ByteArrayComparisonOps._
-import javax.xml.bind.DatatypeConverter
-
+import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import com.google.common.primitives.Ints
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
-import sss.asado.util.Serialize.{ByteArraySerializer, ByteSerializer, ToBytes}
-import sss.asado.util.SeqSerializer
+
+import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 import sss.asado.util.hash.SecureCryptographicHash
 
 /**
@@ -19,11 +18,12 @@ package object ledger {
   val TxIdLen = 32
   val CoinbaseTxId: TxId = "COINBASECOINBASECOINBASECOINBASE".getBytes
 
-  implicit class TxIdToHex(bytes: TxId) {
-    def asHexStr: String = DatatypeConverter.printHexBinary(bytes)
-  }
   implicit class TxIdFromString(txId: String) {
-    def asTxId: TxId = DatatypeConverter.parseHexBinary(txId)
+    def asTxId: TxId = {
+      val bytes = ByteArrayEncodedStrOps.Base64StrToByteArray(txId).toByteArray
+      assert(bytes.length == TxIdLen, s"Bytes decoded not right len for txId, ${bytes.length} should be $TxIdLen")
+      bytes
+    }
   }
 
   implicit class ToLedgerItem(bytes : Array[Byte]) {
@@ -36,7 +36,7 @@ package object ledger {
 
   case class LedgerItem(ledgerId: Byte, txId : TxId, txEntryBytes: Array[Byte]) {
     def toBytes: Array[Byte] =  ledgerId +: (txId ++ txEntryBytes)
-    lazy val txIdHexStr : String = txId.asHexStr
+    lazy val txIdHexStr : String = txId.toBase64Str
 
     override def equals(obj: scala.Any): Boolean = obj match {
       case le: LedgerItem =>

@@ -52,7 +52,7 @@ object IdentityService {
   private val recoveryIdentitiesTableName = "recovery_tbl"
 
 
-  import sss.asado.util.ByteArrayVarcharOps._
+  import sss.asado.util.ByteArrayEncodedStrOps._
 
   def apply(maxKeysPerIdentity: Int = 10, maxRescuersPerIdentity: Int = 5)(implicit db:Db): IdentityService = new IdentityService {
 
@@ -108,7 +108,7 @@ object IdentityService {
       toIdOpt(identity) match {
         case None => false
         case Some(rowId) =>
-          val asChars = publicKey.toVarChar
+          val asChars = publicKey.toBase64Str
           keyTable.find(Where(s"$identityLnkCol = ? AND $publicKeyCol = ? ", rowId, asChars)).isDefined
       }
     }
@@ -140,7 +140,7 @@ object IdentityService {
 
     override def unlink(identity: String, publicKey: PublicKey): Boolean = {
       usingIdentity(identity) { identityId =>
-        val asChars = publicKey.toVarChar
+        val asChars = publicKey.toBase64Str
         val result = keyTable.delete(where(s"$identityLnkCol = ? AND $publicKeyCol = ? ", identityId, asChars)) == 1
         freeIdentityIfNoKeysOrRescuers(identity)
         result
@@ -150,7 +150,7 @@ object IdentityService {
     override def link(identity: String, publicKey: PublicKey, tag: String): Unit = {
       require(accounts(identity).size <= maxKeysPerIdentity, s"No more than $maxKeysPerIdentity keys allowed per identity.")
       usingIdentity(identity) { id =>
-          val asChars = publicKey.toVarChar
+          val asChars = publicKey.toBase64Str
           keyTable.insert(Map(identityLnkCol -> id,
             publicKeyCol -> asChars,
             tagCol -> tag,
@@ -176,7 +176,7 @@ object IdentityService {
     }
 
     override def identify(publicKey: PublicKey): Option[TaggedIdentity] = {
-      val pKey = publicKey.toVarChar
+      val pKey = publicKey.toBase64Str
       keyTable.find(where (s"$publicKeyCol = ?") using pKey) map { r =>
         val linkId = r[Long](identityLnkCol)
         val id = identityTable(linkId)[String](identityCol)
@@ -188,7 +188,7 @@ object IdentityService {
     override def claim(identity: String, publicKey: PublicKey, tag: String) = db.tx {
       Try {
         val newRow = identityTable.insert(Map(identityCol -> identity, createdCol -> new Date().getTime))
-        keyTable.insert(Map(identityLnkCol -> newRow[Long](id), publicKeyCol -> publicKey.toVarChar,
+        keyTable.insert(Map(identityLnkCol -> newRow[Long](id), publicKeyCol -> publicKey.toBase64Str,
           tagCol -> tag, createdCol -> new Date().getTime))
       } match {
         case Failure(e: SQLIntegrityConstraintViolationException) =>

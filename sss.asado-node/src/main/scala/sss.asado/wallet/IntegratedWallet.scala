@@ -6,15 +6,17 @@ import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block._
+
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
 import sss.asado.wallet.WalletPersistence.Lodgement
-
+import sss.asado.util.ByteArrayEncodedStrOps._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
 import scala.util.{Failure, Success, Try}
 import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
+
 /**
   * Created by alan on 7/5/16.
   */
@@ -56,7 +58,7 @@ class IntegratedWallet(wallet: Wallet,
     override def receive: Receive = {
 
       case tt @ TxTracker(stx,_ ,_ , _, _) =>
-        paymentsInFlight += stx.txId.asHexStr -> tt
+        paymentsInFlight += stx.txId.toBase64Str -> tt
         messageRouterActor ! NetworkMessage(MessageKeys.SignedTx,
           LedgerItem(MessageKeys.BalanceLedger, stx.txId, stx.toBytes).toBytes)
 
@@ -66,7 +68,7 @@ class IntegratedWallet(wallet: Wallet,
         Try {
           log.info(s"PAYMENT ACK ")
           val bcTxId = bytes.toBlockChainIdTx
-          val hexId = bcTxId.blockTxId.txId.asHexStr
+          val hexId = bcTxId.blockTxId.txId.toBase64Str
           paymentsInFlight.get(hexId) match {
             case Some(txTracker) =>
               if(txTracker.numConfirms <= 1) {
@@ -91,7 +93,7 @@ class IntegratedWallet(wallet: Wallet,
         Try {
           log.info(s"Temp NACK ")
           val txMsg = bytes.toTxMessage
-          val hexId = txMsg.txId.asHexStr
+          val hexId = txMsg.txId.toBase64Str
 
           paymentsInFlight.get(hexId) match {
             case Some(txTracker) =>
@@ -108,7 +110,7 @@ class IntegratedWallet(wallet: Wallet,
         Try {
           log.info(s"PAYMENT NACK ")
           val txMsg = bytes.toTxMessage
-          val hexId = txMsg.txId.asHexStr
+          val hexId = txMsg.txId.toBase64Str
 
           paymentsInFlight.get(hexId) match {
             case Some(txTracker) =>

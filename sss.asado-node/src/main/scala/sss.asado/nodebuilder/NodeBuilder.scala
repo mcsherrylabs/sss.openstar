@@ -166,7 +166,8 @@ trait IdentityServiceBuilder {
   lazy val identityService: IdentityService = IdentityService()
 }
 
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
+
 case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
   private lazy val pKey: PublicKey = pKeyStr.toByteArray
   private lazy val pKeyAccount = PublicKeyAccount(pKey)

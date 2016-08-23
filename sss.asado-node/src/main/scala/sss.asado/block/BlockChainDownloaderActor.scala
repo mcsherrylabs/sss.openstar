@@ -146,9 +146,8 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
     case NetworkMessage(CloseBlock, bytes) =>
       decode(CloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence = BlockSignatures(distClose.blockId.blockHeight)
-        distClose.blockSigs.foreach { sig =>
-          blockSignaturePersistence.write(sig)
-        }
+        blockSignaturePersistence.write(distClose.blockSigs)
+
         self ! CommitBlock(sender(), distClose.blockId)
       }
 

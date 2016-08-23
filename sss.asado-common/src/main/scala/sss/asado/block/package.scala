@@ -5,7 +5,7 @@ import com.google.common.primitives.Longs
 import sss.asado.block.serialize._
 import sss.asado.ledger.{LedgerItem, TxId}
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.util.ByteArrayVarcharOps.ByteArrayToVarChar
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.Serialize.ToBytes
 
 /**
@@ -29,7 +29,7 @@ package object block {
     }
     override def hashCode(): Int = java.util.Arrays.hashCode(txId) + msg.hashCode + msgType.hashCode
 
-    override def toString: String = s"${txId.toVarChar} $msg"
+    override def toString: String = s"${txId.toBase64Str} $msg"
   }
 
   case class BlockTxId(txId: TxId, index: Long) extends ByteArrayComparisonOps {
@@ -40,7 +40,7 @@ package object block {
       case _ => false
     }
 
-    override def toString: String = s"Index: ${index}, " + txId.toVarChar
+    override def toString: String = s"Index: ${index}, " + txId.toBase64Str
 
     override def hashCode(): Int = Longs.hashCode(index) + (17 * txId.hash)
   }

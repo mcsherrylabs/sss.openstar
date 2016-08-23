@@ -1,10 +1,13 @@
 package sss.asado.account
 
-import java.util.UUID
+
+
+import javax.xml.bind.DatatypeConverter
 
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.Curve25519
 import sss.asado.util.ByteArrayComparisonOps
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 /**
   * Created by alan on 2/11/16.
@@ -17,6 +20,15 @@ class AccountSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
     assert(Account.isValidAddress(pkPair.address))
 
+  }
+
+  it should " transform keys to string and back again  " in {
+    //3D3FB6F8C86AD2D6A54902DC5F642D0AC2AD4F21FAEE15B940C5260D5B05EC30
+    val pkStr = pkPair.publicKey.toBase64Str
+    val backAgain = pkStr.toByteArray
+    assert(backAgain.length === 32)
+    //assert(pkPair.publicKey sameElements(backAgain))
+    //assert(pkPair.publicKey.length === 32)
   }
 
   it should " honour equals and hashcode  " in {

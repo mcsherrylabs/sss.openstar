@@ -37,7 +37,7 @@ object MessageInBox {
   class MessagePage[M](page: Page, f: Row => M) {
     lazy val hasNext: Boolean = page.hasNext
     lazy val hasPrev: Boolean = page.hasPrev
-    lazy val messages: Seq[M] = page.rows map (f)
+    val messages: Seq[M] = page.rows map (f)
     lazy val next: MessagePage[M] = new MessagePage[M](page.next, f)
     lazy val prev: MessagePage[M] = new MessagePage[M](page.prev, f)
   }
@@ -81,7 +81,7 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
     new LocalDateTime(r[Long](createdAtCol)),
     toAddressedMsg(r))
 
-  def addNew(msg: Message): Message = {
+  def addNew(msg: Message): Message = table.tx {
 
     toMsg(table.insert(Map(
       idCol -> msg.index,

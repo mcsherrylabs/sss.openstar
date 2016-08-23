@@ -2,7 +2,7 @@ package sss.asado.contract
 
 import scorex.crypto.signatures.Curve25519
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-import sss.asado.ledger._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.ByteArrayComparisonOps
 
 
@@ -17,7 +17,7 @@ case class SinglePrivateKey(pKey: PublicKey, minBlockHeight: Long = 0) extends E
     case _ => false
   }
 
-  override def toString: String = s"SinglePrivateKey at min block height $minBlockHeight with pKey ${pKey.asHexStr}"
+  override def toString: String = s"SinglePrivateKey at min block height $minBlockHeight with pKey ${pKey.toBase64Str}"
 
   override def hashCode(): Int = pKey.hash
 

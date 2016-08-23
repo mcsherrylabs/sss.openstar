@@ -4,7 +4,7 @@ import sss.asado.account.NodeIdentity
 
 import sss.asado.identityledger.IdentityService.defaultTag
 import us.monoid.web.Resty
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 
 /**
@@ -31,7 +31,7 @@ object CreateIdentity {
 
       val ni = NodeIdentity.unlockNodeIdentityFromConsole(identity, defaultTag)
       println("...unlocked.")
-      val pkey = ni.publicKey.toVarChar
+      val pkey = ni.publicKey.toBase64Str
       val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")
       println(result)
       if (result.toString.startsWith("ok")) {

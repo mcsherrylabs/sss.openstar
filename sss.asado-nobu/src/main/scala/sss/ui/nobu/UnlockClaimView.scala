@@ -15,7 +15,7 @@ import sss.asado.ledger._
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.state.HomeDomain
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.Wallet
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.ui.design.CenteredAccordianDesign
@@ -118,7 +118,7 @@ class UnlockClaimView(
           Try {
             val phrase = claimPhrase.getValue
             val nId = NodeIdentity(claim, claimTag, phrase)
-            val publicKey = nId.publicKey.toVarChar
+            val publicKey = nId.publicKey.toBase64Str
             val http = homeDomain.http
             (http, publicKey, nId)
           } match {

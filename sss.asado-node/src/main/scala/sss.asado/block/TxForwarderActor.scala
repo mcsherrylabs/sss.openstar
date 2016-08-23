@@ -1,8 +1,7 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
-import akka.agent.Agent
-import block._
+
 import com.twitter.util.SynchronizedLruMap
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys.decode
@@ -11,7 +10,7 @@ import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.{Connection, NetworkMessage}
 import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RegisterStateEvents, RemoteLeaderEvent, StopAcceptingTransactions}
 import sss.asado.util.SeqSerializer
-
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 /**
   * Created by alan on 4/1/16.
@@ -66,7 +65,7 @@ class TxForwarderActor(
 
     case m @ NetworkMessage(MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toLedgerItem) { stx =>
-        txs +=  (stx.txId.asHexStr -> sender())
+        txs +=  (stx.txId.toBase64Str -> sender())
         leaderRef ! m
       }
 
@@ -74,32 +73,32 @@ class TxForwarderActor(
       decode(MessageKeys.SeqSignedTx, SeqSerializer.fromBytes(bytes)) { seqStx =>
         seqStx foreach { stx =>
           val le: LedgerItem = stx.toLedgerItem
-          txs += (le.txId.asHexStr -> sender())
+          txs += (le.txId.toBase64Str -> sender())
         }
         leaderRef ! m
       }
 
     case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
       decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
-        txs.get(txAck.blockTxId.txId.asHexStr) map (_ ! m)
+        txs.get(txAck.blockTxId.txId.toBase64Str) map (_ ! m)
       }
 
     case m @ NetworkMessage(MessageKeys.TempNack, bytes) =>
       decode(MessageKeys.TempNack, bytes.toTxMessage) { tempNack =>
-        txs.get(tempNack.txId.asHexStr) map (_ ! m)
+        txs.get(tempNack.txId.toBase64Str) map (_ ! m)
       }
 
     case m @ NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       decode(MessageKeys.SignedTxNack, bytes.toTxMessage) { txNack =>
-        txs.get(txNack.txId.asHexStr) map (_ ! m)
-        txs -= txNack.txId.asHexStr
+        txs.get(txNack.txId.toBase64Str) map (_ ! m)
+        txs -= txNack.txId.toBase64Str
       }
 
 
 
     case m @ NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       decode(MessageKeys.AckConfirmTx, bytes.toBlockChainIdTx) { txAck =>
-        txs.get(txAck.blockTxId.txId.asHexStr) map (_ ! m)
+        txs.get(txAck.blockTxId.txId.toBase64Str) map (_ ! m)
 
       }
   }

@@ -3,7 +3,7 @@ package sss.asado.balanceledger
 import java.util
 
 import sss.asado.ledger._
-import sss.asado.balanceledger._
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 import sss.asado.contract.LedgerContext
 import sss.asado.contract.LedgerContext._
@@ -23,6 +23,7 @@ trait BalanceLedgerQuery {
   def balance: Int
   def entry(inIndex: TxIndex): Option[TxOutput]
   def map[M](f: (TxOutput) => M): Seq[M]
+  def keys: Seq[TxIndex]
 }
 
 class BalanceLedger(storage: UTXODBStorage,
@@ -42,6 +43,8 @@ class BalanceLedger(storage: UTXODBStorage,
     * @return
     */
   def map[M](f: (TxOutput) => M): Seq[M] = storage.entries.map(f)
+
+  def keys: Seq[TxIndex] = storage.keys
 
   def apply(stx: SignedTxEntry, blockHeight: Long) {
 
@@ -97,7 +100,7 @@ class BalanceLedger(storage: UTXODBStorage,
 
   override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
     val stx = ledgerItem.txEntryBytes.toSignedTxEntry
-    require(util.Arrays.equals(stx.txId, ledgerItem.txId), s"The transmitted txId (${ledgerItem.txId.asHexStr}) does not match the generated TxId (${stx.txId.asHexStr})")
+    require(util.Arrays.equals(stx.txId, ledgerItem.txId), s"The transmitted txId (${ledgerItem.txId.toBase64Str}) does not match the generated TxId (${stx.txId.toBase64Str})")
     apply(stx, blockHeight)
   }
 
