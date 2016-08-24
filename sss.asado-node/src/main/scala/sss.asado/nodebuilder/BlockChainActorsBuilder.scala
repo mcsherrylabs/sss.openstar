@@ -43,7 +43,7 @@ trait BlockChainActorsBuilder {
     actorSystem.actorOf(Props(classOf[BlockChainActor],
       nodeIdentity,
       nodeConfig.blockChainSettings, bc,
-      stateMachineActor,
+
       txRouter,
       blockChainSynchronizationActor,
       wallet,
@@ -108,7 +108,6 @@ trait TxForwarderActorBuilder {
 
   def buildTxForwarder =
     actorSystem.actorOf(Props(classOf[TxForwarderActor],
-      stateMachineActor,
       messageRouterActor,
       nodeConfig.conf.getInt("clientRefCacheSize")))
 

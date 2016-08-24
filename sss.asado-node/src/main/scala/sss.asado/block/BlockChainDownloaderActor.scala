@@ -6,6 +6,7 @@ import org.joda.time.DateTime
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.account.NodeIdentity
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.ledger.Ledgers
@@ -50,7 +51,9 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
                                 messageRouter: ActorRef,
                                 stateMachine: ActorRef,
                                 bc: BlockChain with BlockChainSignatures)
-                               (implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
+                               (implicit db: Db, ledgers: Ledgers) extends Actor
+  with ActorLogging
+  with AsadoEventSubscribedActor {
 
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
@@ -60,7 +63,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
   messageRouter ! Register(EndPageTx)
   messageRouter ! Register(CloseBlock)
   messageRouter ! Register(BlockSig)
-  stateMachine ! RegisterStateEvents
+
 
 
   log.info(s"BlockChainDownloader actor has started... $self")

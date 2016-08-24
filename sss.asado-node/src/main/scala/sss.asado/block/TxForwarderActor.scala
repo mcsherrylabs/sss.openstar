@@ -1,14 +1,14 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
-
 import com.twitter.util.SynchronizedLruMap
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys.decode
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.ledger._
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RegisterStateEvents, RemoteLeaderEvent, StopAcceptingTransactions}
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent, StopAcceptingTransactions}
 import sss.asado.util.SeqSerializer
 import sss.asado.util.ByteArrayEncodedStrOps._
 
@@ -18,15 +18,12 @@ import sss.asado.util.ByteArrayEncodedStrOps._
 case class Forward(who: Connection)
 
 
-class TxForwarderActor(
-                       stateMachine: ActorRef,
-                       messageRouter: ActorRef,
-                       clientRefCacheSize: Int
-                             ) extends Actor with ActorLogging {
+class TxForwarderActor(messageRouter: ActorRef,
+                       clientRefCacheSize: Int)
+  extends Actor with ActorLogging with AsadoEventSubscribedActor {
+
 
   private var txs = new SynchronizedLruMap[String, ActorRef](clientRefCacheSize)
-
-  stateMachine ! RegisterStateEvents
 
   log.info("TxForwarder actor has started...")
 

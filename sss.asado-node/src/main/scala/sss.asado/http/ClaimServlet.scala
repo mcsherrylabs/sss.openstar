@@ -3,13 +3,13 @@ package sss.asado.http
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.scalatra.{BadRequest, Ok, ScalatraServlet}
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
 import sss.asado.block._
-
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent, RegisterStateEvents}
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
@@ -86,14 +86,15 @@ object ClaimServlet {
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
 }
 
-class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet) extends Actor with ActorLogging {
+class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet)
+  extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
   import ClaimServlet._
   var inFlightClaims: Map[String, ClaimTracker] = Map()
 
   val kickStartingAmount = 100
 
-  stateMachine ! RegisterStateEvents
+
 
   private def working: Receive = {
 

@@ -6,6 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
 import block.DistributeClose
 import sss.asado.account.NodeIdentity
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
@@ -64,20 +65,16 @@ case object AcknowledgeNewLedger
 class BlockChainActor(nodeIdentity: NodeIdentity,
                       blockChainSettings: BlockChainSettings,
                       bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-                      stateMachine: ActorRef,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef,
                       wallet:Wallet
-                      )(implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
-
+                      )(implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
   override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
 
   blockChainSyncingActor ! InitWithActorRefs(self)
-
-  stateMachine ! RegisterStateEvents
 
   log.info("BlockChain actor has started...")
 

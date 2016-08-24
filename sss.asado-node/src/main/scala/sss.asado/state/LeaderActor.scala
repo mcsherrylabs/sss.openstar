@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ReceiveTimeout}
 import akka.agent.Agent
 import block._
 import sss.asado.MessageKeys
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.{BlockChain, BlockChainLedger}
 import sss.asado.ledger.Ledgers
@@ -11,7 +12,7 @@ import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
 import sss.asado.state.AsadoState.QuorumState
-import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound, QuorumStateEvent, RegisterStateEvents}
+import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound, QuorumStateEvent}
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -28,12 +29,12 @@ class LeaderActor(thisNodeId: String,
                   messageRouter: ActorRef,
                   ncRef: ActorRef,
                   stateMachine: ActorRef,
-                  bc: BlockChain)(implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
+                  bc: BlockChain)(implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
   messageRouter ! Register(MessageKeys.FindLeader)
   messageRouter ! Register(MessageKeys.Leader)
   messageRouter ! Register(MessageKeys.VoteLeader)
-  stateMachine ! RegisterStateEvents
+
 
 
   log.info("Leader actor has started...")

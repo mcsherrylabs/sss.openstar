@@ -20,9 +20,7 @@ class AsadoClientStateMachineActor(thisNodeId: String,
                                    blockChainSettings: BlockChainSettings,
                                    bc: BlockChain,
                                    quorum: Int,
-                                   db: Db,
-                                   protected val eventListener: ActorRef
-                             ) extends AsadoClientStateMachine {
+                                   db: Db) extends AsadoClientStateMachine {
 
 
   final override def receive = init orElse super.receive
@@ -38,7 +36,7 @@ class AsadoClientStateMachineActor(thisNodeId: String,
         chainDownloaderRef,
         messageRouter,
         txForwarder) orElse super.receive)
-      eventListener ! StateMachineInitialised
+      publish(StateMachineInitialised)
   }
 
 
@@ -48,7 +46,7 @@ class AsadoClientStateMachineActor(thisNodeId: String,
                              txForwarder: ActorRef): Receive = {
 
     case  swl @ RemoteLeaderEvent(conn) =>
-      eventListener ! swl
+      publish(swl)
       chainDownloaderRef ! SynchroniseWith(conn)
       txForwarder ! Forward(conn)
       messageDownloader ! CheckForMessages

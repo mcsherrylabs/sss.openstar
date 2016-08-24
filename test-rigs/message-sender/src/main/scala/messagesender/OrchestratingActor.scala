@@ -3,13 +3,12 @@ package messagesender
 import akka.actor.{Actor, ActorLogging, Cancellable, Props}
 import messagesender.CheckInBoxForCash.CheckInBox
 import sss.asado.MessageKeys
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
 import sss.asado.block.BlockChainTxId
 import sss.asado.contract.SingleIdentityEnc
-import sss.asado.message.MessageInBox
-import sss.asado.network.MessageRouter.RegisterRef
+
 import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
-import sss.asado.state.AsadoState.{ConnectingState, OrderedState, ReadyState}
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.wallet.WalletPersistence.Lodgement
 
@@ -19,7 +18,8 @@ import scala.concurrent.duration._
 /**
   * Created by alan on 7/28/16.
   */
-class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: CircularSeq) extends Actor with ActorLogging  {
+class OrchestratingActor(client: MessageSenderClient, prefix:String, circSeq: CircularSeq) extends Actor
+  with ActorLogging with AsadoEventSubscribedActor  {
   import client._
 
   private case object ConnectHome

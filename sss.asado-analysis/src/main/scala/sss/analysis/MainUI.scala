@@ -1,10 +1,9 @@
 package sss.analysis
 
 import akka.actor.{Actor, ActorRef, Props}
-
+import sss.asado.actor.AsadoEventSubscribedActor
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
 
@@ -32,7 +31,7 @@ object MainUI {
 
 
 
-class OrchestratingActor(clientNode: ClientNode) extends Actor {
+class OrchestratingActor(clientNode: ClientNode) extends Actor with AsadoEventSubscribedActor {
   import clientNode._
 
   private case object ConnectHome

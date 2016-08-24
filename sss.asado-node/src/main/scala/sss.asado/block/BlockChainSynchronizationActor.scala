@@ -3,6 +3,7 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef, UnRegister}
@@ -40,11 +41,13 @@ class BlockChainSynchronizationActor(quorum: Int,
                                      peersList: Set[NodeId],
                                      stateMachine: ActorRef,
                                      bc: BlockChain with BlockChainTxConfirms,
-                                     messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging with ByteArrayComparisonOps {
+                                     messageRouter: ActorRef)(implicit db: Db)
+  extends Actor
+    with ActorLogging
+    with ByteArrayComparisonOps
+    with AsadoEventSubscribedActor {
 
   val pageResponder = context.actorOf(Props(classOf[TxPageActor], maxSignatures, bc, db))
-
-  stateMachine ! RegisterStateEvents
 
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
   messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)

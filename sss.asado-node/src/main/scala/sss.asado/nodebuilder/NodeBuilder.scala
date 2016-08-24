@@ -49,10 +49,6 @@ trait BindControllerSettingsBuilder {
   lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
 }
 
-trait LeaderAgentBuilder {
-  val leader = Agent[Option[Connection]](None)
-}
-
 trait NodeConfigBuilder {
   self : ConfigNameBuilder with
     ConfigBuilder with
@@ -115,6 +111,7 @@ trait ActorSystemBuilder {
 trait EventListenerBuilder {
   self: ActorSystemBuilder =>
   lazy val eventListener: ActorRef = actorSystem.actorOf(Props(classOf[EventListener]))
+
 }
 
 trait LedgersBuilder {
@@ -198,7 +195,6 @@ trait LeaderActorBuilder {
     MessageRouterActorBuilder with
     IdentityServiceBuilder with
     NetworkControllerBuilder with
-    LeaderAgentBuilder with
     StateMachineActorBuilder =>
 
   lazy val leaderActor: ActorRef = buildLeaderActor
@@ -402,7 +398,6 @@ trait CoreNode extends MinimumNode with
     TxForwarderActorBuilder with
     CoreStateMachineActorBuilder with
     LeaderActorBuilder with
-    LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
 }
