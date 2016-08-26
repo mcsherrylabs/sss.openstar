@@ -103,10 +103,11 @@ class NetworkController(messageRouter: ActorRef,
 
       peersList.find(_.id == nodeId) match {
         case Some(peer) => peers().find(_.nodeId.id == nodeId) match {
-          case None => peers.alter(_ + p) map (conns => {
+          case None => peers.send(_ + p)
+            val conns = peers()
             if (conns.size == quorum) stateController ! QuorumGained
             else if (conns.size > quorum) stateController ! PeerConnectionGained(p, conns)
-          })
+
           case Some(alreadyInPeers) => {
             log.info(s"Connection $alreadyInPeers exists, closing this one.")
             sender() ! CloseConnection
@@ -115,15 +116,20 @@ class NetworkController(messageRouter: ActorRef,
         case None =>
           clientConnnections().find(_.nodeId.id == nodeId) match {
             case None =>
-              clientConnnections.alter(_ + p) map (stateController ! ConnectionGained(p, _))
+              val conns = clientConnnections()
+              clientConnnections.send(conns + p)
+              stateController ! ConnectionGained(p, conns)
             case Some(alreadyConnected) =>
               log.info(s"Client Connection $alreadyConnected exists, closing this one.")
-              sender() ! CloseConnection
+              alreadyConnected.handlerRef ! CloseConnection
+              val conns = clientConnnections()
+              clientConnnections.send(conns + p)
+              stateController ! ConnectionGained(p, conns)
           }
       }
 
     case t@Terminated(ref) =>
-
+      log.info(s"Connection dead - removing $ref ")
       peers().find(_.handlerRef == ref) match {
         case Some(found) =>
           peers.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
@@ -133,9 +139,13 @@ class NetworkController(messageRouter: ActorRef,
           }
         case None =>
           clientConnnections().find(_.handlerRef == ref) map { found =>
+            val before = clientConnnections()
+            log.info(s"Client connection dead - removing $found ")
             clientConnnections.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
+              log.info(s"Client connection dead - forward ConnectionLost ")
               stateController ! ConnectionLost(found, conns)
             }
+
           }
       }
 
