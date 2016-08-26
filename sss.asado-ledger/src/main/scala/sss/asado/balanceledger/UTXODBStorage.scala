@@ -1,6 +1,5 @@
 package sss.asado.balanceledger
 
-import sss.asado.balanceledger._
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.{Db, Where}

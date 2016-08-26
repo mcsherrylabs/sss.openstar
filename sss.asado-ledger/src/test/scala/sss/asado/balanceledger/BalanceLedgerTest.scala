@@ -1,15 +1,12 @@
 package sss.asado.balanceledger
 
-import sss.asado.contract.{NullDecumbrance, NullEncumbrance}
-import sss.asado.balanceledger._
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.NodeIdentity
+import sss.asado.account.{NodeIdentity, PrivateKeyAccount}
 import sss.asado.block.BlockId
-import sss.asado.account.PrivateKeyAccount
-import sss.asado.contract.{CoinbaseValidator, PrivateKeySig, SinglePrivateKey}
+import sss.asado.contract._
+import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger._
-import sss.asado.crypto.SeedBytes
 import sss.db.Db
 
 /**

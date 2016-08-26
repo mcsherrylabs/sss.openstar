@@ -1,8 +1,7 @@
 package sss.asado.balanceledger.serialize
 
-import sss.asado.balanceledger.TxIndex
 import com.google.common.primitives.Ints
-
+import sss.asado.balanceledger.TxIndex
 import sss.asado.ledger._
 import sss.asado.util.Serialize.Serializer
 /**

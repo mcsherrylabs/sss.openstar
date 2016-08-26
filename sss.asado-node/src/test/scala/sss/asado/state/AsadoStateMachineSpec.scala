@@ -7,6 +7,7 @@ package sss.asado.state
 import akka.actor.FSM.{CurrentState, SubscribeTransitionCallBack}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import block.IsSynced
 import org.scalatest._
 import sss.asado.StopSystemAfterAll
 import sss.asado.network.NetworkController.{QuorumGained, QuorumLost}
@@ -97,7 +98,7 @@ class AsadoStateMachineSpec extends TestKit(ActorSystem("test-system"))
 
       asadoMachine ! QuorumGained
       asadoMachine ! LeaderFound("")
-      asadoMachine ! Synced
+      asadoMachine ! IsSynced
       asadoMachine ! SubscribeTransitionCallBack(testActor)
 
       expectMsgPF() {
@@ -128,7 +129,7 @@ class AsadoStateMachineSpec extends TestKit(ActorSystem("test-system"))
 
       asadoMachine ! QuorumGained
       asadoMachine ! LeaderFound("")
-      asadoMachine ! Synced
+      asadoMachine ! IsSynced
       asadoMachine ! QuorumLost
 
       asadoMachine ! SubscribeTransitionCallBack(testActor)

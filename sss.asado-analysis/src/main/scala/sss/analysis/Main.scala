@@ -2,18 +2,15 @@ package sss.analysis
 
 
 import akka.actor.{Actor, ActorRef, Props}
-import sss.analysis.Analysis.{Accumulator, InOut}
+import sss.analysis.Analysis.Accumulator
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import sss.asado.ledger._
 import sss.asado.balanceledger.{TxIndex, _}
-import sss.asado.identityledger._
 import sss.asado.block.Block
-import sss.asado.nodebuilder.{ClientNode, MinimumNode}
+import sss.asado.identityledger._
+import sss.asado.ledger._
+import sss.asado.nodebuilder.MinimumNode
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
 
 /**
   * Created by alan on 8/17/16.
@@ -39,7 +36,7 @@ object Main {
       log.info("Ready")
       var outs:Accumulator = Accumulator(0,Seq(), Map().withDefaultValue(Seq()))
       val all = bc.lastBlockHeader.height
-      Analysis.numMissingTxIndexFound = 0
+
       for(i <- 1l to all) {
 
         val b = Block(i)
@@ -58,7 +55,7 @@ object Main {
       var finalBalance = outs.currentOuts.foldLeft(0)((acc, e) => { acc + e.txOut.amount })
       val ledgerBalance = balanceLedger.balance
       val badBalance = finalBalance - ledgerBalance
-      log.info(s"Blocks analysis gives $finalBalance, ledger balance is $ledgerBalance, missing is $badBalance, Analysis.numMissingTxIndexFound = ${Analysis.numMissingTxIndexFound}")
+      log.info(s"Blocks analysis gives $finalBalance, ledger balance is $ledgerBalance, missing is $badBalance ")
       log.info("Done Analysing Blocks")
 
       balanceLedger.keys.map { txInd =>
@@ -88,10 +85,6 @@ object Main {
 
 object Analysis extends Logging {
 
-  var numMissingTxIndexFound = 0
-  val missingTxIndexs = Seq (
-
-  )
 
   case class Accumulator(coinbaseTotal: Long, currentOuts: Seq[InOut], wallets: Map[String, Seq[InOut]])
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
@@ -155,10 +148,6 @@ object Analysis extends Logging {
             val plusNewOuts = tx.outs.indices.map { i =>
               //assert(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
               val newIndx = TxIndex(tx.txId, i)
-              if(missingTxIndexs.find(_ == newIndx).isDefined) {
-                log.info(s"$newIndx created in block ${b.height}, row ${le.index}")
-                numMissingTxIndexFound += 1
-              }
               InOut(newIndx,tx.outs(i))
             }
 

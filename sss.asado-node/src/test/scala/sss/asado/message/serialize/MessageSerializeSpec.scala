@@ -1,11 +1,11 @@
 package sss.asado.message.serialize
 
-import org.joda.time.{LocalDateTime, Period}
+import org.joda.time.LocalDateTime
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.crypto.SeedBytes
 import sss.asado.ledger.LedgerItem
 import sss.asado.message._
+import sss.asado.util.ByteArrayComparisonOps
 
 /**
   * Created by alan on 2/15/16.

@@ -15,10 +15,10 @@ import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.{MessageKeys, PublishedMessageKeys}
 
-import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 5/7/16.

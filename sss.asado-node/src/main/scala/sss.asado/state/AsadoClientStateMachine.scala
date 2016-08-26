@@ -1,10 +1,11 @@
 package sss.asado.state
 
-import akka.actor.{Actor, ActorLogging, ActorRef, FSM}
+import akka.actor.{Actor, ActorLogging, FSM}
+import block.ClientSynced
 import sss.asado.AsadoEvent
+import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.network.Connection
 import sss.asado.network.NetworkController._
-import sss.asado.actor.AsadoEventPublishingActor
 
 /**
   * Created by alan on 4/1/16.

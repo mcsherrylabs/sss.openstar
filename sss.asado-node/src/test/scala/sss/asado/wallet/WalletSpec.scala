@@ -5,7 +5,6 @@ import java.util.UUID
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.{NodeIdentity, PublicKeyAccount}
 import sss.asado.balanceledger._
-import sss.asado.ledger._
 import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.util.ByteArrayComparisonOps

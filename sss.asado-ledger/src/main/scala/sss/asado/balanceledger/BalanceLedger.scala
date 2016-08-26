@@ -2,16 +2,14 @@ package sss.asado.balanceledger
 
 import java.util
 
-import sss.asado.ledger._
-import sss.asado.util.ByteArrayEncodedStrOps._
-
-import sss.asado.contract.LedgerContext
-import sss.asado.contract.LedgerContext._
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
-import sss.asado.contract.{CoinbaseDecumbrance, CoinbaseValidator, SinglePrivateKey}
+import sss.asado.contract.LedgerContext._
+import sss.asado.contract.{CoinbaseDecumbrance, CoinbaseValidator, LedgerContext, SinglePrivateKey}
 import sss.asado.identityledger.IdentityService
+import sss.asado.ledger._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 
 object BalanceLedger {
@@ -70,8 +68,9 @@ class BalanceLedger(storage: UTXODBStorage,
           case None => in.txIndex match {
             case TxIndex(coinbaseTxId, 0) if CoinbaseTxId sameElements coinbaseTxId =>
               totalIn += in.amount
+              log.info(s"Coinbase validation for height $blockHeight")
               coinbaseValidator.validate(blockHeight, stx.signatures, tx)
-              // No need to delete from storage becfause it's not in storage.
+              // No need to delete from storage because it's not in storage.
               if(blockHeight % 100 == 0) {
                 log.info(s"Balance ledger balance is ${balance} at height $blockHeight, adding ${in.amount} via coinbase")
               }

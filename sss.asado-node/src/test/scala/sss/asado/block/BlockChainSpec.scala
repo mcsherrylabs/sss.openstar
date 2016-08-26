@@ -3,8 +3,7 @@ package sss.asado.block
 import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.{TestClientKey, KeyPersister}
-import sss.asado.account.PrivateKeyAccount
+import sss.asado.account.TestClientKey
 import sss.db.Db
 
 /**

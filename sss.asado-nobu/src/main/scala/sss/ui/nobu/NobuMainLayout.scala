@@ -7,16 +7,15 @@ import com.vaadin.ui.{Notification, UI}
 import sss.asado.account.NodeIdentity
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.message.MessageInBox.MessagePage
-import sss.asado.message.{AddressedMessage, CheckForMessages, ForceCheckForMessages, Message, MessageInBox, SavedAddressedMessage}
+import sss.asado.message.{ForceCheckForMessages, Message, MessageInBox, SavedAddressedMessage}
 import sss.db.Db
-
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.postfixOps
 import sss.ui.design.NobuMainDesign
 import sss.ui.nobu.NobuNodeBridge.ShowInBox
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
 /**

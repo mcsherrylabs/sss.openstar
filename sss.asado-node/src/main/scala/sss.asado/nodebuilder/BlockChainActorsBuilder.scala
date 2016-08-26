@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, Props}
 import akka.routing.RoundRobinPool
 import sss.asado.MessageKeys._
 import sss.asado.block.{BlockChainActor, BlockChainDownloaderActor, BlockChainSynchronizationActor, ClientBlockChainDownloaderActor, SimpleTxPageActor, TxForwarderActor, TxWriter}
-import sss.asado.network.MessageRouter.{Register, RegisterRef}
+import sss.asado.network.MessageRouter.RegisterRef
 
 /**
   * Created by alan on 6/16/16.
@@ -92,7 +92,7 @@ trait ClientBlockChainDownloaderBuilder {
 
   def buildClientChainDownloader =
     actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
-      messageRouterActor, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  bc, db, ledgers))
+      messageRouterActor, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  nodeConfig.blockChainSettings.maxBlockOpenSecs, bc, db, ledgers))
 
 }
 

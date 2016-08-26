@@ -4,8 +4,8 @@ package sss.asado
 import sss.asado.balanceledger.serialize._
 import sss.asado.contract.{Decumbrance, Encumbrance}
 import sss.asado.ledger._
+import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.util.{ByteArrayComparisonOps}
 import sss.asado.util.Serialize._
 import sss.asado.util.hash.SecureCryptographicHash
 

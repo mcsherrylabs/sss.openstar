@@ -5,9 +5,6 @@ import sss.ancillary.{Logging, Memento}
 import sss.asado.crypto.ECBEncryption._
 import sss.asado.util.ByteArrayEncodedStrOps._
 
-
-import scala.io.StdIn
-
 /**
   * Persists the key pair, tag and identity...
   *

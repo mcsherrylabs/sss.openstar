@@ -9,9 +9,9 @@ import sss.asado.block.signature.BlockSignatures
 import sss.asado.identityledger.IdentityService
 import sss.asado.network.NetworkController.ConnectTo
 import sss.asado.network.{Connection, NodeId}
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.Wallet
 import sss.db.{Db, Where}
-import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 

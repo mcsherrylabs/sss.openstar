@@ -4,8 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.util
 
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, PropertyChecks}
-import org.scalatest.{FlatSpec, Matchers, PropSpec}
-import sss.asado.util.ByteArrayComparisonOps
+import org.scalatest.{Matchers, PropSpec}
 
 /**
   * Created by alan on 2/11/16.

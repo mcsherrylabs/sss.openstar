@@ -1,11 +1,10 @@
 package sss.asado.contract
 
 
-import sss.asado.contract.ContractSerializer._
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.contract.ContractSerializer._
 import sss.asado.crypto.SeedBytes
-import sss.asado.util.hash.SecureCryptographicHash
 
 /**
   * Created by alan on 2/15/16.

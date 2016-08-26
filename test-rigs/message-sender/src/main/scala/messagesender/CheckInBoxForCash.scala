@@ -3,23 +3,23 @@ package messagesender
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
-import sss.asado.ledger._
-import sss.asado.block._
 import sss.asado.balanceledger._
+import sss.asado.block._
 import sss.asado.contract.SaleSecretDec
 import sss.asado.identityledger.IdentityServiceQuery
-import sss.asado.message.{ Message, MessageEcryption, MessageInBox }
+import sss.asado.ledger._
 import sss.asado.message.MessageInBox.MessagePage
+import sss.asado.message.{Message, MessageEcryption, MessageInBox}
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.state.HomeDomain
-import sss.asado.wallet.Wallet
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.wallet.Wallet
 import sss.asado.wallet.WalletPersistence.Lodgement
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.postfixOps
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 7/13/16.

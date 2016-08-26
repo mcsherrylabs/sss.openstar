@@ -1,13 +1,10 @@
 package messagesender
 
-import akka.actor.{Actor, ActorLogging, Cancellable, Props}
-import messagesender.CheckInBoxForCash.CheckInBox
-import sss.asado.MessageKeys
+import akka.actor.{Actor, ActorLogging, Cancellable}
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
+import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.BlockChainTxId
 import sss.asado.contract.SingleIdentityEnc
-
 import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.wallet.WalletPersistence.Lodgement

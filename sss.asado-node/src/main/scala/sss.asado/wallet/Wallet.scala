@@ -3,7 +3,6 @@ package sss.asado.wallet
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
-import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._

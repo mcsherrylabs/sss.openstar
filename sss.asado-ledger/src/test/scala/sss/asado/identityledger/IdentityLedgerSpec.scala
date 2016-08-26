@@ -2,9 +2,9 @@ package sss.asado.identityledger
 
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.SigningFunctions.PublicKey
+import sss.asado.account.PrivateKeyAccount
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.account.PrivateKeyAccount
 import sss.db.Db
 
 /**

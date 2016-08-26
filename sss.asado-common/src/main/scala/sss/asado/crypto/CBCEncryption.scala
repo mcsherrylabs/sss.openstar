@@ -2,7 +2,7 @@ package sss.asado.crypto
 
 import java.nio.charset.StandardCharsets.UTF_8
 import java.security.MessageDigest
-import java.util.{Base64, UUID}
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 

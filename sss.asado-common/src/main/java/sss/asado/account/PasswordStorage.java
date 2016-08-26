@@ -1,12 +1,11 @@
 package sss.asado.account;
 
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import javax.xml.bind.DatatypeConverter;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-        import javax.crypto.spec.PBEKeySpec;
-        import javax.crypto.SecretKeyFactory;
-        import java.math.BigInteger;
-        import java.security.NoSuchAlgorithmException;
-        import java.security.spec.InvalidKeySpecException;
-        import javax.xml.bind.DatatypeConverter;
+import java.security.spec.InvalidKeySpecException;
 
 /**
  * Credit Security company defuse - https://github.com/defuse/password-hashing/blob/master/PasswordStorage.java

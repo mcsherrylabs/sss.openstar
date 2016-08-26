@@ -1,11 +1,10 @@
 package sss.asado
 
 import org.joda.time.LocalDateTime
-import sss.asado.ledger.LedgerItem
+import sss.asado.balanceledger._
+import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.message.serialize.{AddressedMessageSerializer, MsgQuerySerializer, MsgResponseSerializer, MsgSerializer}
 import sss.asado.util.Serialize.ToBytes
-import sss.asado.ledger._
-import sss.asado.balanceledger._
 /**
   * Created by alan on 6/6/16.
   */

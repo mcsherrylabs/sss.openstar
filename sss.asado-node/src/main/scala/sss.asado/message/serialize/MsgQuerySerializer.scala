@@ -1,6 +1,6 @@
 package sss.asado.message.serialize
 
-import sss.asado.message.{Message, MessageQuery}
+import sss.asado.message.MessageQuery
 import sss.asado.util.Serialize._
 
 /**

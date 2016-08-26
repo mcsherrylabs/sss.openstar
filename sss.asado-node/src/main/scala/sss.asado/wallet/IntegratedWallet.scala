@@ -6,16 +6,16 @@ import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block._
-
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
-import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.wallet.WalletPersistence.Lodgement
+
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
-import scala.util.{Failure, Success, Try}
 import scala.language.postfixOps
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 7/5/16.

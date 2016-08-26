@@ -8,9 +8,9 @@ import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.ledger._
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent, StopAcceptingTransactions}
-import sss.asado.util.SeqSerializer
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.util.SeqSerializer
 
 /**
   * Created by alan on 4/1/16.
@@ -23,6 +23,7 @@ class TxForwarderActor(messageRouter: ActorRef,
   extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
 
+  private case object StopAcceptingTxs
   private var txs = new SynchronizedLruMap[String, ActorRef](clientRefCacheSize)
 
   log.info("TxForwarder actor has started...")
@@ -46,11 +47,11 @@ class TxForwarderActor(messageRouter: ActorRef,
 
   private def forwardMode(leaderRef: ActorRef): Receive = {
 
-    case NotReadyEvent =>  self ! StopAcceptingTransactions
+    case NotReadyEvent =>  self ! StopAcceptingTxs
 
-    case Terminated(leaderRef) => self ! StopAcceptingTransactions
+    case Terminated(leaderRef) => self ! StopAcceptingTxs
 
-    case StopAcceptingTransactions =>
+    case StopAcceptingTxs =>
       messageRouter ! UnRegister(MessageKeys.SignedTx)
       messageRouter ! UnRegister(MessageKeys.SeqSignedTx)
       messageRouter ! UnRegister(MessageKeys.SignedTxAck)

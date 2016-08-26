@@ -37,7 +37,7 @@ class ConnectionHandler(
   private def processErrors: Receive = {
     case CommandFailed(w: Write) =>
       log.warning(s"Write failed :$w $remote")
-      connection ! ResumeReading
+      connection ! ResumeWriting
 
     case cc: ConnectionClosed =>
       log.debug(s"Connection closed to : $remote ${Option(cc.getErrorCause)}")
@@ -50,6 +50,7 @@ class ConnectionHandler(
     case CommandFailed(cmd: Tcp.Command) =>
       log.warning(s"Failed to execute command : $cmd ")
       connection ! ResumeReading
+      connection ! ResumeWriting
   }
 
 

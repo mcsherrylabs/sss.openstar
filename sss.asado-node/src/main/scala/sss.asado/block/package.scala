@@ -1,15 +1,23 @@
 
 import akka.actor.ActorRef
-import sss.asado.block.{BlockChainTx, BlockChainTxId, BlockId, BlockTx, BlockTxId, TxMessage}
+import sss.asado.AsadoEvent
 import sss.asado.block.serialize._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-
+import sss.asado.block.{BlockChainTx, BlockId}
 import sss.asado.util.Serialize.ToBytes
 
 /**
   * Created by alan on 3/24/16.
   */
 package object block {
+
+  case class BlockClosedEvent(heightClosed: Long) extends AsadoEvent
+
+  // Fired when the client has downloaded up to the latest
+  case object ClientSynced
+  // Fired when the network leader has got a quorum of synced nodes
+  case object IsSynced
+  case object NotSynced
 
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
 

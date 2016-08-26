@@ -2,12 +2,11 @@ package sss.asado.balanceledger
 
 import java.sql.SQLIntegrityConstraintViolationException
 
-import sss.asado.balanceledger._
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.SinglePrivateKey
-import sss.asado.ledger.SignedTxEntry
 import sss.asado.crypto.SeedBytes
+import sss.asado.ledger.SignedTxEntry
 import sss.db.Db
 
 /**

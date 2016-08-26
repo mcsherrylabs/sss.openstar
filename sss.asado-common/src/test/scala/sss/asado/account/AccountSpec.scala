@@ -2,8 +2,6 @@ package sss.asado.account
 
 
 
-import javax.xml.bind.DatatypeConverter
-
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.Curve25519
 import sss.asado.util.ByteArrayComparisonOps

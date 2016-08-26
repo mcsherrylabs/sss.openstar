@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.network.MessageRouter.Register
-import sss.asado.network.NetworkController.{SendToNetwork, SendToNodeId}
+import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.state.HomeDomain
 import sss.db.Db

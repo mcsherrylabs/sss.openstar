@@ -6,7 +6,6 @@ import java.util.Date
 
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-
 import sss.asado.account.PublicKeyAccount
 import sss.db._
 

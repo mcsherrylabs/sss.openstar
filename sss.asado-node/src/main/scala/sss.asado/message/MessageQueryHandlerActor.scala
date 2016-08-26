@@ -3,19 +3,20 @@ package sss.asado.message
 import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.{MessageKeys}
+import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-import sss.asado.network.MessageRouter.RegisterV2
-import sss.asado.network.{IncomingNetworkMessage, NetworkMessage, NodeId}
-import sss.asado.ledger._
 import sss.asado.balanceledger._
 import sss.asado.block._
+import sss.asado.ledger._
+import sss.asado.network.MessageRouter.RegisterV2
+import sss.asado.network.{IncomingNetworkMessage, NetworkMessage, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
-import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
-import scala.language.postfixOps
+
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 6/8/16.

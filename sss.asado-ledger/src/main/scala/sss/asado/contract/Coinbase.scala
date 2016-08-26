@@ -6,8 +6,8 @@ import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
 import sss.asado.account.PublicKeyAccount
 import sss.asado.balanceledger.Tx
-import sss.db._
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.db._
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -48,9 +48,9 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
     val in = tx.ins(0)
     in.sig match {
       case CoinbaseDecumbrance(blockHeight) =>
-        getTxIdForBlockHeight(blockHeight) match {
+        getTxIdForBlockHeight(currentBlockHeight) match {
           case Some(alreadyDone) =>
-            log.debug(s"A coinbase Tx ${alreadyDone} already exists for block height $blockHeight")
+            log.debug(s"A coinbase Tx ${alreadyDone}=? ${tx.txId.toBase64Str} already exists for block height $blockHeight")
 
           case None =>
             //TODO Strategy for block rewards
@@ -79,6 +79,7 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
             require(PublicKeyAccount(pKey.get).verify(sigOfTx, tx.txId),
               "The signature provided did not match the tx and key.")
 
+            log.debug(s"Writing Coinbase Tx ${tx.txId.toBase64Str} for height $currentBlockHeight")
             write(currentBlockHeight, tx.txId.toBase64Str)
           }
 

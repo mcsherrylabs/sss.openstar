@@ -1,10 +1,10 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, FSM}
+import block.{IsSynced, NotSynced}
 import sss.asado.AsadoEvent
 import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.network.Connection
-
 import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, QuorumGained, QuorumLost}
 
 
@@ -13,27 +13,22 @@ import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, 
   */
 object AsadoStateProtocol {
 
-  case object FindTheLeader
-  case class LeaderFound(leader: String)
   case object NotReadyEvent extends AsadoEvent
   case object ReadyStateEvent extends AsadoEvent
   case object QuorumStateEvent extends AsadoEvent
   case object LocalLeaderEvent extends AsadoEvent
   case object NotOrderedEvent extends AsadoEvent
-
-  // Fired when the client has downloaded up to the latest
-  case object ClientSynced
-  // Fired when the network leader has got a quorum of synced nodes
-  case object Synced
-  case object NotSynced
-
-  case class RemoteLeaderEvent(conn: Connection) extends AsadoEvent
-  case class SplitRemoteLocalLeader(leader: String)
-  case class AcceptTransactions(leader: String)
-  case object StopAcceptingTransactions
-  case object BlockChainUp
-  case object BlockChainDown
   case object StateMachineInitialised extends AsadoEvent
+  case class RemoteLeaderEvent(conn: Connection) extends AsadoEvent
+
+
+  private[state] case object BlockChainUp
+  private[state] case object BlockChainDown
+
+  private[state] case class SplitRemoteLocalLeader(leader: String)
+  private[state] case class AcceptTransactions(leader: String)
+  private[state] case object StopAcceptingTransactions
+
 }
 
 object AsadoState {
@@ -83,7 +78,7 @@ trait AsadoStateMachine
   }
 
   when(OrderedState) {
-    case Event(Synced,_) => goto(ReadyState)
+    case Event(IsSynced,_) => goto(ReadyState)
   }
 
   when(ReadyState) {

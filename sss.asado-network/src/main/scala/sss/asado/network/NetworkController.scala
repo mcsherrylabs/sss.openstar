@@ -129,7 +129,7 @@ class NetworkController(messageRouter: ActorRef,
           peers.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
             if (conns.size + 1 == quorum) stateController ! QuorumLost
             else stateController ! PeerConnectionLost(found, conns)
-            //self ! ConnectTo(found.nodeId)
+            self ! ConnectTo(found.nodeId)
           }
         case None =>
           clientConnnections().find(_.handlerRef == ref) map { found =>
@@ -158,11 +158,11 @@ class NetworkController(messageRouter: ActorRef,
       self ! Unbind
       context stop self
 
-    /*case cf@CommandFailed(c: Connect) =>
+    case cf@CommandFailed(c: Connect) =>
       log.info(s"Failed to connect to $c, retry in ${netInf.connectionRetryInterval}")
       peersList.find(_.inetSocketAddress == c.remoteAddress) map { found =>
         context.system.scheduler.scheduleOnce(netInf.connectionRetryInterval, self, ConnectTo(found))
-      }*/
+      }
 
     case CommandFailed(cmd: Tcp.Command) => log.info(s"Failed to execute command : $cmd")
 

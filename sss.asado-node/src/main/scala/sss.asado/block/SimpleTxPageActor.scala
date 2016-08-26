@@ -6,7 +6,6 @@ import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
-import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkMessage
 import sss.db.Db
 

@@ -1,8 +1,8 @@
 package sss.asado.identityledger.serialize
 
 
-import sss.asado.util.Serialize._
 import sss.asado.identityledger._
+import sss.asado.util.Serialize._
 
 /**
   * Created by alan on 6/1/16.

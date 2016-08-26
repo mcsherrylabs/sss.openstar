@@ -3,12 +3,10 @@ package sss.asado.contract
 import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
-import scorex.crypto.hash.CryptographicHash
+import sss.asado.account.PrivateKeyAccount
 import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.account.PrivateKeyAccount
-import sss.asado.util.hash.SecureCryptographicHash
 import sss.db.Db
 
 /**

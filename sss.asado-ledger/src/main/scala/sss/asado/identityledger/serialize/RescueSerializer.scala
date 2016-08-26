@@ -1,6 +1,5 @@
 package sss.asado.identityledger.serialize
 
-import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.asado.identityledger._
 import sss.asado.util.Serialize._
 

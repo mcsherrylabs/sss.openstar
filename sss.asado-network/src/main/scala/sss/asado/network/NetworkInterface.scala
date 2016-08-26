@@ -2,7 +2,6 @@ package sss.asado.network
 
 import java.net.{InetAddress, InetSocketAddress, URI, NetworkInterface => JNetworkInterface}
 
-import com.google.common.primitives.Longs
 import sss.ancillary.Logging
 import sss.asado.network.NetworkController.BindControllerSettings
 

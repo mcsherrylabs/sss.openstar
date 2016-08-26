@@ -4,14 +4,12 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-
+import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.block.signature.BlockSignatures
-
 import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{ClientSynced}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,8 +30,12 @@ class ClientBlockChainDownloaderActor(
                                 messageRouter: ActorRef,
                                 stateMachine: ActorRef,
                                 numBlocksCached: Int,
+                                secondsBetweenChecks: Int,
                                 bc: BlockChain with BlockChainSignatures)
-                               (implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
+                               (implicit db: Db, ledgers: Ledgers)
+  extends Actor
+    with ActorLogging
+    with AsadoEventPublishingActor {
 
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
@@ -93,11 +95,15 @@ class ClientBlockChainDownloaderActor(
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
+
+              publish(BlockClosedEvent(blockHeader.height))
+
               log.info(s"Client syncing - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
               assert(blockHeader.height == blockId.blockHeight, s"(C)How can ${blockHeader} differ from ${blockId}")
               val nextBlockPage = GetTxPage(blockId.blockHeight + 1, 0)
               serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx, nextBlockPage.toBytes)
-              Block.drop(blockId.blockHeight - numBlocksCached)
+              val blockHeightToDrop = blockId.blockHeight - numBlocksCached
+              if(blockHeightToDrop > 0) Block.drop(blockId.blockHeight - numBlocksCached)
           }
       }
     }
@@ -111,8 +117,8 @@ class ClientBlockChainDownloaderActor(
 
     case NetworkMessage(SimpleGetPageTxEnd, getTxPage) =>
       stateMachine ! ClientSynced
-      log.info(s"Client downloader is synced, pausing for 20 seconds")
-      context.system.scheduler.scheduleOnce(20 seconds, nc,
+      log.info(s"Client downloader is synced, pausing for $secondsBetweenChecks seconds")
+      context.system.scheduler.scheduleOnce(secondsBetweenChecks seconds, nc,
         SendToNetwork(NetworkMessage(MessageKeys.SimpleGetPageTx, getTxPage), _ => Set(connectionToSyncWith) ))
 
   }

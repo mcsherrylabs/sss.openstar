@@ -1,13 +1,12 @@
 package sss.asado
 
-import sss.asado.util.ByteArrayComparisonOps._
-import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import com.google.common.primitives.Ints
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
-
-import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
+import sss.asado.util.ByteArrayComparisonOps._
+import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import sss.asado.util.hash.SecureCryptographicHash
+import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
 /**
   * Created by alan on 5/24/16.

@@ -1,7 +1,6 @@
 package sss.ui.nobu
 
 import sss.ancillary.{DynConfig, _}
-import sss.ui.Servlet
 
 /**
   * Created by alan on 6/10/16.

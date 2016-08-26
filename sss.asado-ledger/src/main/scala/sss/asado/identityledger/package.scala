@@ -8,8 +8,6 @@ import sss.asado.util.ByteArrayComparisonOps._
 import sss.asado.util.Serialize.ToBytes
 import sss.asado.util.hash.SecureCryptographicHash
 
-import scala.collection.mutable
-
 /**
   * Created by alan on 5/31/16.
   */

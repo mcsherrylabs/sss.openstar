@@ -1,10 +1,9 @@
 package sss.asado.tools
 
 import sss.asado.account.NodeIdentity
-
 import sss.asado.identityledger.IdentityService.defaultTag
-import us.monoid.web.Resty
 import sss.asado.util.ByteArrayEncodedStrOps._
+import us.monoid.web.Resty
 
 
 /**

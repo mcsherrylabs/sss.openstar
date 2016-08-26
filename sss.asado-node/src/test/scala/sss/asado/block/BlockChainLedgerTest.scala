@@ -3,8 +3,8 @@ package sss.asado.block
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.NodeIdentity
-import sss.asado.ledger._
 import sss.asado.crypto.SeedBytes
+import sss.asado.ledger._
 import sss.db.Db
 
 import scala.util.{Failure, Try}

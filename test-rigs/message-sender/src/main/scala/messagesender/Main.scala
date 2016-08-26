@@ -1,22 +1,15 @@
 package messagesender
 
-import java.nio.charset.StandardCharsets
-
 import akka.actor.{ActorRef, Props}
-import messagesender.CheckInBoxForCash.CheckInBox
-import sss.ancillary.Memento
-import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
-import sss.asado.ledger._
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.SingleIdentityEnc
-import sss.asado.message.MessageInBox
-import sss.asado.network.MessageRouter.RegisterRef
+import sss.asado.ledger._
 import sss.asado.network.NetworkController.BindControllerSettings
 import sss.asado.nodebuilder.{BindControllerSettingsBuilder, ClientNode, ConfigBuilder, ConfigNameBuilder}
-import us.monoid.web.Resty
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
+import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
 
@@ -112,8 +105,7 @@ class MessageSenderClient(val newBndSettings: BindControllerSettings,
     }
   }
 
-  override lazy val eventListener: ActorRef =
-    actorSystem.actorOf(Props(classOf[OrchestratingActor], this, prefix, circSeq))
+  actorSystem.actorOf(Props(classOf[OrchestratingActor], this, prefix, circSeq))
 
   initStateMachine
 

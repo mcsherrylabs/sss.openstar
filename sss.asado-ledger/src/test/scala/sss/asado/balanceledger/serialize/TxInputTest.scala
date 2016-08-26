@@ -1,10 +1,10 @@
 package sss.asado.ledger.serialize
 
-import sss.asado.balanceledger._
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.balanceledger._
 import sss.asado.contract.PrivateKeySig
-import sss.asado.ledger.TxId
 import sss.asado.crypto.SeedBytes
+import sss.asado.ledger.TxId
 
 /**
   * Created by alan on 2/15/16.

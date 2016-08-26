@@ -2,9 +2,9 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block.DistributeTx
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.MessageKeys
-import sss.asado.ledger._
-import sss.asado.ledger.LedgerItem
+import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.network.NetworkMessage
 import sss.asado.util.SeqSerializer
 
@@ -56,7 +56,6 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
     case BlockLedger(blockChainActor: ActorRef, blockLedger: Option[BlockChainLedger]) => {
       context.become(working(blockLedger))
       blockChainActor ! AcknowledgeNewLedger
-
     }
 
     case NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>

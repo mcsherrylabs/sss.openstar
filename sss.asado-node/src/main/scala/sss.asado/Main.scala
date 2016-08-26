@@ -2,7 +2,6 @@ package sss.asado
 
 import akka.actor.ActorRef
 import sss.asado.nodebuilder.{CoreNode, ServicesNode}
-import sss.asado.state.AsadoStateProtocol.{AcceptTransactions, FindTheLeader}
 
 import scala.language.postfixOps
 

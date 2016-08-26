@@ -2,10 +2,10 @@ package sss.asado.contract
 
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.identityledger.IdentityService
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.crypto.SeedBytes
+import sss.asado.identityledger.IdentityService
+import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
 /**

@@ -3,11 +3,11 @@ package sss.asado.block.serialize
 import block._
 import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.account.PrivateKeyAccount
 import sss.asado.block._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.ledger.LedgerItem
 import sss.asado.crypto.SeedBytes
-import sss.asado.account.PrivateKeyAccount
+import sss.asado.ledger.LedgerItem
 
 import scala.util.Random
 

@@ -5,14 +5,13 @@ import akka.agent.Agent
 import block._
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.{BlockChain, BlockChainLedger}
+import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.Register
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoState.QuorumState
-import sss.asado.state.AsadoStateProtocol.{FindTheLeader, LeaderFound, QuorumStateEvent}
+import sss.asado.state.AsadoStateProtocol.QuorumStateEvent
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -22,6 +21,9 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 4/1/16.
   */
+
+case class LeaderFound(leader: String)
+case object FindTheLeader
 
 class LeaderActor(thisNodeId: String,
                   quorum: Int,
@@ -107,18 +109,14 @@ class LeaderActor(thisNodeId: String,
         // I am the leader.
         context.setReceiveTimeout(Duration.Undefined)
         context.become(handle(thisNodeId))
-        log.info(s"The leader is $thisNodeId (me), telling the network...")
-        stateMachine ! LeaderFound(thisNodeId)
-        ncRef ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
-
-        /*log.info(s"The leader is $thisNodeId (me), closing partial block.")
+        log.info(s"The leader is $thisNodeId (me), committing outstanding txs...")
         Try(BlockChainLedger(bc.lastBlockHeader.height + 1).commit) match {
           case Failure(e) => log.error(e, s"Failed to commit outstanding txs in partial block")
           case Success(numTxs) =>
             log.info(s"Committed the outstanding txs ($numTxs) in partial block")
             stateMachine ! LeaderFound(thisNodeId)
             ncRef ! SendToNetwork(NetworkMessage(MessageKeys.Leader,Leader(thisNodeId).toBytes))
-        }*/
+        }
 
       } else context.become(handleNoLeader(confirms))
 
