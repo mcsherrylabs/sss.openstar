@@ -2,7 +2,7 @@ package sss.asado.util
 
 import java.nio.charset.StandardCharsets
 
-import com.google.common.primitives.{Booleans, Ints, Longs}
+import com.google.common.primitives.{Ints, Longs}
 
 import scala.annotation.tailrec
 

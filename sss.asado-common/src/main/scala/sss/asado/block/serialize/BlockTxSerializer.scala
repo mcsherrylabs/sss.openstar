@@ -1,9 +1,8 @@
 package sss.asado.block.serialize
 
+import com.google.common.primitives.Longs
 import sss.asado.block._
 import sss.asado.ledger._
-import com.google.common.primitives.Longs
-
 import sss.asado.util.Serialize.Serializer
 
 /**

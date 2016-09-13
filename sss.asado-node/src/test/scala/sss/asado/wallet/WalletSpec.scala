@@ -5,7 +5,6 @@ import java.util.UUID
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.{NodeIdentity, PublicKeyAccount}
 import sss.asado.balanceledger._
-import sss.asado.ledger._
 import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.util.ByteArrayComparisonOps
@@ -27,6 +26,8 @@ class WalletSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     override def entry(inIndex: TxIndex): Option[TxOutput] = mocks.get(inIndex)
 
     override def map[M](f: (TxOutput) => M): Seq[M] = ???
+
+    override def keys: Seq[TxIndex] = ???
   }
 
   implicit val db = Db()

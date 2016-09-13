@@ -1,16 +1,14 @@
 package txflood
 
-import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
-import sss.asado.block.{BlockChainTxId, TxMessage}
+import sss.asado.block.BlockChainTxId
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.wallet.WalletPersistence.Lodgement
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 8/5/16.

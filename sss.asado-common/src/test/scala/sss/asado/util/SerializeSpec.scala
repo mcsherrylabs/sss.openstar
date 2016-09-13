@@ -2,9 +2,8 @@ package sss.asado.util
 
 
 import org.scalatest.{FlatSpec, Matchers}
-import Serialize.{ByteArraySerializer, _}
-import com.fasterxml.jackson.databind.deser.std.NumberDeserializers.BooleanDeserializer
 import sss.asado.crypto.SeedBytes
+import sss.asado.util.Serialize.{ByteArraySerializer, _}
 /**
   * Created by alan on 2/11/16.
   */

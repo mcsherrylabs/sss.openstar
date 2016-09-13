@@ -93,7 +93,7 @@ class NetworkController(messageRouter: ActorRef,
       peersList.find(_.id == nodeId) match {
         case Some(peer) => peers().find(_.nodeId.id == nodeId) match {
           case None => IO(Tcp) ! Connect(addr, localAddress = None, timeout = Option(netInf.connTimeout), pullMode = true)
-          case Some(p) => log.info(s"Already connected to $p, will not attepmt to connect.")
+          case Some(p) => log.info(s"Already connected to $p, will not attempt to connect.")
         }
         case None => IO(Tcp) ! Connect(addr, localAddress = None, timeout = Option(netInf.connTimeout), pullMode = true)
       }
@@ -113,29 +113,35 @@ class NetworkController(messageRouter: ActorRef,
           }
         }
         case None =>
-          clientConnnections().find(_.nodeId.id == nodeId) match {
-            case None =>
-              clientConnnections.alter(_ + p) map (stateController ! ConnectionGained(p, _))
-            case Some(alreadyConnected) =>
-              log.info(s"Client Connection $alreadyConnected exists, closing this one.")
-              sender() ! CloseConnection
-          }
+          clientConnnections.alter { conns =>
+            val (oldCon, minusOldCon) = conns.partition(_.nodeId.id == nodeId)
+            oldCon.headOption map { c =>
+              c.handlerRef ! CloseConnection
+              log.info(s"Closing old client conn $c")
+            }
+            minusOldCon + p
+          } map (stateController ! ConnectionGained(p, _))
       }
 
-    case t@Terminated(ref) =>
 
+
+    case t@Terminated(ref) =>
+      log.info(s"Connection dead - removing $ref ")
       peers().find(_.handlerRef == ref) match {
         case Some(found) =>
           peers.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
             if (conns.size + 1 == quorum) stateController ! QuorumLost
             else stateController ! PeerConnectionLost(found, conns)
-            //self ! ConnectTo(found.nodeId)
+            self ! ConnectTo(found.nodeId)
           }
         case None =>
           clientConnnections().find(_.handlerRef == ref) map { found =>
+            log.info(s"Client connection dead - removing $found ")
             clientConnnections.alter(_.filterNot(_.nodeId.id == found.nodeId.id)) map { conns =>
+              log.info(s"Dead client connection found - forward ConnectionLost ")
               stateController ! ConnectionLost(found, conns)
             }
+
           }
       }
 
@@ -158,11 +164,11 @@ class NetworkController(messageRouter: ActorRef,
       self ! Unbind
       context stop self
 
-    /*case cf@CommandFailed(c: Connect) =>
+    case cf@CommandFailed(c: Connect) =>
       log.info(s"Failed to connect to $c, retry in ${netInf.connectionRetryInterval}")
       peersList.find(_.inetSocketAddress == c.remoteAddress) map { found =>
         context.system.scheduler.scheduleOnce(netInf.connectionRetryInterval, self, ConnectTo(found))
-      }*/
+      }
 
     case CommandFailed(cmd: Tcp.Command) => log.info(s"Failed to execute command : $cmd")
 

@@ -1,8 +1,8 @@
 package sss.asado.message.serialize
 
+import sss.asado.ledger._
 import sss.asado.message.AddressedMessage
 import sss.asado.util.Serialize._
-import sss.asado.ledger._
 /**
   * Created by alan on 6/8/16.
   */

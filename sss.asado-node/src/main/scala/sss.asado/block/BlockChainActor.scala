@@ -4,12 +4,12 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.DistributeClose
+import block.{BlockClosedEvent, DistributeClose}
 import sss.asado.account.NodeIdentity
+import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
 import sss.asado.balanceledger._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
-import sss.asado.network.MessageRouter.{RegisterRef, UnRegisterRef}
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.SeqSerializer
@@ -64,20 +64,20 @@ case object AcknowledgeNewLedger
 class BlockChainActor(nodeIdentity: NodeIdentity,
                       blockChainSettings: BlockChainSettings,
                       bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-                      stateMachine: ActorRef,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef,
                       wallet:Wallet
-                      )(implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
-
+                      )(implicit db: Db, ledgers: Ledgers)
+  extends Actor
+    with ActorLogging
+    with AsadoEventSubscribedActor
+    with AsadoEventPublishingActor {
 
   override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
 
   blockChainSyncingActor ! InitWithActorRefs(self)
-
-  stateMachine ! RegisterStateEvents
 
   log.info("BlockChain actor has started...")
 
@@ -191,6 +191,8 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
       log.info(s"About to close block ${lastClosedBlock.height + 1}")
       Try(bc.closeBlock(lastClosedBlock)) match {
         case Success(newLastBlock) =>
+
+          publish(BlockClosedEvent(newLastBlock.height))
 
           val sig = BlockSignatures(newLastBlock.height).add(
             nodeIdentity.sign(newLastBlock.hash),

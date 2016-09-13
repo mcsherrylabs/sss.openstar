@@ -3,10 +3,7 @@ package sss.asado.account
 
 import sss.ancillary.{Logging, Memento}
 import sss.asado.crypto.ECBEncryption._
-import sss.asado.util.ByteArrayVarcharOps._
-import sss.asado.util.ByteArrayVarcharOps.VarCharToByteArray
-
-import scala.io.StdIn
+import sss.asado.util.ByteArrayEncodedStrOps._
 
 /**
   * Persists the key pair, tag and identity...
@@ -36,12 +33,12 @@ private class KeyPersister(val mementoName: String,
       case None => {
         if(createIfMissing) {
           lazy val pkPair = PrivateKeyAccount()
-          val privKStr: String = pkPair.privateKey.toVarChar
-          val pubKStr: String = pkPair.publicKey.toVarChar
+          val privKStr: String = pkPair.privateKey.toBase64Str
+          val pubKStr: String = pkPair.publicKey.toBase64Str
           val encrypted = encrypt(phrase, privKStr)
           val hashedPhrase = PasswordStorage.createHash(phrase)
           val created = s"$pubKStr:::$hashedPhrase:::$encrypted"
-          log.info(s"CREATED - ${created}")
+          log.debug(s"CREATED - ${created}")
           m.write(created)
           loadKey
         } else throw new Error(s"No key found at $mementoName")

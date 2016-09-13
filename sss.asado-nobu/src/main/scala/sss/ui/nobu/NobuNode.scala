@@ -61,8 +61,11 @@ class NobuNode(override val configName: String,
   lazy override val httpServer: ServerLauncher = aHttpServer
 
   initStateMachine
+  Thread.sleep(1000)
   configureServlets
+  Thread.sleep(1000)
   startNetwork
+  Thread.sleep(1000)
   connectHome
 
 

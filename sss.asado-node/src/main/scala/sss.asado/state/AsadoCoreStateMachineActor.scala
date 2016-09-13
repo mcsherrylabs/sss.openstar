@@ -28,16 +28,8 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
 
   log.info("AsadoCoreStateMachine actor has started...")
 
-  final override def receive = init orElse eventRegistration orElse super.receive
+  final override def receive = init orElse super.receive
 
-  private var registerRefs: Set[ActorRef] = Set.empty
-
-  private def eventRegistration: Receive = {
-
-    case RegisterStateEvents => registerRefs += sender()
-    case DeRegisterStateEvents => registerRefs -= sender()
-    case Propagate(ev) => registerRefs foreach (_ ! ev)
-  }
 
   private def init: Receive = {
     case InitWithActorRefs(
@@ -52,7 +44,7 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
         messageRouter,
         txRouter,
         blockChainActor,
-        txForwarder) orElse eventRegistration orElse super.receive)
+        txForwarder) orElse super.receive)
 
   }
 
@@ -67,12 +59,12 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
     case  swl @ SplitRemoteLocalLeader(leader) =>
       if(thisNodeId == leader) {
         log.info(s"We are leader - $leader, we will respond to syncing requests ... ")
-        self ! Propagate(LocalLeaderEvent)
+        publish(LocalLeaderEvent)
       } else {
         log.info(s"New leader is $leader, begin syncing ... ")
         connectedPeers().find(_.nodeId.id == leader) match {
           case None => log.warning(s"Could not find leader $leader in peer connections!")
-          case Some(c) => self ! Propagate(RemoteLeaderEvent(c))
+          case Some(c) => publish(RemoteLeaderEvent(c))
         }
       }
 

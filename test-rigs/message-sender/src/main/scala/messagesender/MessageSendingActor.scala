@@ -10,11 +10,12 @@ import sss.asado.message.{FailureResponse, MessageEcryption, SavedAddressedMessa
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.nodebuilder.ClientNode
+import sss.asado.util.ByteArrayEncodedStrOps._
 
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 7/13/16.
@@ -87,7 +88,7 @@ class MessageSendingActor(clientNode: ClientNode, inBox: MessageInBox, prefix:St
       bytes.toMessageResponse match {
         case SuccessResponse(txId) =>
           log.info(s"Message successfully sent!")
-          watchingMsgSpends.get(txId.asHexStr).map { walletUpdate =>
+          watchingMsgSpends.get(txId.toBase64Str).map { walletUpdate =>
             wallet.update(walletUpdate.txId, walletUpdate.debits,walletUpdate.credits)
           }
 

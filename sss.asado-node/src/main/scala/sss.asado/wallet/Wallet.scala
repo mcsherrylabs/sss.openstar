@@ -3,7 +3,6 @@ package sss.asado.wallet
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
-import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
@@ -126,11 +125,11 @@ class Wallet(identity: NodeIdentity,
 
   private[wallet] def unSpentOpt(lodgement: Lodgement, atBlockHeight: Long): Option[UnSpent] = {
 
-    //log.info(s"Is ${lodgement.txIndex.txId.asHexStr} unspent?")
+    //log.info(s"Is ${lodgement.txIndex.txId.toBase64Str} unspent?")
     balanceLedger.entry(lodgement.txIndex) match {
       case Some(txOut) => txOut.encumbrance match {
         case SinglePrivateKey(pKey, minBlockHeight) =>
-          //log.info(s"${lodgement.txIndex.txId.asHexStr} is a SinglePrivateKey with minBlkH $minBlockHeight")
+          //log.info(s"${lodgement.txIndex.txId.toBase64Str} is a SinglePrivateKey with minBlkH $minBlockHeight")
           //if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
           identityServiceQuery.identify(pKey).flatMap { acc =>
             if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))

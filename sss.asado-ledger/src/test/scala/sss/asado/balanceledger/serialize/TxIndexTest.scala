@@ -1,7 +1,7 @@
 package sss.asado.ledger.serialize
 
-import sss.asado.balanceledger._
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.balanceledger._
 import sss.asado.crypto.SeedBytes
 
 /**

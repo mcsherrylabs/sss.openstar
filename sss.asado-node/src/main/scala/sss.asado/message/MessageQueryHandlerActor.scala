@@ -3,18 +3,20 @@ package sss.asado.message
 import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.{MessageKeys}
+import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-import sss.asado.network.MessageRouter.RegisterV2
-import sss.asado.network.{IncomingNetworkMessage, NetworkMessage, NodeId}
-import sss.asado.ledger._
 import sss.asado.balanceledger._
 import sss.asado.block._
+import sss.asado.ledger._
+import sss.asado.network.MessageRouter.RegisterV2
+import sss.asado.network.{IncomingNetworkMessage, NetworkMessage, NodeId}
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
-import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
-import scala.language.postfixOps
+
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 6/8/16.
@@ -41,7 +43,7 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
-      messageSenders.get(bId.blockTxId.txId.asHexStr) foreach { tracker =>
+      messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
         Try(MessagePersist(tracker.to).accept(tracker.index)) match {
           case Failure(e) => tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,
             FailureResponse(bId.blockTxId.txId, e.getMessage.take(100)).toBytes)
@@ -50,17 +52,17 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
             tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,SuccessResponse(bId.blockTxId.txId).toBytes)
         }
       }
-      messageSenders -= bId.blockTxId.txId.asHexStr
+      messageSenders -= bId.blockTxId.txId.toBase64Str
 
     case NetworkMessage(MessageKeys.TempNack, bytes) =>
       val txMsg = bytes.toTxMessage
-      messageSenders.get(txMsg.txId.asHexStr) foreach { tracker =>
+      messageSenders.get(txMsg.txId.toBase64Str) foreach { tracker =>
         context.system.scheduler.scheduleOnce(5 seconds, messageRouter, tracker.resendNetMsg)
       }
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
-      messageSenders.get(txMsg.txId.asHexStr) foreach { tracker =>
+      messageSenders.get(txMsg.txId.toBase64Str) foreach { tracker =>
         Try(MessagePersist(tracker.to).reject(tracker.index)) match {
           case Failure(e) => tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,
             FailureResponse(txMsg.txId, e.getMessage.take(100)).toBytes)
@@ -68,12 +70,12 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
             FailureResponse(txMsg.txId, txMsg.msg).toBytes)
         }
       }
-      messageSenders -= txMsg.txId.asHexStr
+      messageSenders -= txMsg.txId.toBase64Str
 
 
     case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
-      messageSenders.get(bId.blockTxId.txId.asHexStr) foreach { tracker =>
+      messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
         Try(MessagePersist(tracker.to).reject(tracker.index)) match {
           case Failure(e) => tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,
             FailureResponse(bId.blockTxId.txId, e.getMessage.take(100)).toBytes)
@@ -81,7 +83,7 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
             FailureResponse(bId.blockTxId.txId, "Failed to confirm Msg Tx on secondary").toBytes)
         }
       }
-      messageSenders -= bId.blockTxId.txId.asHexStr
+      messageSenders -= bId.blockTxId.txId.toBase64Str
 
     case NetworkMessage(MessageKeys.GenericErrorMessage, bytes) =>
       log.warning(new String(bytes, StandardCharsets.UTF_8))
@@ -109,7 +111,7 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
             val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
             val index = MessagePersist(toId).pending(nId.id, addrMsg.msg, addrMsg.ledgerItem.toBytes)
             val netMsg = NetworkMessage(MessageKeys.SignedTx, addrMsg.ledgerItem.toBytes)
-            messageSenders += (addrMsg.ledgerItem.txId.asHexStr -> MessageTracker(sender(), toId, index, netMsg))
+            messageSenders += (addrMsg.ledgerItem.txId.toBase64Str -> MessageTracker(sender(), toId, index, netMsg))
             messageRouter ! netMsg
 
           } match {

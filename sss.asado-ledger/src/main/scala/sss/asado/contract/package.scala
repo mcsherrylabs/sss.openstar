@@ -1,9 +1,9 @@
 package sss.asado
 
-import scala.util.{Failure, Success, Try}
 import sss.ancillary.Logging
 
 import scala.reflect.ClassTag
+import scala.util.{Failure, Success, Try}
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 2/16/16.

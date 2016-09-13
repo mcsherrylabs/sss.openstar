@@ -4,19 +4,18 @@ package sss.ui.nobu
 
 import java.io.File
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
-import com.vaadin.ui.{Button, Notification, UI}
 import com.vaadin.ui.Button.ClickEvent
+import com.vaadin.ui.{Button, Notification, UI}
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
-import sss.asado.ledger._
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.SingleIdentityEnc
+import sss.asado.ledger._
 import sss.asado.state.HomeDomain
-import sss.asado.util.ByteArrayVarcharOps._
-import sss.asado.wallet.Wallet
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.ui.design.CenteredAccordianDesign
 import sss.ui.nobu.NobuNode.NodeBootstrapWallet
@@ -118,7 +117,7 @@ class UnlockClaimView(
           Try {
             val phrase = claimPhrase.getValue
             val nId = NodeIdentity(claim, claimTag, phrase)
-            val publicKey = nId.publicKey.toVarChar
+            val publicKey = nId.publicKey.toBase64Str
             val http = homeDomain.http
             (http, publicKey, nId)
           } match {

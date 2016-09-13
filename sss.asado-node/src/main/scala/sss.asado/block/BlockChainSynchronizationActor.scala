@@ -3,12 +3,13 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import block._
-import sss.asado.{InitWithActorRefs, MessageKeys}
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.network.MessageRouter.{Register, RegisterRef, UnRegister}
 import sss.asado.network.{NetworkMessage, NodeId}
 import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.ByteArrayComparisonOps
+import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -40,11 +41,13 @@ class BlockChainSynchronizationActor(quorum: Int,
                                      peersList: Set[NodeId],
                                      stateMachine: ActorRef,
                                      bc: BlockChain with BlockChainTxConfirms,
-                                     messageRouter: ActorRef)(implicit db: Db) extends Actor with ActorLogging with ByteArrayComparisonOps {
+                                     messageRouter: ActorRef)(implicit db: Db)
+  extends Actor
+    with ActorLogging
+    with ByteArrayComparisonOps
+    with AsadoEventSubscribedActor {
 
   val pageResponder = context.actorOf(Props(classOf[TxPageActor], maxSignatures, bc, db))
-
-  stateMachine ! RegisterStateEvents
 
   messageRouter ! RegisterRef(MessageKeys.GetPageTx, pageResponder)
   messageRouter ! RegisterRef(MessageKeys.BlockNewSig, pageResponder)
@@ -166,7 +169,7 @@ class BlockChainSynchronizationActor(quorum: Int,
       updateToDatePeers = updateToDatePeers + clientRef
       //We may be restarting the blockchain after a pause for client syncing.
       blockChainActor ! StartBlockChain(self, lastTxPage)
-      if (updateToDatePeers.size == quorum) stateMachine ! Synced
+      if (updateToDatePeers.size == quorum) stateMachine ! IsSynced
       clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc

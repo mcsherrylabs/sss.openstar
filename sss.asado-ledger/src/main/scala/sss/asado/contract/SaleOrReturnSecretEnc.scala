@@ -3,9 +3,9 @@ package sss.asado.contract
 import java.nio.charset.StandardCharsets
 
 import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
-import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger.TxId
+import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.hash.SecureCryptographicHash
 
 /**

@@ -1,7 +1,5 @@
 package sss.asado.nodebuilder
 
-import akka.actor.{ActorRef, Props}
-import sss.asado.state.AsadoCoreStateMachineActor
 import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
 
 /**

@@ -2,8 +2,8 @@ package sss.ui.nobu
 
 import akka.actor.ActorRef
 import com.vaadin.server.FontAwesome
-import com.vaadin.ui.{Button, Component, Layout}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
+import com.vaadin.ui.{Button, Layout}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
@@ -74,7 +74,7 @@ object MessageComponent extends Logging {
 
 }
 
-import MessageComponent._
+import sss.ui.nobu.MessageComponent._
 
 trait MsgDetails {
   val text: String

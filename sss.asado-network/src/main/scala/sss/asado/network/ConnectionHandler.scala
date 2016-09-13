@@ -1,7 +1,7 @@
 package sss.asado.network
 
 import java.net.InetSocketAddress
-import javax.xml.bind.DatatypeConverter
+import java.util.Base64
 
 import akka.actor.{Actor, ActorLogging, ActorRef, SupervisorStrategy}
 import akka.io.Tcp
@@ -29,13 +29,15 @@ class ConnectionHandler(
 
   override def preStart: Unit = connection ! ResumeReading
 
+  override def postStop(): Unit = log.info(s"Connection handler $self down")
+
   // there is not recovery for broken connections
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
   private def processErrors: Receive = {
     case CommandFailed(w: Write) =>
       log.warning(s"Write failed :$w $remote")
-      connection ! ResumeReading
+      connection ! ResumeWriting
 
     case cc: ConnectionClosed =>
       log.debug(s"Connection closed to : $remote ${Option(cc.getErrorCause)}")
@@ -48,6 +50,7 @@ class ConnectionHandler(
     case CommandFailed(cmd: Tcp.Command) =>
       log.warning(s"Failed to execute command : $cmd ")
       connection ! ResumeReading
+      connection ! ResumeWriting
   }
 
 
@@ -85,7 +88,7 @@ class ConnectionHandler(
 
             val mySig = netInf.handshakeVerifier.sign(Longs.toByteArray(shake.fromNonce))
             val signedShake = netInf.createHandshake(shake.fromNonce, mySig)
-            val sigStr = DatatypeConverter.printHexBinary(signedShake.sig)
+            val sigStr = Base64.getEncoder.encodeToString(signedShake.sig)
             log.info(s"Signing ${signedShake.fromNonce} ${signedShake.nodeId}, ${signedShake.tag}, ${sigStr}")
             connection ! Write(ByteString(signedShake.bytes))
             sentHandShake = true

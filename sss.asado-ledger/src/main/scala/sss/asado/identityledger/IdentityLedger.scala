@@ -1,9 +1,9 @@
 package sss.asado.identityledger
 
 import java.nio.charset.StandardCharsets
+import java.nio.charset.StandardCharsets.UTF_8
 
 import sss.ancillary.Logging
-import StandardCharsets.UTF_8
 import sss.asado.ledger._
 
 /**

@@ -1,7 +1,6 @@
 package sss.asado.nodebuilder
 
 import sss.ancillary.{DynConfig, InitServlet, ServerConfig, ServerLauncher}
-import sss.asado.balanceledger.BalanceLedger
 import sss.asado.console.ConsoleServlet
 import sss.asado.http.ClaimServlet
 

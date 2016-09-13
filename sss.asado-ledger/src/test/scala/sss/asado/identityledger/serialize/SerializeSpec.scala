@@ -1,9 +1,9 @@
 package sss.asado.identityledger.serialize
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger._
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.crypto.SeedBytes
 
 /**
   * Created by alan on 6/7/16.

@@ -1,13 +1,13 @@
 package sss.asado.block
 
-import java.sql.SQLIntegrityConstraintViolationException
+
 
 
 import sss.ancillary.Logging
-import sss.asado.ledger.{Ledger, Ledgers, LedgerItem}
+import sss.asado.ledger.{LedgerItem, Ledgers}
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 
-import scala.util.{Failure, Success, Try}
 
 
 object BlockChainLedger {
@@ -27,7 +27,14 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
     */
   def journal(blockTx: BlockTx): BlockChainTx = block.inTransaction[BlockChainTx] {
       block.get(blockTx.ledgerItem.txId) match {
-        case Some(blck) => BlockChainTx(block.height, BlockTx(blck.index, blck.ledgerItem))
+        case Some(blck) =>
+
+          assert(blck.ledgerItem.txId sameElements blockTx.ledgerItem.txId,
+            s"Trying to journal index ${blck.index} with ${blockTx.ledgerItem.txId.toBase64Str} " +
+              s"when ${blck.ledgerItem.txId.toBase64Str} already exists in that spot")
+
+          BlockChainTx(block.height, BlockTx(blck.index, blck.ledgerItem))
+
         case None =>
           val index = block.journal(blockTx.index, blockTx.ledgerItem)
           BlockChainTx(block.height, BlockTx(index, blockTx.ledgerItem))

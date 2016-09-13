@@ -1,19 +1,20 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
+
 import block._
 import org.joda.time.DateTime
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.account.NodeIdentity
+import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.ledger.Ledgers
 import sss.asado.network.MessageRouter.{Register, UnRegister}
 import sss.asado.network.NetworkController.SendToNetwork
 import sss.asado.network.{Connection, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol
-import sss.asado.state.AsadoStateProtocol.{Synced => _, _}
+import sss.asado.state.AsadoStateProtocol.{LocalLeaderEvent, RemoteLeaderEvent}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -50,7 +51,10 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
                                 messageRouter: ActorRef,
                                 stateMachine: ActorRef,
                                 bc: BlockChain with BlockChainSignatures)
-                               (implicit db: Db, ledgers: Ledgers) extends Actor with ActorLogging {
+                               (implicit db: Db, ledgers: Ledgers) extends Actor
+  with ActorLogging
+  with AsadoEventSubscribedActor
+  with AsadoEventPublishingActor {
 
 
   private case class CommitBlock(serverRef: ActorRef,  blockId: BlockId, retryCount: Int = 0)
@@ -60,7 +64,7 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
   messageRouter ! Register(EndPageTx)
   messageRouter ! Register(CloseBlock)
   messageRouter ! Register(BlockSig)
-  stateMachine ! RegisterStateEvents
+
 
 
   log.info(s"BlockChainDownloader actor has started... $self")
@@ -118,6 +122,9 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) => log.error(e, s"Ledger cannot sync close block , game over man, game over.")
             case Success(blockHeader) =>
+
+              publish(BlockClosedEvent(blockHeader.height))
+
               log.info(s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
               if(BlockSignatures(blockHeader.height).indexOfBlockSignature(nodeIdentity.id).isEmpty) {
                 val sig = nodeIdentity.sign(blockHeader.hash)
@@ -146,16 +153,15 @@ class BlockChainDownloaderActor(nodeIdentity: NodeIdentity,
     case NetworkMessage(CloseBlock, bytes) =>
       decode(CloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence = BlockSignatures(distClose.blockId.blockHeight)
-        distClose.blockSigs.foreach { sig =>
-          blockSignaturePersistence.write(sig)
-        }
+        blockSignaturePersistence.write(distClose.blockSigs)
+
         self ! CommitBlock(sender(), distClose.blockId)
       }
 
     case NetworkMessage(Synced, bytes) =>
       synced = true
       val getTxPage = bytes.toGetTxPage
-      stateMachine ! AsadoStateProtocol.Synced
+      stateMachine ! IsSynced
       log.info(s"Downloader is synced to tx page $getTxPage")
 
 

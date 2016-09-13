@@ -3,22 +3,23 @@ package messagesender
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
-import sss.asado.ledger._
-import sss.asado.block._
 import sss.asado.balanceledger._
+import sss.asado.block._
 import sss.asado.contract.SaleSecretDec
 import sss.asado.identityledger.IdentityServiceQuery
-import sss.asado.message.{AddressedMessage, CheckForMessages, ForceCheckForMessages, Message, MessageEcryption, MessageInBox, SavedAddressedMessage}
+import sss.asado.ledger._
 import sss.asado.message.MessageInBox.MessagePage
+import sss.asado.message.{Message, MessageEcryption, MessageInBox}
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.state.HomeDomain
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.Wallet
 import sss.asado.wallet.WalletPersistence.Lodgement
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.postfixOps
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 7/13/16.
@@ -86,7 +87,7 @@ class CheckInBoxForCash(inBox: MessageInBox,
     val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
     val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
     val leBytes = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes).toBytes
-    watchingBounties += signedTx.txId.asHexStr -> BountyTracker(TxIndex(signedTx.txId, 0),out, index, leBytes)
+    watchingBounties += signedTx.txId.toBase64Str -> BountyTracker(TxIndex(signedTx.txId, 0),out, index, leBytes)
     ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, leBytes), homeDomain.nodeId)
 
   }
@@ -112,19 +113,19 @@ class CheckInBoxForCash(inBox: MessageInBox,
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
-      watchingBounties.get(bId.blockTxId.txId.asHexStr) match {
+      watchingBounties.get(bId.blockTxId.txId.toBase64Str) match {
         case None => log.debug(s"Got an extra confirm for $bId")
         case Some(bountyTracker) =>
           log.info("Got a bounty, processing ")
 
           wallet.credit(Lodgement(bountyTracker.txIndex, bountyTracker.txOutput, bId.height))
-          watchingBounties -= bId.blockTxId.txId.asHexStr
+          watchingBounties -= bId.blockTxId.txId.toBase64Str
           log.info("Successfully processed bounty")
       }
 
     case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
-      watchingBounties -= bId.blockTxId.txId.asHexStr
+      watchingBounties -= bId.blockTxId.txId.toBase64Str
       log.info("Failed to get a confirm for a bounty ")
 
 
@@ -135,7 +136,7 @@ class CheckInBoxForCash(inBox: MessageInBox,
 
     case NetworkMessage(MessageKeys.TempNack, bytes) =>
       val m = bytes.toTxMessage
-      watchingBounties.get(m.txId.asHexStr) match {
+      watchingBounties.get(m.txId.toBase64Str) match {
         case None => log.info(s"WARN got Temp NACK for a bounty-> ${m.msg}, and can't find it in the list.")
         case Some(bountyTracker) =>
           context.system.scheduler.scheduleOnce(5 seconds, ncRef,
@@ -144,13 +145,13 @@ class CheckInBoxForCash(inBox: MessageInBox,
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage
-      watchingBounties.get(m.txId.asHexStr) match {
+      watchingBounties.get(m.txId.toBase64Str) match {
         case None => log.info(s"WARN got NACK for a bounty-> ${m.msg}, and can't find it in the list.")
         case Some(bountyTracker) =>
           inBox.archive(bountyTracker.indexToMark)
           log.info(s"WARN got NACK for a bounty-> ${m.msg}, removed it lost ${bountyTracker.txOutput.amount}.")
       }
-      watchingBounties -= m.txId.asHexStr
+      watchingBounties -= m.txId.toBase64Str
 
 
 

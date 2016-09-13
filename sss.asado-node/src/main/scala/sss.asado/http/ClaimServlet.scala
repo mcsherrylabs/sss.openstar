@@ -3,22 +3,22 @@ package sss.asado.http
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.scalatra.{BadRequest, Ok, ScalatraServlet}
+import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
 import sss.asado.block._
-import sss.asado.contract.{NullEncumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc, SinglePrivateKey}
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent, RegisterStateEvents}
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
 import sss.asado.{MessageKeys, PublishedMessageKeys}
 
-import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Promise}
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 5/7/16.
@@ -86,14 +86,15 @@ object ClaimServlet {
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
 }
 
-class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet) extends Actor with ActorLogging {
+class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet)
+  extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
   import ClaimServlet._
   var inFlightClaims: Map[String, ClaimTracker] = Map()
 
   val kickStartingAmount = 100
 
-  stateMachine ! RegisterStateEvents
+
 
   private def working: Receive = {
 
@@ -105,7 +106,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bcTxId = bytes.toBlockChainIdTx
-      val hexId = bcTxId.blockTxId.txId.toVarChar
+      val hexId = bcTxId.blockTxId.txId.toBase64Str
       val trackerOpt = inFlightClaims.get(hexId)
       Try {
         trackerOpt map { claimTracker =>
@@ -125,7 +126,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
     case NetworkMessage(MessageKeys.TempNack, bytes) =>
       Try {
         val txMsg = bytes.toTxMessage
-        val hexId = txMsg.txId.toVarChar
+        val hexId = txMsg.txId.toBase64Str
         val claimTracker = inFlightClaims(hexId)
         context.system.scheduler.scheduleOnce(5 seconds, messageRouter, claimTracker.claiming.netMsg)
       } match {
@@ -137,7 +138,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
-      val hexId = txMsg.txId.toVarChar
+      val hexId = txMsg.txId.toBase64Str
       val claimTracker = inFlightClaims(hexId)
       inFlightClaims -= hexId
       if(claimTracker.claiming.p.isCompleted) log.info(s"${hexId} already completed ")

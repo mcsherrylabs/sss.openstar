@@ -1,7 +1,6 @@
 package sss.asado.balanceledger.serialize
 
 import com.google.common.primitives.Ints
-import sss.asado.contract.Decumbrance
 import sss.asado.balanceledger.{TxIndexLen, TxInput}
 import sss.asado.contract.ContractSerializer._
 import sss.asado.util.Serialize.Serializer

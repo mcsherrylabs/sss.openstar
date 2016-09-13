@@ -8,8 +8,7 @@ import akka.agent.Agent
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
-import sss.asado.{InitWithActorRefs, MessageKeys}
-import sss.asado.account.NodeIdentity
+import sss.asado.account.{NodeIdentity, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.contract.CoinbaseValidator
@@ -19,7 +18,7 @@ import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHand
 import sss.asado.network.NetworkController.{BindControllerSettings, ConnectTo, StartNetwork}
 import sss.asado.network._
 import sss.asado.state._
-import sss.asado.account.PublicKeyAccount
+import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
 
 import scala.collection.JavaConversions._
@@ -47,10 +46,6 @@ trait ConfigBuilder extends Configure {
 trait BindControllerSettingsBuilder {
   self : ConfigBuilder =>
   lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
-}
-
-trait LeaderAgentBuilder {
-  val leader = Agent[Option[Connection]](None)
 }
 
 trait NodeConfigBuilder {
@@ -112,11 +107,6 @@ trait ActorSystemBuilder {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
-trait EventListenerBuilder {
-  self: ActorSystemBuilder =>
-  lazy val eventListener: ActorRef = actorSystem.actorOf(Props(classOf[EventListener]))
-}
-
 trait LedgersBuilder {
 
   self : BlockChainBuilder with NodeConfigBuilder with IdentityServiceBuilder with BalanceLedgerBuilder with DbBuilder =>
@@ -166,7 +156,8 @@ trait IdentityServiceBuilder {
   lazy val identityService: IdentityService = IdentityService()
 }
 
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
+
 case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
   private lazy val pKey: PublicKey = pKeyStr.toByteArray
   private lazy val pKeyAccount = PublicKeyAccount(pKey)
@@ -197,7 +188,6 @@ trait LeaderActorBuilder {
     MessageRouterActorBuilder with
     IdentityServiceBuilder with
     NetworkControllerBuilder with
-    LeaderAgentBuilder with
     StateMachineActorBuilder =>
 
   lazy val leaderActor: ActorRef = buildLeaderActor
@@ -317,7 +307,6 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
     MessageDownloadServiceBuilder with
     ClientBlockChainDownloaderBuilder with
     TxForwarderActorBuilder with
-    EventListenerBuilder with
     MessageRouterActorBuilder =>
 
   lazy val stateMachineActor: ActorRef = buildClientStateMachine
@@ -336,7 +325,7 @@ trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
       nodeConfig.blockChainSettings,
       bc,
       nodeConfig.quorum,
-      db, eventListener))
+      db))
   }
 }
 
@@ -401,7 +390,6 @@ trait CoreNode extends MinimumNode with
     TxForwarderActorBuilder with
     CoreStateMachineActorBuilder with
     LeaderActorBuilder with
-    LeaderAgentBuilder with
     BlockChainActorsBuilder {
 
 }
@@ -414,7 +402,6 @@ trait ServicesNode extends CoreNode with
 
 trait ClientNode extends MinimumNode with
     ClientBlockChainDownloaderBuilder with
-    EventListenerBuilder with
     TxForwarderActorBuilder with
     ClientStateMachineActorBuilder with
     MessageDownloadServiceBuilder with

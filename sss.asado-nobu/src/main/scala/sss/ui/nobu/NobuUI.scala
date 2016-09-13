@@ -7,18 +7,13 @@ import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
 import com.vaadin.ui.UI
-import sss.ancillary.{Configure, DynConfig}
-import sss.asado.account.NodeIdentity
-import sss.asado.nodebuilder.{ConfigNameBuilder, HomeDomainBuilder, NodeConfigBuilder}
-import sss.db.Db
-import sss.ui.reactor.{ReactorActorSystem, UIReactor}
+import sss.ancillary.Configure
+import sss.ui.reactor.UIReactor
 
 
 /**
   * Created by alan on 6/10/16.
   */
-
-
 
 @Theme("template")
 @Push

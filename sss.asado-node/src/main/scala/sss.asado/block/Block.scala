@@ -2,8 +2,9 @@ package sss.asado.block
 
 import com.twitter.util.SynchronizedLruMap
 import sss.ancillary.Logging
-import sss.db.{Db, OrderAsc, Row, Where}
 import sss.asado.ledger._
+import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.db.{Db, OrderAsc, Row, Where}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -92,11 +93,11 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
-  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where(s"$txid = ?", id.asHexStr)).map(toBlockTx)
+  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where(s"$txid = ?", id.toBase64Str)).map(toBlockTx)
 
   def journal(index: Long, le: LedgerItem): Long = {
     val bs = le.toBytes
-    val hexStr = le.txId.asHexStr
+    val hexStr = le.txId.toBase64Str
     val row = blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs))
     row(id)
   }
@@ -109,7 +110,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def write(le: LedgerItem): Long = {
     val bs = le.toBytes
-    val hexStr: String = le.txId.asHexStr
+    val hexStr: String = le.txId.toBase64Str
     val row = blockTxTable.persist(Map(txid -> hexStr, entry -> bs, committed -> true))
     row(id)
   }
@@ -120,7 +121,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def confirm(blockTxId: BlockTxId): Try[Int] = {
     Try {
-      val hex: String = blockTxId.txId.asHexStr
+      val hex: String = blockTxId.txId.toBase64Str
       val rowsUpdated = blockTxTable.update("confirm = confirm + 1", s"txid = '$hex'")
       require(rowsUpdated == 1, s"Must update 1 row, by confirming the tx, not $rowsUpdated rows")
       rowsUpdated

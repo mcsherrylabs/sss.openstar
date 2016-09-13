@@ -1,8 +1,6 @@
 package sss.asado.contract
 
-import com.google.common.primitives.{Ints, Longs}
 import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
-import sss.asado.contract._
 import sss.asado.util.Serialize._
 
 /**

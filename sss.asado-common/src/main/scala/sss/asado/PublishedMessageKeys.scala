@@ -9,6 +9,13 @@ trait PublishedMessageKeys {
   val SignedTxAck: Byte = 101
   val SignedTxNack: Byte = 102
   val SeqSignedTx: Byte = 103
+  /**
+    * TODO When asking a node to Confirm a tx
+    * Sign the tx so that the network can reject malicious
+    * attempts to bring down the network. ie confirm tx's will be
+    * unquestionally journalled and if a partial block is committed when
+    * it becomes leader, those bad txs will kill the network.
+    */
   val ConfirmTx: Byte = 104
   val AckConfirmTx: Byte = 105
   val NackConfirmTx: Byte = 106

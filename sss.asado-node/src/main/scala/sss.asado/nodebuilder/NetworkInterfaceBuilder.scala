@@ -27,13 +27,13 @@ trait NetworkInterfaceBuilder {
                                  bootstrapIdentities: List[BootstrapIdentity]
                                 ): IdentityVerification = {
 
-    import sss.asado.util.ByteArrayVarcharOps._
+    import sss.asado.util.ByteArrayEncodedStrOps._
 
     new IdentityVerification {
       override def verify(sig: Array[Byte], msg: Array[Byte], nodeId: String, tag: String): Boolean = {
         val ac = identityService.accountOpt(nodeId, tag)
-        val pk = ac.map(_.publicKey.toVarChar)
-        val sigStr = sig.toVarChar
+        val pk = ac.map(_.publicKey.toBase64Str)
+        val sigStr = sig.toBase64Str
         val msgStr = Longs.fromByteArray(msg)
         log.info(s"Attempting to verify $nodeId, $tag ")
         log.info(s"msg $msgStr pk $pk")

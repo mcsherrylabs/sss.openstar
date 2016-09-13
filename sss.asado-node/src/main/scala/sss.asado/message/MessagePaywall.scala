@@ -3,7 +3,6 @@ package sss.asado.message
 
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.Tx
-import sss.asado.block.BlockChain
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
 import sss.asado.identityledger.IdentityService
 

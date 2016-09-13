@@ -2,7 +2,7 @@ package sss.asado.message
 
 
 
-import org.joda.time.{LocalDate, LocalDateTime, Period}
+import org.joda.time.{LocalDateTime, Period}
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.crypto.SeedBytes
 import sss.asado.util.ByteArrayComparisonOps

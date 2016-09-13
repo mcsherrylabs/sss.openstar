@@ -5,7 +5,7 @@ import java.util.Date
 import sss.asado.balanceledger._
 import sss.asado.contract.ContractSerializer._
 import sss.asado.ledger._
-import sss.asado.util.ByteArrayVarcharOps._
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db._
 
 /**
@@ -36,10 +36,10 @@ class WalletPersistence(uniqueTag :String, db: Db) {
 
   private lazy val tableName = s"wallet_$uniqueTag"
 
-  def tx[T] = db.tx[T] _
+  def tx[T](f: => T): T = db.tx[T](f)
 
-  def markSpent(txIndex: TxIndex) = {
-    table.toLongIdOpt(txIdCol -> txIndex.txId.toVarChar, txIdIndxCol -> txIndex.index).map { id =>
+  def markSpent(txIndex: TxIndex) = tx {
+    table.toLongIdOpt(txIdCol -> txIndex.txId.toBase64Str, txIdIndxCol -> txIndex.index).map { id =>
       table.update(Map(idCol -> id,
         txIdIndxCol -> txIndex.index,
         statusCol -> spent))
@@ -49,7 +49,7 @@ class WalletPersistence(uniqueTag :String, db: Db) {
 
   def track(lodgement: Lodgement) = {
 
-    table.insert(Map(txIdCol -> lodgement.txIndex.txId.toVarChar,
+    table.insert(Map(txIdCol -> lodgement.txIndex.txId.toBase64Str,
       txIdIndxCol -> lodgement.txIndex.index,
       amountCol -> lodgement.txOutput.amount,
       encumbranceCol -> lodgement.txOutput.encumbrance.toBytes,
@@ -59,7 +59,7 @@ class WalletPersistence(uniqueTag :String, db: Db) {
     ))
   }
 
-  def listUnSpent: Seq[Lodgement] = {
+  def listUnSpent: Seq[Lodgement] = tx {
     table.filter(
       where(s"$statusCol = ?") using (unSpent))
       .map(r => Lodgement(TxIndex(r[String](txIdCol).asTxId, r[Int](txIdIndxCol)), TxOutput(r[Int](amountCol), r[Array[Byte]](encumbranceCol).toEncumbrance), r[Long](blockHeightCol)))

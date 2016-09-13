@@ -6,17 +6,17 @@ import akka.actor.ActorRef
 import com.vaadin.ui.{Notification, UI}
 import sss.asado.MessageKeys
 import sss.asado.account.PublicKeyAccount
-import sss.asado.balanceledger.{BalanceLedgerQuery, StandardTx, Tx, TxIndex, TxOutput}
+import sss.asado.balanceledger.{BalanceLedgerQuery, StandardTx, Tx, TxIndex, TxOutput, _}
+import sss.asado.block._
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
 import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityServiceQuery
-import sss.asado.block._
 import sss.asado.ledger._
-import sss.asado.balanceledger._
 import sss.asado.message._
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.state.HomeDomain
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.ui.reactor.{Event, UIEventActor}
 
@@ -52,8 +52,8 @@ class NobuNodeBridge(nobuNode: NobuNode,
                      chargePerMessage: Int,
                      amountBuriedInMail: Int = 10) extends UIEventActor {
 
-  import nobuNode._
   import NobuNodeBridge._
+  import nobuNode._
   private val userId: String = nodeIdentity.id
   private lazy val inBox = MessageInBox(userId)
 
@@ -84,18 +84,18 @@ class NobuNodeBridge(nobuNode: NobuNode,
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
-      watchingBounties.get(bId.blockTxId.txId.asHexStr) match {
+      watchingBounties.get(bId.blockTxId.txId.toBase64Str) match {
         case None => log.debug(s"Got an extra confirm for $bId")
         case Some(bountyTracker) =>
           wallet.credit(Lodgement(bountyTracker.txIndex, bountyTracker.txOutput, bId.height))
           push(Notification.show(s"ca-ching! ${bountyTracker.txOutput.amount}"))
-          watchingBounties -= bId.blockTxId.txId.asHexStr
+          watchingBounties -= bId.blockTxId.txId.toBase64Str
       }
 
     case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
       //push(Notification.show(s"Got NAckConfirm $bId"))
-      watchingBounties -= bId.blockTxId.txId.asHexStr
+      watchingBounties -= bId.blockTxId.txId.toBase64Str
 
 
     case NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
@@ -105,17 +105,17 @@ class NobuNodeBridge(nobuNode: NobuNode,
     case NetworkMessage(MessageKeys.TempNack, bytes) =>
       val m = bytes.toTxMessage
       //push(Notification.show(s"Got NACK ${m.msg}"))
-      watchingBounties -= m.txId.asHexStr
+      watchingBounties -= m.txId.toBase64Str
 
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage
       //push(Notification.show(s"Got NACK ${m.msg}"))
-      watchingBounties -= m.txId.asHexStr
+      watchingBounties -= m.txId.toBase64Str
 
     case NetworkMessage(MessageKeys.MessageResponse, bytes) =>
       bytes.toMessageResponse match {
         case SuccessResponse(txId) =>
-          watchingMsgSpends.get(txId.asHexStr).map { walletUpdate =>
+          watchingMsgSpends.get(txId.toBase64Str).map { walletUpdate =>
             wallet.update(walletUpdate.txId, walletUpdate.debits,walletUpdate.credits)
           }
           push(Notification.show(s"Message accepted!"))
@@ -135,7 +135,7 @@ class NobuNodeBridge(nobuNode: NobuNode,
       val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
       val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
       val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-      watchingBounties += signedTx.txId.asHexStr -> BountyTracker(TxIndex(signedTx.txId, 0),out)
+      watchingBounties += signedTx.txId.toBase64Str -> BountyTracker(TxIndex(signedTx.txId, 0),out)
       ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, le.toBytes), homeDomain.nodeId)
 
 

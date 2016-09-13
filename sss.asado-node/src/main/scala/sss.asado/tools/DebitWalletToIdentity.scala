@@ -1,8 +1,5 @@
 package sss.asado.tools
 
-import sss.asado.account.NodeIdentity
-import sss.asado.identityledger.IdentityService.defaultTag
-import sss.asado.util.ByteArrayVarcharOps._
 import us.monoid.web.Resty
 
 

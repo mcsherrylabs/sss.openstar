@@ -2,10 +2,10 @@ package sss.asado.block
 
 import java.sql.SQLException
 
-import sss.asado.ledger._
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.crypto.SeedBytes
+import sss.asado.ledger._
 import sss.db.Db
 
 /**

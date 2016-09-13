@@ -1,14 +1,13 @@
 package sss.ui.nobu
 
 
-import com.vaadin.ui.{Button, Layout, Notification}
 import com.vaadin.ui.Button.ClickEvent
+import com.vaadin.ui.{Button, Notification}
 import sss.ancillary.Logging
 import sss.asado.identityledger.IdentityServiceQuery
-import sss.asado.message.{AddressedMessage, Message}
 import sss.ui.design.WriteDesign
 import sss.ui.nobu.NobuNodeBridge.{MessageToSend, ShowInBox}
-import sss.ui.reactor.{Event, UIReactor}
+import sss.ui.reactor.UIReactor
 
 import scala.util.{Failure, Success, Try}
 
