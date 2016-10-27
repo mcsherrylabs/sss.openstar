@@ -1,7 +1,8 @@
 <!doctype html>
 <html>
  <head>
-  <meta charset="UTF-8" name="design-properties" content="{&quot;RULERS_VISIBLE&quot;:true,&quot;GUIDELINES_VISIBLE&quot;:false,&quot;SNAP_TO_OBJECTS&quot;:true,&quot;SNAP_TO_GRID&quot;:true,&quot;SNAPPING_DISTANCE&quot;:10,&quot;JAVA_SOURCES_ROOT&quot;:&quot;src/main/java&quot;,&quot;THEME&quot;:&quot;mytheme&quot;}">
+  <meta charset="UTF-8" name="design-properties" content="{&quot;RULERS_VISIBLE&quot;:true,&quot;GUIDELINES_VISIBLE&quot;:false,&quot;SNAP_TO_OBJECTS&quot;:true,&quot;SNAP_TO_GRID&quot;:true,&quot;SNAPPING_DISTANCE&quot;:10,&quot;JAVA_SOURCES_ROOT&quot;:&quot;src/main/java&quot;,&quot;THEME&quot;:&quot;template&quot;}">
+  <meta charset="UTF-8" name="vaadin-version" content="7.7.0">
  </head> 
  <body> 
   <vaadin-horizontal-layout style-name="valo-menu-responsive" responsive id="responsive-application-template" size-full> 
@@ -15,14 +16,14 @@
         Status 
       </vaadin-button> 
       <vaadin-button icon="fonticon://FontAwesome/f01c" primary-style-name="valo-menu-item" _id="inboxButton">
-        Inbox
+        Inbox 
       </vaadin-button> 
       <vaadin-button icon="fonticon://FontAwesome/f187" primary-style-name="valo-menu-item" _id="archiveButton">
         Archive 
-      </vaadin-button>
+      </vaadin-button> 
       <vaadin-button icon="fonticon://FontAwesome/f1d9" primary-style-name="valo-menu-item" _id="sentButton">
-       Sent
-      </vaadin-button>
+        Sent 
+      </vaadin-button> 
       <vaadin-button icon="fonticon://FontAwesome/f1de" primary-style-name="valo-menu-item" _id="settingsButton">
         Settings 
       </vaadin-button> 
@@ -32,24 +33,22 @@
      </vaadin-css-layout> 
     </vaadin-css-layout> 
    </vaadin-css-layout> 
-   <vaadin-vertical-layout size-full _id="content" :expand>
-    <vaadin-horizontal-layout spacing width-full _id="statusLayout" :middle>
+   <vaadin-vertical-layout size-full _id="content" :expand> 
+    <vaadin-horizontal-layout spacing width-full _id="statusLayout" :middle> 
      <vaadin-css-layout style-name="v-component-group" :middle> 
       <vaadin-button enabled="false" style-name="small borderless-colored" responsive plain-text _id="balanceCptnBtn">
         Balance 
       </vaadin-button> 
       <vaadin-button style-name="small borderless-colored" plain-text _id="balanceValuBtnLbl">
-        Unknown
+        Unknown 
       </vaadin-button> 
-     </vaadin-css-layout>
-     <vaadin-css-layout style-name="v-component-group" :middle>
-      <vaadin-button icon="fonticon://FontAwesome/f053" style-name="small borderless-colored" _id="prevButton">
-      </vaadin-button>
-      <vaadin-button icon="fonticon://FontAwesome/f054" style-name="small borderless-colored" _id="nextButton">
-      </vaadin-button>
-     </vaadin-css-layout>
+     </vaadin-css-layout> 
+     <vaadin-css-layout style-name="v-component-group" :middle> 
+      <vaadin-button icon="fonticon://FontAwesome/f053" style-name="small borderless-colored" _id="prevButton"></vaadin-button> 
+      <vaadin-button icon="fonticon://FontAwesome/f054" style-name="small borderless-colored" _id="nextButton"></vaadin-button> 
+     </vaadin-css-layout> 
     </vaadin-horizontal-layout> 
-    <vaadin-panel style-name="paneloverflow" size-full _id="itemPanel" :expand>
+    <vaadin-panel style-name="paneloverflow" size-full _id="itemPanel" :expand> 
      <vaadin-vertical-layout spacing margin _id="itemPanelVerticalLayout"></vaadin-vertical-layout> 
     </vaadin-panel> 
    </vaadin-vertical-layout> 

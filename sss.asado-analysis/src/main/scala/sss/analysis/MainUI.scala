@@ -1,11 +1,15 @@
 package sss.analysis
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import com.vaadin.annotations.{Push, Theme}
+import com.vaadin.server.VaadinRequest
+import com.vaadin.ui._
 import sss.analysis.Analysis.Accumulator
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
+import sss.ui.reactor.{ReactorActorSystem, UIEventActor, UIReactor}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -14,26 +18,30 @@ import scala.concurrent.duration._
 /**
   * Created by alan on 8/17/16.
   */
-object MainUI {
+@Theme("valo")
+@Push
+class MainUI extends UI with ReactorActorSystem {
 
-  def main(args: Array[String]): Unit = {
+  val clientNode = new ClientNode {
+    override val phrase: Option[String] = Some("password")
+    override val configName: String = "analysis"
+    lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
+  }
 
-    new ClientNode {
-      override val phrase: Option[String] = Some("password")
-      override val configName: String = "analysis"
+  actorSystem.actorOf(Props(classOf[OrchestratingActor], clientNode, this))
+  clientNode.initStateMachine
 
-      actorSystem.actorOf(Props(classOf[OrchestratingActor], this))
-
-    }.initStateMachine
+  override def init(request: VaadinRequest): Unit = {
+    setContent(new Dashboard(UIReactor(this), clientNode))
   }
 }
 
 
-class OrchestratingActor(clientNode: ClientNode) extends Actor with AsadoEventSubscribedActor {
+
+class OrchestratingActor(clientNode: ClientNode, ui: UI) extends Actor with AsadoEventSubscribedActor {
   import clientNode._
 
   private case object ConnectHome
-
 
     override def receive: Receive = {
       case StateMachineInitialised =>
