@@ -23,6 +23,7 @@ trait IdentityServiceQuery {
   def accounts(identity: String): Seq[TaggedPublicKeyAccount]
   def accountOpt(identity: String, tag: String = defaultTag): Option[PublicKeyAccount]
   def rescuers(identity: String): Seq[String]
+  def list(startIndex: Long = 0, pageSize: Int = Int.MaxValue): Seq[String]
 
 }
 
@@ -101,6 +102,11 @@ object IdentityService {
         case None => throw new IllegalArgumentException(s"No such identity $identity")
         case Some(rowId) => f(rowId)
       }
+    }
+
+
+    override def list(startIndex: Long, pageSize: Int): Seq[String] = {
+      identityTable.page(startIndex, pageSize).map(r => r[String](identityCol))
     }
 
     override def matches(identity: String, publicKey: PublicKey): Boolean = {

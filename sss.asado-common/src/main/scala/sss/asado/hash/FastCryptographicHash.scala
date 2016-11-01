@@ -1,6 +1,6 @@
 package sss.asado.util.hash
 
-import scorex.crypto.hash.CryptographicHash._
+
 import scorex.crypto.hash.{Blake256, CryptographicHash}
 
 /**

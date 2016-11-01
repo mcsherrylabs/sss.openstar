@@ -7,9 +7,9 @@ version := "0.2.9-SNAPSHOT"
 
 resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
-libraryDependencies += "mcsherrylabs.com" %% "scrypto" % "1.2.0-SNAPSHOT"
+libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.13"
+libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

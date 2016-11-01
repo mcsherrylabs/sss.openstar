@@ -10,24 +10,21 @@ import sss.ui.reactor.{ComponentEvent, UIEventActor, UIReactor}
   * Created by alan on 10/26/16.
   */
 
-
-class EmptyDashboard extends VerticalLayout {
-  addComponent(new Label("Loading...."))
-}
-
 class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet with Logging {
 
 
   val summary = new Summary(uiReactor)
   val blocksTab = new BlocksTab(clientNode)
+  val idsTab = new IdentitiesTab(clientNode)
 
   import summary._
 
   uiReactor.actorOf(Props(UICoordinatingActor),
-    numBlocksLbl)
+    numBlocksLbl, identitiesLbl)
 
   addTab(summary, "Summary")
   addTab(blocksTab, "Blocks")
+  addTab(idsTab, "Identities")
 
   val dashboardThis: Dashboard = this
 
@@ -37,6 +34,11 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
         dashboardThis.setSelectedTab(blocksTab)
         blocksTab.update(numBlocksLbl.getCaption.toLong)
         log.info("It's done!")
+      }
+
+      case ComponentEvent(`identitiesLbl`,_) => push {
+        dashboardThis.setSelectedTab(idsTab)
+        log.info("It's done ids!")
       }
     }
   }

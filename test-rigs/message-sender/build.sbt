@@ -15,9 +15,9 @@ scalaVersion := "2.11.8"
 
 resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
-dependencyOverrides += "mcsherrylabs.com" %% "scrypto" % "1.2.0-SNAPSHOT"
+dependencyOverrides += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
-dependencyOverrides += "mcsherrylabs.com" %% "sss-ancillary" % "0.9.13"
+dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "0.9.13"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
@@ -29,17 +29,17 @@ libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
 libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-db" % "0.9.33"
+libraryDependencies += "com.mcsherrylabs" %% "sss-db" % "0.9.33"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-console-util" % "0.1.2"
+libraryDependencies += "com.mcsherrylabs" %% "sss-console-util" % "0.1.2"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-asado-network" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-network" % "0.2.9-SNAPSHOT"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-asado-node" % "0.2.11-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-node" % "0.2.11-SNAPSHOT"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-asado-common" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-common" % "0.2.9-SNAPSHOT"
 
-libraryDependencies += "mcsherrylabs.com" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
