@@ -16,11 +16,12 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   val summary = new Summary(uiReactor)
   val blocksTab = new BlocksTab(clientNode)
   val idsTab = new IdentitiesTab(clientNode)
+  val txsTab = new TransactionsTab(clientNode)
 
   import summary._
 
   uiReactor.actorOf(Props(UICoordinatingActor),
-    numBlocksLbl, identitiesLbl)
+    numBlocksLbl, identitiesLbl, txsLbl)
 
   addTab(summary, "Summary")
   addTab(blocksTab, "Blocks")
@@ -38,7 +39,11 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
       case ComponentEvent(`identitiesLbl`,_) => push {
         dashboardThis.setSelectedTab(idsTab)
+        idsTab.update()
         log.info("It's done ids!")
+      }
+      case ComponentEvent(`txsLbl`,_) => push {
+        dashboardThis.setSelectedTab(txsTab)
       }
     }
   }

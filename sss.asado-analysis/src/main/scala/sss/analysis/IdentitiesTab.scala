@@ -1,6 +1,6 @@
 package sss.analysis
 
-import com.vaadin.ui.{Label, TextField, VerticalLayout}
+import com.vaadin.ui._
 import sss.asado.nodebuilder.ClientNode
 
 /**
@@ -8,16 +8,29 @@ import sss.asado.nodebuilder.ClientNode
   */
 class IdentitiesTab(clientNode: ClientNode) extends VerticalLayout {
 
-  addComponent(new Label("Og REALLLY?"))
+  val panel = new Panel("Asado Identities")
+  val layout = new FormLayout()
+  setSpacing(true)
+  setMargin(true)
+  layout.setSpacing(true)
+  layout.setMargin(true)
+  panel.setContent(layout)
+  addComponent(panel)
 
-  clientNode.identityService.list() foreach { id =>
+  update()
 
-    val tf = new TextField(id)
-    tf.setValue(clientNode.identityService.accounts(id).map(_.tag).mkString(","))
-    tf.setReadOnly(true)
-    addComponent(tf)
+  def update() {
 
+    layout.removeAllComponents()
+    clientNode.identityService.list() foreach { id =>
+
+      val tf = new TextField(id)
+
+      tf.setValue(clientNode.identityService.accounts(id).map(_.tag).mkString(","))
+      tf.setReadOnly(true)
+      layout.addComponent(tf)
+
+    }
   }
-
 
 }

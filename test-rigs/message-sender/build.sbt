@@ -17,7 +17,7 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 dependencyOverrides += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
-dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "0.9.13"
+dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 

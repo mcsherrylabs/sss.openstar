@@ -8,7 +8,7 @@ import sss.analysis.Analysis.Accumulator
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
+import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, ReadyStateEvent, StateMachineInitialised}
 import sss.ui.reactor.{ReactorActorSystem, UIEventActor, UIReactor}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -50,6 +50,7 @@ class OrchestratingActor(clientNode: ClientNode, ui: UI) extends Actor with Asad
           FiniteDuration(5, SECONDS),
           self, ConnectHome)
 
+      case NotOrderedEvent => connectHome
       case ConnectHome => connectHome
 
       case ReadyStateEvent =>
