@@ -4,14 +4,13 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.vaadin.annotations.{Push, Theme}
 import com.vaadin.server.VaadinRequest
 import com.vaadin.ui._
-import sss.analysis.Analysis.Accumulator
+import sss.analysis.AnalysisOld.Accumulator
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, ReadyStateEvent, StateMachineInitialised}
 import sss.ui.reactor.{ReactorActorSystem, UIEventActor, UIReactor}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 
@@ -22,36 +21,18 @@ import scala.concurrent.duration._
 @Push
 class MainUI extends UI with ReactorActorSystem {
 
-  val clientNode = new ClientNode {
-    override val phrase: Option[String] = Some("password")
-    override val configName: String = "analysis"
-    lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
-  }
-
-  actorSystem.actorOf(Props(classOf[OrchestratingActor], clientNode, this))
-  clientNode.initStateMachine
-
   override def init(request: VaadinRequest): Unit = {
-    setContent(new Dashboard(UIReactor(this), clientNode))
+    setContent(new Dashboard(UIReactor(this), Main.clientNode))
   }
 }
 
 
 
-class OrchestratingActor(clientNode: ClientNode, ui: UI) extends Actor with AsadoEventSubscribedActor {
+class OrchestratingActor(clientNode: ClientNode, i: UI) extends Actor with AsadoEventSubscribedActor {
   import clientNode._
 
-  private case object ConnectHome
 
     override def receive: Receive = {
-      case StateMachineInitialised =>
-        startNetwork
-        context.system.scheduler.scheduleOnce(
-          FiniteDuration(5, SECONDS),
-          self, ConnectHome)
-
-      case NotOrderedEvent => connectHome
-      case ConnectHome => connectHome
 
       case ReadyStateEvent =>
         log.info("Ready Nothing to do")
@@ -65,7 +46,7 @@ class OrchestratingActor(clientNode: ClientNode, ui: UI) extends Actor with Asad
           log.info(s"Attempting Block Height $i of $all with ${b.entries.size} txs.")
           assert(b.height == i)
           val cbIn = outs.coinbaseTotal
-          outs = Analysis.analyse(b, outs)
+          outs = AnalysisOld.analyse(b, outs)
           val newCb = outs.coinbaseTotal
           val cbInc = newCb - cbIn
           if(cbInc > 1000) {

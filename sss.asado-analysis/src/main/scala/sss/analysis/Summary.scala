@@ -29,7 +29,7 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
 
   val panel = new Panel("Asado Statistics")
 
-  val grid = new GridLayout(2, 6)
+  val grid = new GridLayout(2, 8)
 
   grid.setSpacing(true)
   grid.setMargin(true)
@@ -43,14 +43,17 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   val balanceBtnLbl = makeLhsLabel("Ledger Balance", 1)
   val identitiesBtnLbl = makeLhsLabel("Identities", 2)
   val txsBtnLbl = makeLhsLabel("Txs", 3)
+  val connectedLbl = makeLhsLabel("Connected", 4)
 
-  val numBlocksLbl = makeRhsValue("0", 0)
+  val numBlocksLbl = makeRhsValue("10", 0)
 
   val balanceLbl = makeRhsValue("0", 1)
   val identitiesLbl = makeRhsValue("0", 2)
   val txsLbl = makeRhsValue("0", 3)
+  val connectedRhs = makeRhsValue("Not connected", 4)
 
-  txsLbl.setCaption("10009")
+
+  txsLbl.setCaption("10")
 
   setCaption("Asado Statistics")
   panel.setContent(grid)
@@ -60,4 +63,5 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   def setTxCount(count: Long) = txsLbl.setCaption(count.toString)
   def setIdentitiesCount(count: Long) = identitiesLbl.setCaption(count.toString)
   def setBalance(bal: Long) = balanceLbl.setCaption(bal.toString)
+  def setConnected(info: String) = connectedRhs.setCaption(info)
 }

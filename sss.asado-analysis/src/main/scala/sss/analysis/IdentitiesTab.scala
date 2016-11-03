@@ -1,5 +1,7 @@
 package sss.analysis
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
+
 import com.vaadin.ui._
 import sss.asado.nodebuilder.ClientNode
 
@@ -17,12 +19,17 @@ class IdentitiesTab(clientNode: ClientNode) extends VerticalLayout {
   panel.setContent(layout)
   addComponent(panel)
 
+  val idCount = new AtomicInteger(0)
+
   update()
 
   def update() {
 
     layout.removeAllComponents()
-    clientNode.identityService.list() foreach { id =>
+    val all = clientNode.identityService.list()
+    idCount.set(all.size)
+
+    all foreach { id =>
 
       val tf = new TextField(id)
 
