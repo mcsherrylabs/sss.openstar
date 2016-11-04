@@ -3,13 +3,13 @@ name := "sss.asado-common"
 
 scalaVersion := "2.11.8"
 
-version := "0.2.9-SNAPSHOT"
+version := "0.3-SNAPSHOT"
 
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+//resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
 libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
+libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

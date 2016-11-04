@@ -17,7 +17,7 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 dependencyOverrides += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
-dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
+dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
@@ -33,13 +33,13 @@ libraryDependencies += "com.mcsherrylabs" %% "sss-db" % "0.9.33"
 
 libraryDependencies += "com.mcsherrylabs" %% "sss-console-util" % "0.1.2"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-network" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-network" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-node" % "0.2.11-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-common" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-common" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-asado-ledger" % "0.3-SNAPSHOT"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

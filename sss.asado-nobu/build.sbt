@@ -18,13 +18,12 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 val vaadinVer = "7.5.8"
 
-dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "0.9.12"
 
-dependencyOverrides += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
+//dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.4.0",
-  "com.typesafe.akka" %% "akka-remote" % "2.4.0",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.+",
+  "com.typesafe.akka" %% "akka-remote" % "2.4.+",
   "com.vaadin" % "vaadin-server" % vaadinVer,
   "com.vaadin" % "vaadin-themes" % vaadinVer,
   "com.vaadin" % "vaadin-push" % vaadinVer,
@@ -33,11 +32,12 @@ libraryDependencies ++= Seq(
   "us.monoid.web" % "resty" % "0.3.2",
   "org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   "org.vaadin.addons" % "animator" % "1.7.4",
-  "com.mcsherrylabs" %% "sss-asado-node" % "0.2.11-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-asado-ledger" % "0.2.9-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % "0.2",
+  "com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT",
+  "com.mcsherrylabs" %% "sss-asado-ledger" % "0.3-SNAPSHOT",
+  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % "0.3-SNAPSHOT",
   "org.scalatra" % "scalatra_2.11" % "2.4.0",
   "io.spray" %%  "spray-json" % "1.3.2",
+  "com.typesafe.akka" % "akka-slf4j_2.11" % "2.4.8",
   "org.scalatest" %% "scalatest" % "2.2.6" % Test
 )
 
@@ -57,4 +57,4 @@ mappings in Universal ++= directory("WebContent")
 
 scriptClasspath := Seq("*")
 
-mainClass in (Compile, run) := Some("sss.ui.Main")
+mainClass in (Compile, run) := Some("sss.ui.nobu.Main")

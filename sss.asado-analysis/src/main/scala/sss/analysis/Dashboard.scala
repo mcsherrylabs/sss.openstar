@@ -2,7 +2,7 @@ package sss.analysis
 
 import akka.actor.{ActorRef, Props}
 import com.vaadin.ui._
-import sss.analysis.DashBoard.{Connected, LostConnection}
+import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
 import sss.ancillary.Logging
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.nodebuilder.ClientNode
@@ -17,6 +17,7 @@ object DashBoard {
   trait DashBoardEvent extends Event {
     override val category: String = "dashBoard"
   }
+  case class NewBlockAnalysed(blockHeight: Long) extends DashBoardEvent
   case class Connected(node: String) extends DashBoardEvent
   case object LostConnection extends DashBoardEvent
 
@@ -64,6 +65,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
       }
       case Connected(who) => push { setConnected(who)}
       case LostConnection => push { setConnected("Disconnected")}
+      case NewBlockAnalysed(bh) => push{ setBlockCount(bh) }
     }
   }
 }

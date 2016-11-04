@@ -5,13 +5,13 @@ parallelExecution in Test := false
 
 name := "sss.asado-network"
 
-version := "0.2.9-SNAPSHOT"
+version := "0.3-SNAPSHOT"
 
 scalaVersion := "2.11.8"
 
 resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
 
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+//resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
@@ -25,7 +25,7 @@ libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
 libraryDependencies += "com.google.guava" % "guava" % "16.+"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
+libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 

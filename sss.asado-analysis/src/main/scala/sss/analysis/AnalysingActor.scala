@@ -1,7 +1,7 @@
 package sss.analysis
 
 import akka.actor.Actor
-import sss.analysis.DashBoard.{Connected, LostConnection}
+import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
@@ -62,21 +62,17 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
       //startNetwork
       //self ! ConnectHomeDelay()
 
-    case a @ Analyse(blockHeight) =>
-      Analysis.opt(blockHeight) match {
-        case None if(bc.lastBlockHeader.height < blockHeight) =>
-          context.system.scheduler.scheduleOnce(
-            FiniteDuration(5, MINUTES),
-            self, a)
-        case None =>
-            val block = bc.block(blockHeight)
-            Analysis.opt(blockHeight - 1) match {
-              case None => log.warn(s"No analysis for previous block, cannot analyse this height? $blockHeight")
-              case Some(a) => Analysis.analyse(block, a)
-            }
+    case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
+        context.system.scheduler.scheduleOnce(
+          FiniteDuration(5, MINUTES),
+          self, a)
 
-        case Some(analysis) => self ! Analyse(blockHeight + 1)
-      }
+    case a @ Analyse(blockHeight) =>
+      val block = bc.block(blockHeight)
+      Analysis.analyse(block)
+      self ! Analyse(blockHeight + 1)
+      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(blockHeight)
+
   }
 
 }
