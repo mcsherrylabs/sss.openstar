@@ -20,6 +20,7 @@ import sss.asado.util.ByteArrayEncodedStrOps._
   */
 class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
 
+  import clientNode.db
   val panel = new Panel("Asado Block")
   val maxRows = 8
   val grid = new GridLayout(2, maxRows)
@@ -72,7 +73,7 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
         while(grid.getRows > maxRows) grid.removeRow(grid.getRows)
         panel.setCaption(s"Asado Block $blockHeight")
         numInBlock.setValue(header.numTxs.toString)
-        val analysis = Analysis(blockHeight - 1)
+        val analysis = Analysis.load(blockHeight - 1)
         val block = clientNode.bc.block(blockHeight)
         val allEntries = block.entries
         val result: Seq[InOut] = allEntries.foldLeft(analysis.txOuts)((acc, le) => {

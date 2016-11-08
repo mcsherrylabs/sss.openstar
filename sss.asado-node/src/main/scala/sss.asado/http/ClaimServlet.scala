@@ -73,7 +73,7 @@ class ClaimServlet(actorSystem:ActorSystem,
             val p = Promise[String]()
             claimsActor ! Claiming(claiming, le.txIdHexStr, NetworkMessage(PublishedMessageKeys.SignedTx, le.toBytes), p)
             p.future.map { Ok(_) }
-            Await.result(p.future, Duration(1, MINUTES))
+            Await.result(p.future, Duration(5, MINUTES))
 
       }
     }
