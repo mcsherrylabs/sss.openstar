@@ -109,7 +109,7 @@ class MessageQueryHandlerActor(messageRouter: ActorRef,
           Try {
             val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
             val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
-            val index = MessagePersist(toId).pending(nId.id, addrMsg.msg, addrMsg.ledgerItem.toBytes)
+            val index = MessagePersist(toId).pending(nId.id, addrMsg.msg, addrMsg.ledgerItem.txEntryBytes)
             val netMsg = NetworkMessage(MessageKeys.SignedTx, addrMsg.ledgerItem.toBytes)
             messageSenders += (addrMsg.ledgerItem.txId.toBase64Str -> MessageTracker(sender(), toId, index, netMsg))
             messageRouter ! netMsg

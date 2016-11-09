@@ -49,12 +49,13 @@ object MessageComponent extends Logging {
 
   def toDetails(msg: Message)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
-    val le = msg.tx.toLedgerItem
+    //val le = msg.tx.toLedgerItem
 
-    require(le.ledgerId == MessageKeys.BalanceLedger, s"Message download expecting a balance ledger entry ${MessageKeys.BalanceLedger}, but got ${le.ledgerId}")
+    //require(le.ledgerId == MessageKeys.BalanceLedger, s"Message download expecting a balance ledger entry ${MessageKeys.BalanceLedger}, but got ${le.ledgerId}")
 
-    val sTx = le.txEntryBytes.toSignedTxEntry
-    val tx = sTx.txEntryBytes.toTx
+    //val sTx = le.txEntryBytes.toSignedTxEntry
+    //val tx = sTx.txEntryBytes.toTx
+    val tx = msg.tx.toSignedTxEntry.txEntryBytes.toTx
     val bount = tx.outs(1).amount
     val enc = MessageEcryption.encryptedMessage(msg.msg)
     Try(identityServiceQuery.account(msg.from)) match {
@@ -87,7 +88,6 @@ trait MsgDetails {
 
 class MessageComponent(parentLayout: Layout,
                        mainActorRef: ActorRef,
-                       uiReactor: UIReactor,
                        protected val msgDetails: MsgDetails
                        ) extends MessageDesign {
 
@@ -111,27 +111,26 @@ class MessageComponent(parentLayout: Layout,
 
 }
 
-class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, uiReactor: UIReactor, msg:Message)
+class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Message)
                          (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends
   MessageComponent(parentLayout,
     mainActorRef,
-    uiReactor,
     toDetails(msg)) {
 
-  if(msgDetails.canClaim) uiReactor.broadcast(ClaimBounty(msg.tx.toLedgerItem, msgDetails.secret))
+  if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.tx.toSignedTxEntry, msgDetails.secret)
 
   deleteMsgBtn.addClickListener(new ClickListener {
     override def buttonClick(event: ClickEvent): Unit = {
-      uiReactor.broadcast(MessageToArchive(msg.index))
+      mainActorRef ! MessageToArchive(msg.index)
       parentLayout.removeComponent(NewMessageComponent.this)
     }
   })
 
 }
 
-class DeleteMessageComponent(parentLayout: Layout,mainActorRef: ActorRef,  uiReactor: UIReactor,msg:Message)
+class DeleteMessageComponent(parentLayout: Layout,mainActorRef: ActorRef, msg:Message)
                             (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
-  extends MessageComponent(parentLayout, mainActorRef, uiReactor,
+  extends MessageComponent(parentLayout, mainActorRef,
     toDetails(msg)) {
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
@@ -139,21 +138,21 @@ class DeleteMessageComponent(parentLayout: Layout,mainActorRef: ActorRef,  uiRea
 
   deleteMsgBtn.addClickListener(new ClickListener {
     override def buttonClick(event: ClickEvent): Unit = {
-      uiReactor.broadcast(MessageToDelete(msg.index))
+      mainActorRef ! MessageToDelete(msg.index)
       parentLayout.removeComponent(DeleteMessageComponent.this)
     }
   })
 }
 
-class SentMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, uiReactor: UIReactor,msg:SavedAddressedMessage)
+class SentMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:SavedAddressedMessage)
                           (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
-  extends MessageComponent(parentLayout,  mainActorRef, uiReactor, toDetails(msg)) {
+  extends MessageComponent(parentLayout,  mainActorRef, toDetails(msg)) {
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
 
   deleteMsgBtn.addClickListener(new ClickListener {
     override def buttonClick(event: ClickEvent): Unit = {
-      uiReactor.broadcast(SentMessageToDelete(msg.index))
+      mainActorRef ! SentMessageToDelete(msg.index)
       parentLayout.removeComponent(SentMessageComponent.this)
     }
   })

@@ -17,6 +17,7 @@ import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.state.HomeDomain
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.wallet.Wallet
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.ui.reactor.{Event, UIEventActor}
 
@@ -32,19 +33,21 @@ object NobuNodeBridge {
     override val category: String = NobuCategory
   }
 
-  case class WalletUpdate(txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
-  case class ClaimBounty(ledgerItem: LedgerItem, secret: Array[Byte]) extends NobuEvent
-  case class MessageToSend(to : Identity, account: PublicKeyAccount, text: String) extends NobuEvent
+  case class Connected(who:String) extends NobuEvent
+  case object LostConnection extends NobuEvent
+  case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
+  case class ClaimBounty(stx: SignedTxEntry, secret: Array[Byte]) extends NobuEvent
+  case class MessageToSend(to : Identity, account: PublicKeyAccount, text: String, amount: Int) extends NobuEvent
   case class SentMessageToDelete(index:Long) extends NobuEvent
   case class MessageToDelete(index:Long) extends NobuEvent
   case class MessageToArchive(index:Long) extends NobuEvent
   case object ShowInBox extends NobuEvent
-  case class BountyTracker(txIndex: TxIndex, txOutput: TxOutput)
+  case class BountyTracker(sndr: ActorRef, wallet: Wallet, txIndex: TxIndex, txOutput: TxOutput)
 
 }
 
 
-class NobuNodeBridge(nobuNode: NobuNode,
+/*class NobuNodeBridge(nobuNode: NobuNode,
                      homeDomain: HomeDomain,
                      balanceLedgerQuery: BalanceLedgerQuery,
                      identityService: IdentityServiceQuery,
@@ -135,11 +138,11 @@ class NobuNodeBridge(nobuNode: NobuNode,
       val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
       val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
       val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-      watchingBounties += signedTx.txId.toBase64Str -> BountyTracker(TxIndex(signedTx.txId, 0),out)
+      watchingBounties += signedTx.txId.toBase64Str -> BountyTracker(_, TxIndex(signedTx.txId, 0),out)
       ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, le.toBytes), homeDomain.nodeId)
 
 
-    case MessageToSend(to, account, text) => {
+    case MessageToSend(to, account, text, _) => {
 
       val baseTx = createFundedTx
       val changeTxOut = baseTx.outs.take(1)
@@ -155,7 +158,7 @@ class NobuNodeBridge(nobuNode: NobuNode,
 
       val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toBytes, le.toBytes)
 
-      watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
+      watchingMsgSpends += le.txIdHexStr -> WalletUpdate(_, tx.txId, tx.ins, changeTxOut)
 
       ncRef ! SendToNodeId(NetworkMessage(MessageKeys.MessageAddressed, m.addrMsg.toBytes), homeDomain.nodeId)
     }
@@ -163,4 +166,4 @@ class NobuNodeBridge(nobuNode: NobuNode,
     case MessageToArchive(index) => inBox.archive(index)
     case SentMessageToDelete(index) => inBox.deleteSent(index)
   }
-}
+}*/

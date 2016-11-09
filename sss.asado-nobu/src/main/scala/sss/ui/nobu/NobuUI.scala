@@ -23,7 +23,6 @@ class NobuUI extends UI with ViewChangeListener with Configure {
 
     VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1)
 
-
     val uiReactor = UIReactor(this)
     val navigator = new Navigator(this, this)
     navigator.addViewChangeListener(this)
@@ -31,7 +30,7 @@ class NobuUI extends UI with ViewChangeListener with Configure {
     val keyFolder = config.getString("keyfolder")
     new File(keyFolder).mkdirs()
 
-    val claimUnlockView = new UnlockClaimView(uiReactor, keyFolder, NobuNode.NodeBootstrap.homeDomain)
+    val claimUnlockView = new UnlockClaimView(uiReactor, keyFolder, Main.clientNode, Main.clientEventActor)
     navigator.addView(UnlockClaimView.name, claimUnlockView)
 
 

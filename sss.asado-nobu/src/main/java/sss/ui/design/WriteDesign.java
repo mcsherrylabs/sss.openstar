@@ -23,7 +23,7 @@ public class WriteDesign extends VerticalLayout {
 	protected TextField toField;
 	protected TextArea messageText;
 	protected Button sendButton;
-
+	protected TextField amountField;
 	public WriteDesign() {
 		Design.read(this);
 	}

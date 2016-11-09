@@ -14,13 +14,12 @@ import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.ledger._
+import sss.asado.nodebuilder.{ClientNode, WalletBuilder}
 import sss.asado.state.HomeDomain
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.wallet.WalletPersistence.Lodgement
+import sss.asado.wallet.{Wallet, WalletPersistence}
 import sss.ui.design.CenteredAccordianDesign
-import sss.ui.nobu.NobuNode.NodeBootstrapWallet
-import sss.ui.reactor.{ComponentEvent, UIReactor}
-import us.monoid.web.Resty
+import sss.ui.reactor.{ComponentEvent, Register, UIReactor}
 
 import scala.util.{Failure, Success, Try}
 
@@ -37,7 +36,8 @@ private case class IdTagValue(str: String) {
 class UnlockClaimView(
                       uiReactor: UIReactor,
                       keyFolder: String,
-                      homeDomain: HomeDomain
+                      clientNode: ClientNode,
+                      clientEventActor: ActorRef
                       ) extends CenteredAccordianDesign with View with Logging {
 
   private val claimBtnVal = claimBtn
@@ -82,9 +82,9 @@ class UnlockClaimView(
 
   }
 
-  claimMnuBtn.addClickListener(new Button.ClickListener{
-    override def buttonClick(event: ClickEvent): Unit = showClaim
-  })
+//  claimMnuBtn.addClickListener(new Button.ClickListener{
+//    override def buttonClick(event: ClickEvent): Unit = showClaim
+//  })
 
   unlockMnuBtn.addClickListener(new Button.ClickListener{
     override def buttonClick(event: ClickEvent): Unit = showUnlock(getKeyNames(keyFolder))
@@ -107,44 +107,6 @@ class UnlockClaimView(
   object UnlockClaimViewActor extends sss.ui.reactor.UIEventActor {
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI) = {
-      case ComponentEvent(`claimBtnVal`, _) =>
-
-        val claim = claimIdentityText.getValue
-        val claimTag = claimTagText.getValue
-        if(NodeIdentity.keyExists(claim, claimTag)) {
-          push(Notification.show(s"Identity $claim, $claimTag exists, try loading it instead?"))
-        } else {
-          Try {
-            val phrase = claimPhrase.getValue
-            val nId = NodeIdentity(claim, claimTag, phrase)
-            val publicKey = nId.publicKey.toBase64Str
-            val http = homeDomain.http
-            (http, publicKey, nId)
-          } match {
-            case Failure(e) => push(Notification.show(s"${e.getMessage}"))
-            case Success((http, publicKey, nId)) =>
-
-              Try(new Resty().text(s"$http/claim?claim=$claim&tag=$claimTag&pKey=$publicKey")) match {
-                case Failure(e) =>
-                  NodeIdentity.deleteKey(claim, claimTag)
-                  log.error(s"Failed to claim $claim $e")
-                  push(Notification.show(s"Failed to claim identity from domain $homeDomain, see error log for details."))
-                case Success(resultText) => resultText.toString match {
-                  case msg if msg.startsWith("ok:") =>
-                    val asAry = msg.substring(3).split(":")
-                    val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
-                    val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(nId.id, 0))
-                    val inBlock = asAry(3).toLong
-                    NodeBootstrapWallet(nId).walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
-                    gotoMainView(nId)
-
-                  case errMsg =>
-                    NodeIdentity.deleteKey(claim, claimTag)
-                    push(Notification.show(s"$errMsg"))
-                }
-              }
-          }
-        }
 
       case ComponentEvent(`unlockBtnVal`, _) =>
         Option(identityCombo.getValue) map { idTag =>
@@ -162,10 +124,18 @@ class UnlockClaimView(
         }
     }
 
+    def createWallet(nId: NodeIdentity) : Wallet = {
+      new Wallet(nId,
+        clientNode.balanceLedger,
+        clientNode.identityService,
+        new WalletPersistence(nId.id, clientNode.db),
+        clientNode.currentBlockHeight _)
+    }
+
     def gotoMainView(nId: NodeIdentity): Unit = {
+      val userWallet = createWallet(nId)
       getSession().setAttribute(UnlockClaimView.identityAttr, nId.id)
-      val nobuNode = NobuNode(uiReactor, nId)
-      val mainView = new NobuMainLayout(uiReactor, nobuNode)
+      val mainView = new NobuMainLayout(uiReactor, userWallet, nId, clientNode, clientEventActor)
       push {
         getUI().getNavigator.addView(mainView.name, mainView)
         getUI().getNavigator.navigateTo(mainView.name)

@@ -83,7 +83,7 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
 
   def addNew(msg: Message): Message = table.tx {
 
-    toMsg(table.insert(Map(
+    toMsg(table.persist(Map(
       idCol -> msg.index,
       fromCol -> msg.from,
       statusCol -> statusNew,
