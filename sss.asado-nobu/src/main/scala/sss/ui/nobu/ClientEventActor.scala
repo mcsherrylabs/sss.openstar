@@ -5,6 +5,7 @@ import com.vaadin.ui.Notification
 import org.joda.time.LocalDateTime
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.balanceledger.TxIndex
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network.NetworkController.SendToNodeId
@@ -92,11 +93,15 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
       watchingMsgSpends += savedAddressedMessage.addrMsg.ledgerItem.txIdHexStr -> b
       clientNode.ncRef ! SendToNodeId(netMsg, clientNode.homeDomain.nodeId)
 
+    case b@BountyTracker(sender, userWallet, txIndex,out, le) =>
+      watchingBounties += txIndex.txId.toBase64Str -> b
+      clientNode.ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, le.toBytes), clientNode.homeDomain.nodeId)
+
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
       val txId = bId.blockTxId.txId
       watchingBounties.get(bId.blockTxId.txId.toBase64Str) map { bountyTracker =>
-        wallet.credit(Lodgement(bountyTracker.txIndex, bountyTracker.txOutput, bId.height))
+        bountyTracker.wallet.credit(Lodgement(bountyTracker.txIndex, bountyTracker.txOutput, bId.height))
         watchingBounties -= bId.blockTxId.txId.toBase64Str
         bountyTracker.sndr ! Show(s"ca-ching! ${bountyTracker.txOutput.amount}")
       }

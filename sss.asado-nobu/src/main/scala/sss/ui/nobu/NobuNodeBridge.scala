@@ -42,7 +42,7 @@ object NobuNodeBridge {
   case class MessageToDelete(index:Long) extends NobuEvent
   case class MessageToArchive(index:Long) extends NobuEvent
   case object ShowInBox extends NobuEvent
-  case class BountyTracker(sndr: ActorRef, wallet: Wallet, txIndex: TxIndex, txOutput: TxOutput)
+  case class BountyTracker(sndr: ActorRef, wallet: Wallet, txIndex: TxIndex, txOutput: TxOutput, le:LedgerItem)
 
 }
 

@@ -147,9 +147,6 @@ class NobuMainLayout(uiReactor: UIReactor,
       userWallet.sign(tx, secret)
     }
 
-    var watchingBounties: Map[String, BountyTracker] = Map()
-    var watchingMsgSpends: Map[String, WalletUpdate] = Map()
-
     def initInBoxPager = inBox.inBoxPager(4)
     def initSentPager = inBox.sentPager(4)
     def initArchivedPager = inBox.archivedPager(4)
@@ -235,8 +232,8 @@ class NobuMainLayout(uiReactor: UIReactor,
         val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
         val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
         val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-        watchingBounties += signedTx.txId.toBase64Str -> BountyTracker(sender(), userWallet, TxIndex(signedTx.txId, 0),out)
-        nobuNode.ncRef ! SendToNodeId(NetworkMessage(MessageKeys.SignedTx, le.toBytes), nobuNode.homeDomain.nodeId)
+        clientEventActor ! BountyTracker(self, userWallet, TxIndex(signedTx.txId, 0),out, le)
+
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))
         case Success(_) =>
