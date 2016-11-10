@@ -19,7 +19,7 @@ class CBCEncryptionSpec extends PropSpec
 
     forAll (minSuccessful(1)){ (key: String, value: String) => {
       whenever(key.length > 0 && value.length > 0) {
-        val iv = CBCEncryption.newInitVector
+        val iv = CBCEncryption.newInitVector()
         val encrypted = CBCEncryption.encrypt(key, value, iv)
         new String(encrypted, StandardCharsets.UTF_8) shouldNot be(value)
         new String(encrypted, StandardCharsets.UTF_8) shouldNot be(key)
@@ -40,7 +40,7 @@ class CBCEncryptionSpec extends PropSpec
 
     forAll (minSuccessful(1)){ (key: String, value: Array[Byte]) => {
       whenever(key.length > 0 && value.length > 0) {
-        val iv = CBCEncryption.newInitVector
+        val iv = CBCEncryption.newInitVector()
         val encrypted = CBCEncryption.encrypt(key, value, iv)
         encrypted shouldNot be(value)
         new String(encrypted, StandardCharsets.UTF_8) shouldNot be(key)
@@ -61,7 +61,7 @@ class CBCEncryptionSpec extends PropSpec
 
     forAll (minSuccessful(1)){ (key: Array[Byte], value: String) => {
       whenever(key.length > 0 && value.length > 0) {
-        val iv = CBCEncryption.newInitVector
+        val iv = CBCEncryption.newInitVector()
         val encrypted = CBCEncryption.encrypt(key, value, iv)
         new String(encrypted, StandardCharsets.UTF_8) shouldNot be(value)
         encrypted shouldNot be(key)
@@ -84,7 +84,7 @@ class CBCEncryptionSpec extends PropSpec
 
     forAll (minSuccessful(1)){ (key: Array[Byte], value: Array[Byte]) => {
       whenever(key.length > 0 && value.length > 0) {
-        val iv = CBCEncryption.newInitVector
+        val iv = CBCEncryption.newInitVector()
 
         val encrypted = CBCEncryption.encrypt(key, value, iv)
         encrypted shouldNot be(value)

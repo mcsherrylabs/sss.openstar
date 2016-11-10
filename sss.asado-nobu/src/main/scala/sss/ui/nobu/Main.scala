@@ -28,6 +28,7 @@ object Main {
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")
     server = ServerLauncher(httpConfig,
       ServletContext("/", "WebContent", InitServlet(buildUIServlet, "/*")),
+      ServletContext("/console", "", InitServlet(clientNode.buildConsoleServlet.get, "/*")),
       ServletContext("/service", ""))
 
     server.start

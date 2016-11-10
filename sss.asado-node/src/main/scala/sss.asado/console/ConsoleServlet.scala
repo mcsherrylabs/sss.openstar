@@ -4,14 +4,18 @@ import java.net.InetSocketAddress
 
 import akka.actor.ActorRef
 import akka.agent.Agent
+import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.Block
 import sss.asado.block.signature.BlockSignatures
+import sss.asado.contract.SingleIdentityEnc
 import sss.asado.identityledger.IdentityService
 import sss.asado.network.NetworkController.ConnectTo
 import sss.asado.network.{Connection, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.wallet.Wallet
+import sss.asado.wallet.WalletPersistence.Lodgement
+import sss.asado.wallet.{Wallet, WalletPersistence}
 import sss.db.{Db, Where}
+import sss.asado.ledger._
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
@@ -36,6 +40,32 @@ class ConsoleServlet(peerList: Agent[Set[Connection]],
       override def apply(params: Seq[String]): Seq[String] = {
         val sigs = BlockSignatures(params.head.toLong).signatures(params(1).toInt).map(_.toString)
         Seq(s"Num sigs is ${sigs.size}") ++ sigs
+      }
+    },
+    "listunspent" -> new Cmd {
+      override def help = s"listunspent <identity> "
+      override def apply(params: Seq[String]): Seq[String] = {
+        val identity = params(0)
+        val walletPersistence = new WalletPersistence(identity, db)
+        walletPersistence.listUnSpent.map { us =>
+          s"${us.txIndex}, block ${us.inBlock}"
+        }
+      }
+    },
+    "addtowallet" -> new Cmd {
+      override def help = s"addtowallet <identity> <txId> <index> <amount> <blockheight>"
+      override def apply(params: Seq[String]): Seq[String] = {
+        val identity = params(0)
+        val walletPersistence = new WalletPersistence(identity, db)
+        val txId = params(1).asTxId
+        val index = params(2).toInt
+        val amount = params(3).toInt
+        val inBlock = params(4).toLong
+
+        val txIndx = TxIndex(txId, index)
+        val txOutput = TxOutput(amount, SingleIdentityEnc(identity, 0))
+        walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
+        Seq(s"use listunspent to see the change ")
       }
     },
     "balance" -> new Cmd {

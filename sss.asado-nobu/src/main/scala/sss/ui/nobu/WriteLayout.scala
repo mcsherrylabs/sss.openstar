@@ -22,7 +22,6 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String)
 
   import NobuUI.CRLF
 
-
   toField.setValue(to)
 
   if (text.length > 0) messageText.setValue(CRLF + CRLF + text)
@@ -51,8 +50,9 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String)
                       case Some(text) if text.length == 0 =>
                         Notification.show("Cannot send an empty message", Notification.Type.WARNING_MESSAGE)
                       case Some(text) =>
-                        mainNobuRef ! MessageToSend(to, ac, text, amount)
+                        sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
+                        mainNobuRef ! MessageToSend(to, ac, text, amount)
                     }
                 }
             }

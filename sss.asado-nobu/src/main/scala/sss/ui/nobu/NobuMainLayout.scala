@@ -9,7 +9,7 @@ import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput}
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
-import sss.asado.crypto.SeedBytes
+import sss.asado.crypto.{CBCEncryption, SeedBytes}
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageInBox.MessagePage
@@ -30,7 +30,7 @@ import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 /**
   * Created by alan on 6/10/16.
@@ -241,21 +241,21 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case MessageToSend(to, account, text, amount) => Try {
 
+        log.info("MessageToSend begins")
         val baseTx = createFundedTx(amount)
         val changeTxOut = baseTx.outs.take(1)
-        val secret = SeedBytes(1)
+        val secret = Array[Byte](8) //SeedBytes(16)
+        //Random.nextBytes(secret)
+
+
         val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
         val paymentOuts = createPaymentOuts(to, secret, amount)
-
         val tx = userWallet.appendOutputs(baseTx, paymentOuts : _*)
-
         val signedSTx = signOutputs(tx, secret)
         val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
-
         val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toBytes, le.toBytes)
-
         // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
-
+        log.info("MessageToSend finished, sending bag")
         clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
 
       } match {

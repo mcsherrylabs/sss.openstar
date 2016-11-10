@@ -6,6 +6,8 @@ import sss.asado.crypto.CBCEncryption
 import sss.asado.crypto.CBCEncryption.InitVector
 import sss.asado.util.Serialize._
 
+import scala.util.Random
+
 /**
   * Created by alan on 6/28/16.
   */
@@ -42,7 +44,9 @@ object MessageEcryption {
                                 secret: Array[Byte]): EncryptedMessage = {
 
     val sharedSecret: SharedSecret = sender.createSharedSecret(receiverKey)
-    val iv = CBCEncryption.newInitVector
+    val initVector = new Array[Byte](16)
+    Random.nextBytes(initVector)
+    val iv = CBCEncryption.initVector(initVector)
     val bytes: Array[Byte] = TextWithSecret(text, secret).toBytes
     val encryptedMessage = CBCEncryption.encrypt(sharedSecret, bytes, iv)
     EncryptedMessage(encryptedMessage, iv)
