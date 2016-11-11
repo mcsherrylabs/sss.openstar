@@ -1,5 +1,7 @@
 package sss.analysis
 
+import java.util.Date
+
 import akka.actor.Actor
 import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
 import sss.asado.actor.AsadoEventSubscribedActor
@@ -20,9 +22,19 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
   private case object BroadcastConnected
   private case class ConnectHomeDelay(delaySeconds: Int = 5)
   private case class Analyse(block: Long)
+  private case class CheckForAnalysis(block: Long)
 
   import clientNode._
 
+  def checkBlocks(height: Long) {
+    if(height < 1) println("Done")
+    else {
+      val header = bc.blockHeader(height)
+      val block = bc.block(height)
+      println(s"${header.height} ${header.numTxs} == ${block.height} ${block.entries.size}")
+      checkBlocks(height - 1)
+    }
+  }
   override def receive: Receive = connecting orElse analysis
 
   private def connecting: Receive = {
@@ -50,7 +62,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case BroadcastConnected =>
       UIReactor.eventBroadcastActorRef ! Connected(connectedTo)
       context.system.scheduler.scheduleOnce(
-        FiniteDuration(5, SECONDS),
+        FiniteDuration(10, SECONDS),
         self, BroadcastConnected)
 
 
@@ -59,8 +71,15 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      //startNetwork
-      //self ! ConnectHomeDelay()
+      startNetwork
+      self ! ConnectHomeDelay()
+      //checkBlocks(bc.lastBlockHeader.height)
+      self ! CheckForAnalysis(2)
+
+    case CheckForAnalysis(blockHeight) if(Analysis.isAnalysed(blockHeight)) =>
+      self ! CheckForAnalysis(blockHeight + 1)
+
+    case CheckForAnalysis(blockHeight) => self ! Analyse(blockHeight)
 
     case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
         context.system.scheduler.scheduleOnce(
@@ -68,8 +87,11 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
           self, a)
 
     case a @ Analyse(blockHeight) =>
-      val block = bc.block(blockHeight)
+      val block = new Block(blockHeight)
+      val start = new Date().getTime
       Analysis.analyse(block)
+      val took = new Date().getTime - start
+      log.info(s"Block $blockHeight took $took")
       self ! Analyse(blockHeight + 1)
       UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(blockHeight)
 

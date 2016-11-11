@@ -2,6 +2,8 @@ package sss.analysis
 
 
 import sss.analysis.Analysis.InOut
+import sss.analysis.AnalysisMessages.Message
+import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
 import sss.asado.block.{Block, BlockTx}
@@ -16,7 +18,7 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 11/3/16.
   */
 
-object Analysis extends AnalysisDb {
+object Analysis extends AnalysisDb with Logging {
 
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
   case class AnalysisFromMemory(coinbaseTotal: Long, txOuts: Seq[InOut], wallets: Map[String, Seq[InOut]]) extends Analysis
@@ -24,7 +26,8 @@ object Analysis extends AnalysisDb {
   def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
 
   def load(blockHeight: Long)(implicit db:Db): Analysis = {
-    if(blockHeight == 0) AnalysisFromMemory(0, Seq(), Map())
+    require(blockHeight > 0, s"Blockheight starts at 1, not $blockHeight")
+    if(blockHeight == 1) AnalysisFromMemory(0, Seq(), Map())
     else new AnalysisFromTables(db.table(makeTableName(blockHeight)), db.table(makeHeaderTableName(blockHeight)))
   }
 
@@ -40,24 +43,31 @@ object Analysis extends AnalysisDb {
   def analyse(block:Block)(implicit db:Db): Analysis = {
 
     val blockHeight = block.height
+    val auditor = new AnalysisMessages(blockHeight)
+
+    auditor.delete
+
     val tableName = makeTableName(blockHeight)
     val headerTableName = s"analysis_header_$blockHeight"
 
-    db.executeSql(createTableSql(blockHeight))
-    db.executeSql(createHeaderTableSql(blockHeight))
+    db.executeSqls(Seq(
+      dropTableSql(headerTableName),
+      createHeaderTableSql(blockHeight),
+      dropTableSql(tableName),
+      createTableSql(blockHeight),
+      s"INSERT INTO $headerTableName VALUES (1,0,0)"))
 
-    val table = db.table(tableName)
     val headerTable = db.table(headerTableName)
 
-    headerTable.insert(1,0)
 
-    db.executeSql(dropTableSql(blockHeight))
-    db.executeSql(createTableSql(blockHeight))
+    val table = db.table(tableName)
+
+    def audit(cond: Boolean, msg: String): Unit = if(!cond) auditor.write(msg)
 
     def write(acc: Analysis): Analysis = {
       db.tx[Analysis] {
         acc.txOuts.foreach { io =>
-          table.insert(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes)
+          table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
         }
         headerTable.persist(Map(idCol -> 1, stateCol -> 1, coinbaseCol -> acc.coinbaseTotal))
         load(blockHeight)
@@ -69,15 +79,14 @@ object Analysis extends AnalysisDb {
       val result: Seq[InOut] = allEntries.foldLeft(previousAnalysis.txOuts)((acc, le) => {
 
         val e = le.ledgerItem.txEntryBytes.toSignedTxEntry
-        if (!(e.txId sameElements le.ledgerItem.txId)) {
-          println(s"${le.index} ${le.ledgerItem.ledgerId}" +
-            s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")
-        }
+        audit (!(e.txId sameElements le.ledgerItem.txId), ((s"${le.index} ${le.ledgerItem.ledgerId}" +
+            s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")))
+
 
         le.ledgerItem.ledgerId match {
           case MessageKeys.IdentityLedger =>
             val msg = e.txEntryBytes.toIdentityLedgerMessage
-            assert(msg.txId sameElements le.ledgerItem.txId, "Id ledger txId mismatch")
+            audit(msg.txId sameElements le.ledgerItem.txId, "Id ledger txId mismatch")
             msg match {
               case Claim(id, pKey) =>
               case x =>
@@ -92,19 +101,19 @@ object Analysis extends AnalysisDb {
 
             tx.ins.foreach { in =>
               if(isCoinBase(in)) {
-                assert(tx.outs.head.amount == 1000, s"Coinbase tx is not 1000, ${tx.outs.head.amount}")
-                assert(tx.outs.size == 1, s"Coinbase tx has more than one output, ${tx.outs.size}")
+                audit(tx.outs.head.amount == 1000, s"Coinbase tx is not 1000, ${tx.outs.head.amount}")
+                audit(tx.outs.size == 1, s"Coinbase tx has more than one output, ${tx.outs.size}")
                 coinBaseIncrease = coinBaseIncrease + tx.outs.head.amount
                 //newCoinbases = newCoinbases :+ InOut(TxIndex(tx.txId, 0), tx.outs.head)
               } else {
-                assert(acc.find(_.txIndex == in.txIndex).isDefined, s"TxIndex from nowhere ${in.txIndex}")
+                audit(acc.find(_.txIndex == in.txIndex).isDefined, s"TxIndex from nowhere ${in.txIndex}")
               }
             }
 
             val newOuts = acc.filterNot(index => tx.ins.find(_.txIndex == index.txIndex).isDefined)
             // add the tx outs to the list
             val plusNewOuts = tx.outs.indices.map { i =>
-              //assert(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
+              //audit(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
               val newIndx = TxIndex(tx.txId, i)
               InOut(newIndx,tx.outs(i))
             }
@@ -117,11 +126,17 @@ object Analysis extends AnalysisDb {
         }
 
       })
-      AnalysisFromMemory(coinBaseIncrease, result, Map())
+      AnalysisFromMemory(previousAnalysis.coinbaseTotal + coinBaseIncrease, result, Map())
     }
 
+    auditor.write(s"Audit of $blockHeight begins .....")
+    log.info(s"Audit of $blockHeight started...")
     val accumulator = mapNextOuts(block.entries, load(blockHeight - 1))
-    write(accumulator)
+    log.info(s"Audit of $blockHeight done...")
+    auditor.write(s"Audit of $blockHeight done, writing accumulator .....")
+    val written = write(accumulator)
+    log.info(s"Wrote accumulator, (${accumulator.txOuts.size} entries).....")
+    written
   }
 
 }
@@ -145,7 +160,7 @@ trait AnalysisDb {
   def makeTableName( blockHeight: Long) = s"analysis_$blockHeight"
   def makeHeaderTableName( blockHeight: Long) = s"analysis_header_$blockHeight"
 
-  def dropTableSql( blockHeight: Long) = s"DROP TABLE ${makeTableName(blockHeight)}"
+  def dropTableSql( tableName: String) = s"DROP TABLE ${tableName} IF EXISTS;"
 
   def createTableSql( blockHeight: Long) =
     s"""CREATE TABLE ${makeTableName(blockHeight)}
@@ -157,7 +172,7 @@ trait AnalysisDb {
   def createHeaderTableSql( blockHeight: Long) =
     s"""CREATE TABLE IF NOT EXISTS ${makeHeaderTableName(blockHeight)}
         |($idCol BIGINT GENERATED BY DEFAULT AS IDENTITY (START WITH 1, INCREMENT BY 1),
-        |$coinbaseCol INTEGER,
+        |$coinbaseCol BIGINT,
         |$stateCol INTEGER);
         |""".stripMargin
 
