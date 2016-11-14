@@ -116,7 +116,7 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
         panel.setCaption(s"Asado Block $blockHeight")
         numInBlock.setValue(header.numTxs.toString)
         if(Analysis.isAnalysed(blockHeight)) {
-          val analysis = Analysis.load(blockHeight)
+          val analysis = Analysis.apply(blockHeight)
           balance.setValue(analysis.balance.toString)
           coinbase.setValue(analysis.coinbaseTotal.toString)
           txOuts.setValue(analysis.txOuts.size.toString)

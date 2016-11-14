@@ -39,7 +39,7 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   //grid.setWidth(400, Sizeable.Unit.PIXELS)
   //grid.setHeight(200, Sizeable.Unit.PIXELS)
 
-  val blocksBtnLbl = makeLhsLabel("Blocks", 0)
+  val blocksBtnLbl = makeLhsLabel("Analysed Blocks", 0)
   val balanceBtnLbl = makeLhsLabel("Ledger Balance", 1)
   val identitiesBtnLbl = makeLhsLabel("Identities", 2)
   val txsBtnLbl = makeLhsLabel("Txs", 3)
@@ -51,9 +51,6 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   val identitiesLbl = makeRhsValue("0", 2)
   val txsLbl = makeRhsValue("0", 3)
   val connectedRhs = makeRhsValue("Not connected", 4)
-
-
-  txsLbl.setCaption("10")
 
   setCaption("Asado Statistics")
   panel.setContent(grid)

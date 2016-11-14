@@ -1,6 +1,7 @@
 package sss.analysis
 
 
+import com.twitter.util.SynchronizedLruMap
 import sss.analysis.Analysis.InOut
 import sss.analysis.AnalysisMessages.Message
 import sss.ancillary.Logging
@@ -8,6 +9,7 @@ import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
 import sss.asado.block.{Block, BlockTx}
 import sss.asado.balanceledger._
+import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc, SinglePrivateKey}
 import sss.asado.identityledger._
 import sss.asado.ledger._
 import sss.db.{Db, View}
@@ -17,18 +19,23 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 11/3/16.
   */
-
 object Analysis extends AnalysisDb with Logging {
 
+  private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](10)
+
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
-  case class AnalysisFromMemory(coinbaseTotal: Long, txOuts: Seq[InOut], wallets: Map[String, Seq[InOut]]) extends Analysis
+  case class AnalysisFromMemory(analysisHeight: Long, coinbaseTotal: Long, txTotal: Long, txOuts: Seq[InOut]) extends Analysis
+
+  val blockOneAnalysis = AnalysisFromMemory(1, 0, 0, Seq())
 
   def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
 
-  def load(blockHeight: Long)(implicit db:Db): Analysis = {
+  def apply(blockHeight: Long)(implicit db:Db): Analysis = {
     require(blockHeight > 0, s"Blockheight starts at 1, not $blockHeight")
-    if(blockHeight == 1) AnalysisFromMemory(0, Seq(), Map())
-    else new AnalysisFromTables(db.table(makeTableName(blockHeight)), db.table(makeHeaderTableName(blockHeight)))
+    analysisCache.getOrElseUpdate(blockHeight, {
+      if (blockHeight == 1) blockOneAnalysis
+      else new AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), db.table(makeHeaderTableName(blockHeight)))
+    })
   }
 
   def isAnalysed(blockHeight: Long)(implicit db:Db): Boolean = {
@@ -55,7 +62,7 @@ object Analysis extends AnalysisDb with Logging {
       createHeaderTableSql(blockHeight),
       dropTableSql(tableName),
       createTableSql(blockHeight),
-      s"INSERT INTO $headerTableName VALUES (1,0,0)"))
+      s"INSERT INTO $headerTableName VALUES (1,0,0,0)"))
 
     val headerTable = db.table(headerTableName)
 
@@ -69,8 +76,9 @@ object Analysis extends AnalysisDb with Logging {
         acc.txOuts.foreach { io =>
           table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
         }
-        headerTable.persist(Map(idCol -> 1, stateCol -> 1, coinbaseCol -> acc.coinbaseTotal))
-        load(blockHeight)
+
+        headerTable.persist(Map(idCol -> 1, stateCol -> 1, coinbaseCol -> acc.coinbaseTotal, txCountCol -> acc.txTotal))
+        apply(blockHeight)
       }
     }
 
@@ -79,8 +87,8 @@ object Analysis extends AnalysisDb with Logging {
       val result: Seq[InOut] = allEntries.foldLeft(previousAnalysis.txOuts)((acc, le) => {
 
         val e = le.ledgerItem.txEntryBytes.toSignedTxEntry
-        audit (!(e.txId sameElements le.ledgerItem.txId), ((s"${le.index} ${le.ledgerItem.ledgerId}" +
-            s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")))
+        audit(!(e.txId sameElements le.ledgerItem.txId), ((s"${le.index} ${le.ledgerItem.ledgerId}" +
+          s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")))
 
 
         le.ledgerItem.ledgerId match {
@@ -97,10 +105,9 @@ object Analysis extends AnalysisDb with Logging {
 
             val tx = e.txEntryBytes.toTx
             // are the tx ins in the list of txouts? yes? remove.
-            //var newCoinbases: Seq[InOut] = Seq()
 
             tx.ins.foreach { in =>
-              if(isCoinBase(in)) {
+              if (isCoinBase(in)) {
                 audit(tx.outs.head.amount == 1000, s"Coinbase tx is not 1000, ${tx.outs.head.amount}")
                 audit(tx.outs.size == 1, s"Coinbase tx has more than one output, ${tx.outs.size}")
                 coinBaseIncrease = coinBaseIncrease + tx.outs.head.amount
@@ -110,29 +117,27 @@ object Analysis extends AnalysisDb with Logging {
               }
             }
 
-            val newOuts = acc.filterNot(index => tx.ins.find(_.txIndex == index.txIndex).isDefined)
+            val newOuts = acc.filterNot(index => tx.ins.exists(_.txIndex == index.txIndex))
             // add the tx outs to the list
             val plusNewOuts = tx.outs.indices.map { i =>
               //audit(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
               val newIndx = TxIndex(tx.txId, i)
-              InOut(newIndx,tx.outs(i))
+              InOut(newIndx, tx.outs(i))
             }
 
-            //if(b.height > 47) println("> 47")
             plusNewOuts ++ newOuts
           case x =>
             println(s"Another type of ledger? $x")
             acc
         }
-
       })
-      AnalysisFromMemory(previousAnalysis.coinbaseTotal + coinBaseIncrease, result, Map())
+      val txCount = allEntries.size
+      AnalysisFromMemory(block.height, previousAnalysis.coinbaseTotal + coinBaseIncrease,
+        previousAnalysis.txTotal + txCount, result)
     }
 
     auditor.write(s"Audit of $blockHeight begins .....")
-    log.info(s"Audit of $blockHeight started...")
-    val accumulator = mapNextOuts(block.entries, load(blockHeight - 1))
-    log.info(s"Audit of $blockHeight done...")
+    val accumulator = mapNextOuts(block.entries, apply(blockHeight - 1))
     auditor.write(s"Audit of $blockHeight done, writing accumulator .....")
     val written = write(accumulator)
     log.info(s"Wrote accumulator, (${accumulator.txOuts.size} entries).....")
@@ -146,7 +151,9 @@ trait Analysis {
   val txOuts: Seq[InOut]
   lazy val balance: Long = txOuts.foldLeft(0)((acc, e) => { acc + e.txOut.amount })
   val coinbaseTotal: Long
-  val wallets: Map[String, Seq[InOut]]
+  val txTotal: Long
+  val analysisHeight: Long
+
 }
 
 trait AnalysisDb {
@@ -155,6 +162,7 @@ trait AnalysisDb {
   val txOutCol = "txOut"
   val stateCol = "state"
   val coinbaseCol = "coinbase"
+  val txCountCol = "txCount"
   val idCol = "id"
 
   def makeTableName( blockHeight: Long) = s"analysis_$blockHeight"
@@ -173,18 +181,19 @@ trait AnalysisDb {
     s"""CREATE TABLE IF NOT EXISTS ${makeHeaderTableName(blockHeight)}
         |($idCol BIGINT GENERATED BY DEFAULT AS IDENTITY (START WITH 1, INCREMENT BY 1),
         |$coinbaseCol BIGINT,
+        |$txCountCol BIGINT,
         |$stateCol INTEGER);
         |""".stripMargin
 
 }
 
-class AnalysisFromTables(table: View, headerTable: View)(implicit db:Db) extends AnalysisDb with Analysis {
+class AnalysisFromTables(val analysisHeight: Long, table: View, headerTable: View)(implicit db:Db) extends AnalysisDb with Analysis {
   override val txOuts: Seq[InOut] = table.map { row =>
     InOut(row[Array[Byte]](txIndexCol).toTxIndex,
       row[Array[Byte]](txOutCol).toTxOutput)
   }
 
   override val coinbaseTotal: Long = headerTable(1).apply[Long](coinbaseCol)
-  override val wallets: Map[String, Seq[InOut]] = Map()
+  override val txTotal: Long = headerTable(1).apply[Long](txCountCol)
 }
 

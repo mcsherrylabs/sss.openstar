@@ -37,6 +37,7 @@ import scala.util.{Failure, Random, Success, Try}
   */
 case class ShowWrite(to: String = "", text: String = "")
 case class Show(s: String)
+case object ShowBalance
 case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessage, walletUpdate: WalletUpdate, from: String)
 
 class NobuMainLayout(uiReactor: UIReactor,
@@ -90,9 +91,7 @@ class NobuMainLayout(uiReactor: UIReactor,
   balanceCptnBtn.setCaption(nId)
 
   mainNobuRef ! ShowInBox
-
-  balBtnLbl.click()
-
+  mainNobuRef ! ShowBalance
 
   private def updatePagingAreas(pager: MessagePage[_], isForDeletion: Boolean = false): Unit = {
     prevBtn.setEnabled(pager.hasNext)
@@ -209,16 +208,19 @@ class NobuMainLayout(uiReactor: UIReactor,
           case _ =>
         }
 
-      case ce @ ComponentEvent(`balBtnLbl`, _) =>
-        val bal =  userWallet.balance()
-        push(balBtnLbl.setCaption(bal.toString))
-        context.system.scheduler.scheduleOnce(6 seconds, self, ce)
+      case ce @ ComponentEvent(`balBtnLbl`, _) => self ! ShowBalance
+
 
       case ce @ ComponentEvent(`logoutBtn`, _) => push {
         ui.getSession.setAttribute(UnlockClaimView.identityAttr, null)
         ui.getNavigator().navigateTo(UnlockClaimView.name)
       }
 
+
+      case ShowBalance =>
+        val bal =  userWallet.balance()
+        push(balBtnLbl.setCaption(bal.toString))
+        context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
 
       case ClaimBounty(sTx, secret) => Try {
 

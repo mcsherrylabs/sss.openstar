@@ -3,7 +3,7 @@ package sss.analysis
 import java.util.Date
 
 import akka.actor.Actor
-import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
+import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
@@ -19,28 +19,20 @@ import scala.concurrent.duration._
 class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubscribedActor {
 
   private case object ConnectHome
-  private case object BroadcastConnected
   private case class ConnectHomeDelay(delaySeconds: Int = 5)
   private case class Analyse(block: Long)
   private case class CheckForAnalysis(block: Long)
 
   import clientNode._
 
-  def checkBlocks(height: Long) {
-    if(height < 1) println("Done")
-    else {
-      val header = bc.blockHeader(height)
-      val block = bc.block(height)
-      println(s"${header.height} ${header.numTxs} == ${block.height} ${block.entries.size}")
-      checkBlocks(height - 1)
-    }
-  }
   override def receive: Receive = connecting orElse analysis
 
   private def connecting: Receive = {
     case RemoteLeaderEvent(conn) =>
       context.become(connected(conn.nodeId.id) orElse analysis)
-      self ! BroadcastConnected
+      status.alter(s => s.copy(whoConnectedTo = conn.nodeId.id))
+      UIReactor.eventBroadcastActorRef ! Connected(conn.nodeId.id)
+
 
     case ConnectHomeDelay(delay) =>
       context.system.scheduler.scheduleOnce(
@@ -55,16 +47,10 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def connected(connectedTo: String): Receive = {
     case NotOrderedEvent =>
+      status.alter(s => s.copy(whoConnectedTo = "Disconnected"))
       UIReactor.eventBroadcastActorRef ! LostConnection
       context.become(connecting orElse analysis)
       self ! ConnectHomeDelay()
-
-    case BroadcastConnected =>
-      UIReactor.eventBroadcastActorRef ! Connected(connectedTo)
-      context.system.scheduler.scheduleOnce(
-        FiniteDuration(10, SECONDS),
-        self, BroadcastConnected)
-
 
     case ConnectHome => log.info("Already connected, ignore ConnectHome")
   }
@@ -79,7 +65,9 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case CheckForAnalysis(blockHeight) if(Analysis.isAnalysed(blockHeight)) =>
       self ! CheckForAnalysis(blockHeight + 1)
 
-    case CheckForAnalysis(blockHeight) => self ! Analyse(blockHeight)
+    case CheckForAnalysis(blockHeight) =>
+      self ! Analyse(blockHeight)
+      status.alter(s => s.copy(lastAnalysis = Analysis(blockHeight - 1)))
 
     case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
         context.system.scheduler.scheduleOnce(
@@ -89,11 +77,12 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case a @ Analyse(blockHeight) =>
       val block = new Block(blockHeight)
       val start = new Date().getTime
-      Analysis.analyse(block)
+      val analysis = Analysis.analyse(block)
       val took = new Date().getTime - start
       log.info(s"Block $blockHeight took $took")
       self ! Analyse(blockHeight + 1)
-      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(blockHeight)
+      status.alter(s => s.copy(lastAnalysis = analysis))
+      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis)
 
   }
 
