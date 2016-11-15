@@ -17,12 +17,14 @@ import scala.util.{Failure, Success, Try}
   */
 
 
-class WriteLayout(mainNobuRef: ActorRef, to: String, text: String)
+class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: UserDirectory)
                  (implicit identityQuery: IdentityServiceQuery) extends WriteDesign with Logging {
 
   import NobuUI.CRLF
 
-  toField.setValue(to)
+  toCombo.setNullSelectionAllowed(false)
+  userDir.loadCombo(toCombo)
+  toCombo.setValue(to)
 
   if (text.length > 0) messageText.setValue(CRLF + CRLF + text)
 
@@ -35,7 +37,7 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String)
           case Failure(e) => Notification.show("'Amount' must be a number", Notification.Type.WARNING_MESSAGE)
           case Success(amount) =>
 
-            Option(toField.getValue) match {
+            Option(toCombo.getValue.toString) match {
               case None => Notification.show("'To' cannot be empty", Notification.Type.WARNING_MESSAGE)
               case Some(to) if to.length == 0 =>
                 Notification.show("'To' cannot be empty", Notification.Type.WARNING_MESSAGE)

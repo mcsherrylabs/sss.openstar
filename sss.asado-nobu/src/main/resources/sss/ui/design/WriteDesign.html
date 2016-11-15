@@ -7,7 +7,10 @@
  <body> 
   <vaadin-vertical-layout id="writeLayout" size-full margin> 
    <vaadin-form-layout :middle> 
-    <vaadin-combo-field caption="To" width-full _id="toField"></vaadin-combo-field>
+    <!--vaadin-combo-field caption="To" width-full _id="toField"></vaadin-combo-field-->
+    <vaadin-combo-box caption="To" style-name="small" width="550px" item-caption-mode="id" _id="toCombo">
+      <option>Option 1</option>
+     </vaadin-combo-box>
     <vaadin-text-field caption="Amount" width-full _id="amountField"></vaadin-text-field>
     <vaadin-text-area rows="12" responsive width-full _id="messageText" :middle>
       Type here ... 

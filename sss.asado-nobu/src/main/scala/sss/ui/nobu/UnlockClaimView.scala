@@ -2,7 +2,6 @@ package sss.ui.nobu
 
 
 
-import java.io.File
 
 import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.View
@@ -28,14 +27,14 @@ import scala.util.{Failure, Success, Try}
   */
 
 private case class IdTagValue(str: String) {
-  private val tuple = str.split(", ")
-  val identity: String = tuple(0)
-  val tag: String = tuple(1)
+  //private val tuple = str.split(", ")
+  val identity: String = str
+  val tag: String = "defaultTag"
 }
 
 class UnlockClaimView(
                       uiReactor: UIReactor,
-                      keyFolder: String,
+                      userDir: UserDirectory,
                       clientNode: ClientNode,
                       clientEventActor: ActorRef
                       ) extends CenteredAccordianDesign with View with Logging {
@@ -61,25 +60,11 @@ class UnlockClaimView(
     rhsUnlock.setVisible(false)
   }
 
-  private def showUnlock(keyNames: Array[String]) = {
+  private def showUnlock = {
 
     rhsClaim.setVisible(false)
     rhsUnlock.setVisible(true)
-
-
-    val asTuples = keyNames.map { key =>
-      val kv = key.split("\\.")
-      kv(0) -> kv(1)
-    }
-
-    identityCombo.setData(asTuples)
-    identityCombo.removeAllItems()
-    if(!asTuples.isEmpty) {
-      val items = asTuples.map(kv => s"${kv._1}, ${kv._2}").toSeq
-      identityCombo.addItems(items: _*)
-      identityCombo.select(identityCombo.getItemIds.iterator().next)
-    }
-
+    userDir.loadCombo(identityCombo)
   }
 
 //  claimMnuBtn.addClickListener(new Button.ClickListener{
@@ -87,21 +72,17 @@ class UnlockClaimView(
 //  })
 
   unlockMnuBtn.addClickListener(new Button.ClickListener{
-    override def buttonClick(event: ClickEvent): Unit = showUnlock(getKeyNames(keyFolder))
+    override def buttonClick(event: ClickEvent): Unit = showUnlock
   })
 
   claimBtnVal.addClickListener(uiReactor)
   unlockBtnVal.addClickListener(uiReactor)
 
-  private def getKeyNames(keyFolder: String): Array[String] = {
-    val folder = new File(keyFolder)
-    folder.listFiles().filter(_.isFile).map(_.getName)
-  }
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
-    val keyNames = getKeyNames(keyFolder)
+    val keyNames = userDir.listUsers
     if(keyNames.isEmpty) showClaim
-    else showUnlock(keyNames)
+    else showUnlock
   }
 
   object UnlockClaimViewActor extends sss.ui.reactor.UIEventActor {
@@ -135,7 +116,7 @@ class UnlockClaimView(
     def gotoMainView(nId: NodeIdentity): Unit = {
       val userWallet = createWallet(nId)
       getSession().setAttribute(UnlockClaimView.identityAttr, nId.id)
-      val mainView = new NobuMainLayout(uiReactor, userWallet, nId, clientNode, clientEventActor)
+      val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId, clientNode, clientEventActor)
       push {
         getUI().getNavigator.addView(mainView.name, mainView)
         getUI().getNavigator.navigateTo(mainView.name)

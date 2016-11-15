@@ -12,8 +12,6 @@ import sss.asado.nodebuilder.ClientNode
   */
 class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends VerticalLayout {
 
-  import clientNode.db
-
   val panel = new Panel("Asado Identities")
   val layout = new FormLayout()
   setSpacing(true)

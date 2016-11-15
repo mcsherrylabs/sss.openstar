@@ -30,7 +30,7 @@ class NobuUI extends UI with ViewChangeListener with Configure {
     val keyFolder = config.getString("keyfolder")
     new File(keyFolder).mkdirs()
 
-    val claimUnlockView = new UnlockClaimView(uiReactor, keyFolder, Main.clientNode, Main.clientEventActor)
+    val claimUnlockView = new UnlockClaimView(uiReactor, new UserDirectory(keyFolder), Main.clientNode, Main.clientEventActor)
     navigator.addView(UnlockClaimView.name, claimUnlockView)
 
 

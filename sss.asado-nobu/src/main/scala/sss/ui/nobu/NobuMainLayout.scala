@@ -41,6 +41,7 @@ case object ShowBalance
 case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessage, walletUpdate: WalletUpdate, from: String)
 
 class NobuMainLayout(uiReactor: UIReactor,
+                     userDir: UserDirectory,
                      userWallet: Wallet,
                      userId: NodeIdentity,
                      nobuNode: ClientNode,
@@ -158,7 +159,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case ShowWrite(to, text) => push {
         itemPanelVerticalLayout.removeAllComponents()
-        itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, to, text))
+        itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, to, text, userDir))
       }
 
       case ShowInBox =>
@@ -247,8 +248,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         val baseTx = createFundedTx(amount)
         val changeTxOut = baseTx.outs.take(1)
         val secret = Array[Byte](8) //SeedBytes(16)
-        //Random.nextBytes(secret)
-
+        Random.nextBytes(secret)
 
         val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
         val paymentOuts = createPaymentOuts(to, secret, amount)
