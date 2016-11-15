@@ -3,12 +3,11 @@ package sss.analysis
 import akka.actor.{ActorRef, Props}
 import akka.agent.Agent
 import com.vaadin.ui._
-import sss.analysis.Analysis.AnalysisFromMemory
+
 import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
 import sss.ancillary.Logging
 import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent}
-import sss.ui.reactor.{ComponentEvent, Event, Register, UIEventActor, UIReactor}
+import sss.ui.reactor._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 /**
@@ -33,18 +32,26 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   val summary = new Summary(uiReactor)
   val blocksTab = new BlocksTab(clientNode)
   val idsTab = new IdentitiesTab(clientNode, status)
+  val walletsTab = new WalletsTab(clientNode, status)
   val txsTab = new TransactionsTab(clientNode)
+
+  val tabSheet = this
 
   import summary._
 
   val ref = uiReactor.actorOf(Props(UICoordinatingActor),
-    numBlocksLbl, identitiesLbl, txsLbl)
+    numBlocksLbl, identitiesLbl, txsLbl, tabSheet)
 
   ref ! Register("dashBoard")
+
+  setMargin(true)
 
   addTab(summary, "Summary")
   addTab(blocksTab, "Analysed Blocks")
   addTab(idsTab, "Identities")
+  addTab(walletsTab, "Wallets")
+
+  addSelectedTabChangeListener(uiReactor)
 
   val latestStatus = status.get
 
@@ -71,12 +78,20 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
       case ComponentEvent(`identitiesLbl`,_) => push {
         dashboardThis.setSelectedTab(idsTab)
-        idsTab.update()
+
       }
 
       case ComponentEvent(`txsLbl`,_) => push {
         dashboardThis.setSelectedTab(txsTab)
       }
+
+      case ComponentEvent(`tabSheet`, _) => push {
+        tabSheet.getSelectedTab match {
+          case `walletsTab` => walletsTab.update()
+          case _ =>
+        }
+      }
+
       case Connected(who) => push { setConnected(who)}
       case LostConnection => push { setConnected("Disconnected")}
       case NewBlockAnalysed(bh) => push { updateDash(bh)  }

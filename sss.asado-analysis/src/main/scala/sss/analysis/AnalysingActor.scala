@@ -57,9 +57,8 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      startNetwork
-      self ! ConnectHomeDelay()
-      //checkBlocks(bc.lastBlockHeader.height)
+      //startNetwork
+      //self ! ConnectHomeDelay()
       self ! CheckForAnalysis(2)
 
     case CheckForAnalysis(blockHeight) if(Analysis.isAnalysed(blockHeight)) =>

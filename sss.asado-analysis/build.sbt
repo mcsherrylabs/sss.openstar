@@ -14,6 +14,8 @@ resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repo
 
 resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
+resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
+
 //Seq(vaadinWebSettings: _*)
 
 val vaadinVer = "7.5.8"
@@ -36,8 +38,14 @@ libraryDependencies ++= Seq(
   "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % "0.3-SNAPSHOT",
   "org.scalatra" % "scalatra_2.11" % "2.4.0",
   "io.spray" %%  "spray-json" % "1.3.2",
+  "org.vaadin.addon" % "jfreechartwrapper" % "3.0.3" excludeAll ExclusionRule(organization = "javax.servlet"),
   "org.scalatest" %% "scalatest" % "2.2.6" % Test
 )
+
+
+
+
+
 
 
 // Settings for the Vaadin plugin widgetset compilation

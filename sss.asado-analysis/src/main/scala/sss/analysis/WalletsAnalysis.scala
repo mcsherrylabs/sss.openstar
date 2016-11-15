@@ -8,7 +8,7 @@ import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc, SinglePriva
   */
 class WalletsAnalysis(inOuts: Seq[InOut]) {
 
-  private lazy val sortedById: Map[String, Seq[InOut]] = {
+  lazy val sortedById: Map[String, Seq[InOut]] = {
 
     def discriminator(inOut: InOut): String = {
       inOut.txOut.encumbrance match {

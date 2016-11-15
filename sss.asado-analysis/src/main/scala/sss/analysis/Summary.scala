@@ -4,6 +4,7 @@ import akka.actor.ActorRef
 import com.vaadin.server.Sizeable
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
+import sss.ui.JFreeChartWrapperSample
 import sss.ui.reactor.{ListenTo, UIReactor}
 
 /**
@@ -55,6 +56,7 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   setCaption("Asado Statistics")
   panel.setContent(grid)
   addComponent(panel)
+  addComponent(new JFreeChartWrapperSample)
 
   def setBlockCount(count: Long) = numBlocksLbl.setCaption(count.toString)
   def setTxCount(count: Long) = txsLbl.setCaption(count.toString)
