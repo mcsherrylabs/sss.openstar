@@ -1,7 +1,5 @@
 package sss.analysis
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.agent.Agent
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
@@ -28,52 +26,84 @@ class WalletsTab(clientNode: ClientNode, status: Agent[Status]) extends Vertical
 
   update()
 
-  private def createHeader(wallet: WalletAnalysis): (Layout,Layout) = {
-    val detailLayout = new VerticalLayout()
+  private def createHeader(detailLayout: Layout, wallet: WalletAnalysis): Layout = {
 
     val rowLayout = new HorizontalLayout()
+    rowLayout.setSpacing(true)
     rowLayout.setHeight("80px")
+    rowLayout.setDefaultComponentAlignment(Alignment.MIDDLE_LEFT)
+
+    val idLbl = new Label("Identity")
+    val balLbl = new Label("Balance")
+
     val tf = new Button(wallet.identity)
-    rowLayout.addComponent(tf)
     tf.setWidth("150px")
     val bal = wallet.balance
     val balLnk = new Button(bal.toString)
-    rowLayout.addComponent(balLnk)
+    tf.setEnabled(false)
+    rowLayout.addComponents(idLbl, tf, balLbl, balLnk)
 
-    val btnClose = new Button("Close")
-    btnClose.addClickListener(new ClickListener {
-      override def buttonClick(event: ClickEvent): Unit = {
-        btnClose.setVisible(false)
-        detailLayout.removeAllComponents()
-      }
-    })
-    rowLayout.addComponent(btnClose)
-    btnClose.setVisible(false)
 
-    tf.addClickListener(new ClickListener {
-      override def buttonClick(event: ClickEvent): Unit = {
-        btnClose.setVisible(true)
-        wallet.inOuts.foreach { io =>
-          val hl = new HorizontalLayout()
-          hl.setSpacing(true)
-          hl.addComponent(new Label(io.txIndex.toString))
-          hl.addComponent(new Label(io.txOut.amount.toString))
-          detailLayout.addComponent(hl)
+    def repaintDetailPanel(showEncdetails: Boolean = true): Unit = {
+      detailLayout.setVisible(true)
+
+      wallet.inOuts.foreach { io =>
+        val hl = new HorizontalLayout()
+        hl.setSpacing(true)
+        val indexLbl = new Label(io.txIndex.toString)
+        hl.addComponent(indexLbl)
+        val amountLbl = new Label(io.txOut.amount.toString)
+        hl.addComponent(amountLbl)
+        if(showEncdetails) {
+          val txLbl = new Label(io.txOut.encumbrance.toString)
+          hl.addComponent(txLbl)
         }
+        detailLayout.addComponent(hl)
+      }
 
+      val btnLayout = new HorizontalLayout
+      btnLayout.setSpacing(true)
+      btnLayout.setMargin(true)
+      val btnClose = new Button("Close")
+      val hideDetails = new Button("Show TxIndex only")
+      hideDetails.setEnabled(showEncdetails)
+      btnLayout.addComponents(btnClose, hideDetails)
+      detailLayout.addComponent(btnLayout)
+
+      hideDetails.addClickListener(new ClickListener {
+        override def buttonClick(event: ClickEvent): Unit = {
+          detailLayout.removeAllComponents()
+          repaintDetailPanel(false)
+        }
+      })
+
+      btnClose.addClickListener(new ClickListener {
+        override def buttonClick(event: ClickEvent): Unit = {
+          detailLayout.removeAllComponents()
+          detailLayout.setVisible(false)
+          balLnk.setEnabled(true)
+        }
+      })
+
+    }
+
+    balLnk.addClickListener(new ClickListener {
+      override def buttonClick(event: ClickEvent): Unit = {
+        balLnk.setEnabled(false)
+        repaintDetailPanel()
       }
     })
     //val hl = new VerticalLayout()
-    (detailLayout, rowLayout)
+    rowLayout
   }
 
   private def createRow(wallet: WalletAnalysis): Component = {
 
     val enclosingLayout = new VerticalLayout()
-
-    val headerLayoutTuple = createHeader(wallet)
-    enclosingLayout.addComponent(headerLayoutTuple._1)
-    enclosingLayout.addComponent(headerLayoutTuple._2)
+    val detailLayout = new VerticalLayout()
+    val headerLayout = createHeader(detailLayout, wallet)
+    enclosingLayout.addComponent(headerLayout)
+    enclosingLayout.addComponent(detailLayout)
     enclosingLayout
   }
 
@@ -90,7 +120,7 @@ class WalletsTab(clientNode: ClientNode, status: Agent[Status]) extends Vertical
       totalBalance += wallet.balance
       layout.addComponent(createRow(wallet))
     }
-    panel.setCaption(s"Asado Wallets - $totalBalance")
+    panel.setCaption(s"Asado Wallets - $totalBalance accounted for")
   }
 
 }

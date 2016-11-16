@@ -1,11 +1,9 @@
 package sss.analysis
 
-import akka.actor.ActorRef
-import com.vaadin.server.Sizeable
-import com.vaadin.ui.Button.{ClickEvent, ClickListener}
+
 import com.vaadin.ui._
-import sss.ui.JFreeChartWrapperSample
-import sss.ui.reactor.{ListenTo, UIReactor}
+import sss.ui.{StatisticsChart}
+import sss.ui.reactor.UIReactor
 
 /**
   * Created by alan on 10/27/16.
@@ -51,12 +49,13 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   val balanceLbl = makeRhsValue("0", 1)
   val identitiesLbl = makeRhsValue("0", 2)
   val txsLbl = makeRhsValue("0", 3)
+  txsLbl.setEnabled(false)
+
   val connectedRhs = makeRhsValue("Not connected", 4)
 
   setCaption("Asado Statistics")
   panel.setContent(grid)
-  addComponent(panel)
-  addComponent(new JFreeChartWrapperSample)
+  addComponents(panel)
 
   def setBlockCount(count: Long) = numBlocksLbl.setCaption(count.toString)
   def setTxCount(count: Long) = txsLbl.setCaption(count.toString)

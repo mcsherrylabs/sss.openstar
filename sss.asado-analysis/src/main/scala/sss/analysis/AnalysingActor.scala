@@ -3,6 +3,7 @@ package sss.analysis
 import java.util.Date
 
 import akka.actor.Actor
+import sss.analysis.BlockSeriesFactory.BlockSeries
 import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
@@ -22,6 +23,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
   private case class ConnectHomeDelay(delaySeconds: Int = 5)
   private case class Analyse(block: Long)
   private case class CheckForAnalysis(block: Long)
+
 
   import clientNode._
 
@@ -57,8 +59,8 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      //startNetwork
-      //self ! ConnectHomeDelay()
+      startNetwork
+      self ! ConnectHomeDelay()
       self ! CheckForAnalysis(2)
 
     case CheckForAnalysis(blockHeight) if(Analysis.isAnalysed(blockHeight)) =>

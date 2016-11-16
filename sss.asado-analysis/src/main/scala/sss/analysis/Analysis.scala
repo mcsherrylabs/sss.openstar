@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
   */
 object Analysis extends AnalysisDb with Logging {
 
-  private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](10)
+  private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](100)
 
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
   case class AnalysisFromMemory(analysisHeight: Long, coinbaseTotal: Long, txTotal: Long, txOuts: Seq[InOut]) extends Analysis
@@ -48,6 +48,7 @@ object Analysis extends AnalysisDb with Logging {
   }
 
   def analyse(block:Block)(implicit db:Db): Analysis = {
+
 
     val blockHeight = block.height
     val auditor = new AnalysisMessages(blockHeight)

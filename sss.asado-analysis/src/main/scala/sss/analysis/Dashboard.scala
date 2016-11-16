@@ -33,7 +33,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   val blocksTab = new BlocksTab(clientNode)
   val idsTab = new IdentitiesTab(clientNode, status)
   val walletsTab = new WalletsTab(clientNode, status)
-  val txsTab = new TransactionsTab(clientNode)
+  val chartsTab = new ChartsTab(clientNode)
 
   val tabSheet = this
 
@@ -45,11 +45,13 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   ref ! Register("dashBoard")
 
   setMargin(true)
+  setSpacing(true)
 
   addTab(summary, "Summary")
   addTab(blocksTab, "Analysed Blocks")
   addTab(idsTab, "Identities")
   addTab(walletsTab, "Wallets")
+  addTab(chartsTab, "Charts")
 
   addSelectedTabChangeListener(uiReactor)
 
@@ -78,16 +80,12 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
       case ComponentEvent(`identitiesLbl`,_) => push {
         dashboardThis.setSelectedTab(idsTab)
-
-      }
-
-      case ComponentEvent(`txsLbl`,_) => push {
-        dashboardThis.setSelectedTab(txsTab)
       }
 
       case ComponentEvent(`tabSheet`, _) => push {
         tabSheet.getSelectedTab match {
           case `walletsTab` => walletsTab.update()
+          case `chartsTab` => chartsTab.update(status.get.lastAnalysis)
           case _ =>
         }
       }
