@@ -3,19 +3,16 @@ package sss.analysis
 
 import com.twitter.util.SynchronizedLruMap
 import sss.analysis.Analysis.InOut
-import sss.analysis.AnalysisMessages.Message
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
-import sss.asado.block.{Block, BlockTx}
+import sss.asado.block.{Block,  BlockTx}
 import sss.asado.balanceledger._
-import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc, SinglePrivateKey}
 import sss.asado.identityledger._
 import sss.asado.ledger._
-import sss.db.{Db, View}
+import sss.db._
 import sss.asado.util.ByteArrayEncodedStrOps._
 
-import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 11/3/16.
   */
@@ -23,10 +20,22 @@ object Analysis extends AnalysisDb with Logging {
 
   private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](100)
 
-  case class InOut(txIndex: TxIndex, txOut: TxOutput)
-  case class AnalysisFromMemory(analysisHeight: Long, coinbaseTotal: Long, txTotal: Long, txOuts: Seq[InOut]) extends Analysis
 
-  val blockOneAnalysis = AnalysisFromMemory(1, 0, 0, Seq())
+  def getHeaderTable(implicit db:Db): Table = {
+    db.executeSql(createHeaderTableSql)
+    db.table(headerTableName)
+  }
+
+  case class InOut(txIndex: TxIndex, txOut: TxOutput)
+  case class AnalysisFromMemory(analysisHeight: Long,
+                                coinbaseTotal: Long,
+                                txOuts: Seq[InOut],
+                                txCount: Long,
+                                txInBlockCount: Long,
+                                timeBlockOpen: Long) extends Analysis
+
+
+  val blockOneAnalysis = AnalysisFromMemory(1, 0, Seq(), 0, 0, 0)
 
   def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
 
@@ -34,17 +43,12 @@ object Analysis extends AnalysisDb with Logging {
     require(blockHeight > 0, s"Blockheight starts at 1, not $blockHeight")
     analysisCache.getOrElseUpdate(blockHeight, {
       if (blockHeight == 1) blockOneAnalysis
-      else new AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), db.table(makeHeaderTableName(blockHeight)))
+      else AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), getHeaderTable)
     })
   }
 
   def isAnalysed(blockHeight: Long)(implicit db:Db): Boolean = {
-    Try {
-      db.table(makeHeaderTableName(blockHeight))(1).apply[Int](stateCol) == 1
-    } match {
-      case Failure(e) => false
-      case Success(b) => b
-    }
+      getHeaderTable(db).find(idCol -> blockHeight).isDefined
   }
 
   def analyse(block:Block)(implicit db:Db): Analysis = {
@@ -52,21 +56,17 @@ object Analysis extends AnalysisDb with Logging {
 
     val blockHeight = block.height
     val auditor = new AnalysisMessages(blockHeight)
-
-    auditor.delete
-
     val tableName = makeTableName(blockHeight)
-    val headerTableName = s"analysis_header_$blockHeight"
 
-    db.executeSqls(Seq(
-      dropTableSql(headerTableName),
-      createHeaderTableSql(blockHeight),
-      dropTableSql(tableName),
-      createTableSql(blockHeight),
-      s"INSERT INTO $headerTableName VALUES (1,0,0,0)"))
+    db.tx {
+      auditor.delete
 
-    val headerTable = db.table(headerTableName)
+      getHeaderTable.delete(where(s"$idCol = ?") using blockHeight)
 
+      db.executeSqls(Seq(
+        dropTableSql(tableName),
+        createTableSql(blockHeight)))
+    }
 
     val table = db.table(tableName)
 
@@ -78,7 +78,14 @@ object Analysis extends AnalysisDb with Logging {
           table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
         }
 
-        headerTable.persist(Map(idCol -> 1, stateCol -> 1, coinbaseCol -> acc.coinbaseTotal, txCountCol -> acc.txTotal))
+        getHeaderTable.insert(acc.analysisHeight,
+          acc.coinbaseTotal,
+          acc.txCount,
+          acc.balance,
+          acc.txInBlockCount,
+          acc.timeBlockOpen,
+          1
+          )
         apply(blockHeight)
       }
     }
@@ -88,7 +95,7 @@ object Analysis extends AnalysisDb with Logging {
       val result: Seq[InOut] = allEntries.foldLeft(previousAnalysis.txOuts)((acc, le) => {
 
         val e = le.ledgerItem.txEntryBytes.toSignedTxEntry
-        audit(!(e.txId sameElements le.ledgerItem.txId), ((s"${le.index} ${le.ledgerItem.ledgerId}" +
+        audit(e.txId sameElements le.ledgerItem.txId, ((s"${le.index} ${le.ledgerItem.ledgerId} " +
           s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")))
 
 
@@ -132,9 +139,10 @@ object Analysis extends AnalysisDb with Logging {
             acc
         }
       })
-      val txCount = allEntries.size
+      val txInBlockCount = allEntries.size
+
       AnalysisFromMemory(block.height, previousAnalysis.coinbaseTotal + coinBaseIncrease,
-        previousAnalysis.txTotal + txCount, result)
+        result, previousAnalysis.txCount + txInBlockCount, txInBlockCount, 0)
     }
 
     auditor.write(s"Audit of $blockHeight begins .....")
@@ -152,7 +160,10 @@ trait Analysis {
   val txOuts: Seq[InOut]
   lazy val balance: Long = txOuts.foldLeft(0)((acc, e) => { acc + e.txOut.amount })
   val coinbaseTotal: Long
-  val txTotal: Long
+
+  val txCount: Long
+  val txInBlockCount: Long
+  val timeBlockOpen: Long
   val analysisHeight: Long
 
 }
@@ -164,10 +175,13 @@ trait AnalysisDb {
   val stateCol = "state"
   val coinbaseCol = "coinbase"
   val txCountCol = "txCount"
+  val txOutTotalCol = "txOutTotal"
+  val txBlockCountCol = "txBlockCount"
+  val timeBlockOpenCol = "timeBlockOpen"
   val idCol = "id"
 
   def makeTableName( blockHeight: Long) = s"analysis_$blockHeight"
-  def makeHeaderTableName( blockHeight: Long) = s"analysis_header_$blockHeight"
+  val headerTableName = s"analysis_header"
 
   def dropTableSql( tableName: String) = s"DROP TABLE ${tableName} IF EXISTS;"
 
@@ -178,23 +192,38 @@ trait AnalysisDb {
         |$txOutCol BLOB);
         |""".stripMargin
 
-  def createHeaderTableSql( blockHeight: Long) =
-    s"""CREATE TABLE IF NOT EXISTS ${makeHeaderTableName(blockHeight)}
-        |($idCol BIGINT GENERATED BY DEFAULT AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  def createHeaderTableSql =
+    s"""CREATE TABLE IF NOT EXISTS ${headerTableName}
+        |($idCol BIGINT,
         |$coinbaseCol BIGINT,
         |$txCountCol BIGINT,
-        |$stateCol INTEGER);
+        |$txOutTotalCol BIGINT,
+        |$txBlockCountCol BIGINT,
+        |$timeBlockOpenCol BIGINT,
+        |$stateCol INTEGER, PRIMARY KEY ($idCol));
         |""".stripMargin
 
 }
 
-class AnalysisFromTables(val analysisHeight: Long, table: View, headerTable: View)(implicit db:Db) extends AnalysisDb with Analysis {
-  override val txOuts: Seq[InOut] = table.map { row =>
+object AnalysisFromTables {
+  def apply(analysisHeight: Long, table: View, headerTable: View)(implicit db:Db): Analysis = {
+    val row = headerTable(analysisHeight)
+    new AnalysisFromTables(table, row)
+  }
+}
+
+class AnalysisFromTables(table: View, row:Row)(implicit db:Db) extends AnalysisDb with Analysis {
+  override lazy val txOuts: Seq[InOut] = table.map { row =>
     InOut(row[Array[Byte]](txIndexCol).toTxIndex,
       row[Array[Byte]](txOutCol).toTxOutput)
   }
 
-  override val coinbaseTotal: Long = headerTable(1).apply[Long](coinbaseCol)
-  override val txTotal: Long = headerTable(1).apply[Long](txCountCol)
+  override val analysisHeight: Long = row[Long](idCol)
+  lazy override val balance: Long =  row[Long](txOutTotalCol)
+  override val txCount: Long = row[Long](txCountCol)
+  override val txInBlockCount: Long = row[Long](txBlockCountCol)
+  override val timeBlockOpen: Long = row[Long](timeBlockOpenCol)
+  override val coinbaseTotal: Long = row[Long](coinbaseCol)
+
 }
 

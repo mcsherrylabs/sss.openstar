@@ -65,7 +65,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
     summary.setBalance(blockAnalysis.balance)
     summary.setBlockCount(blockAnalysis.analysisHeight)
     summary.setIdentitiesCount(idsTab.idCount.get())
-    summary.setTxCount(blockAnalysis.txTotal)
+    summary.setTxCount(blockAnalysis.txCount)
   }
 
   val dashboardThis: Dashboard = this
@@ -85,7 +85,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
       case ComponentEvent(`tabSheet`, _) => push {
         tabSheet.getSelectedTab match {
           case `walletsTab` => walletsTab.update()
-          case `chartsTab` => chartsTab.update(status.get.lastAnalysis)
+          case `chartsTab` => chartsTab.update()
           case _ =>
         }
       }

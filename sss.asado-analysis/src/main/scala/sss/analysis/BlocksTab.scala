@@ -116,10 +116,10 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
         panel.setCaption(s"Asado Block $blockHeight")
         numInBlock.setValue(header.numTxs.toString)
         if(Analysis.isAnalysed(blockHeight)) {
-          val analysis = Analysis.apply(blockHeight)
+          val analysis = Analysis(blockHeight)
           balance.setValue(analysis.balance.toString)
           coinbase.setValue(analysis.coinbaseTotal.toString)
-          txOuts.setValue(analysis.txOuts.size.toString)
+          txOuts.setValue(analysis.txInBlockCount.toString)
           new AnalysisMessages(blockHeight).apply.foreach(m => println(format(m)))
         } else println("No analysis exists for this block")
 

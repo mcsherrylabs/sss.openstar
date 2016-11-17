@@ -1,11 +1,15 @@
 package sss.analysis
 
-import com.vaadin.ui.{Panel, VerticalLayout}
+import com.vaadin.ui.Button.{ClickEvent, ClickListener}
+import com.vaadin.ui.{Button, Panel, UI, VerticalLayout}
 import org.jfree.chart.JFreeChart
-import org.jfree.chart.axis.NumberAxis
+import org.jfree.chart.axis.{DateTickUnit, NumberAxis, NumberTickUnit}
+import org.jfree.chart.axis.NumberTickUnit
+import org.jfree.chart.event.PlotChangeEvent
 import org.jfree.chart.plot.XYPlot
+import org.jfree.chart.renderer.xy.SamplingXYLineRenderer
 import org.jfree.chart.renderer.xy.DefaultXYItemRenderer
-
+import org.jfree.data.general.DatasetChangeEvent
 import org.jfree.data.xy.DefaultTableXYDataset
 import org.vaadin.addon.JFreeChartWrapper
 import sss.analysis.BlockSeriesFactory.BlockSeries
@@ -19,11 +23,9 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
 
   import clientNode.db
 
+  val blockSeriesFactory = new BlockSeriesFactory
   val blockSeries = BlockSeries()
   val ds: DefaultTableXYDataset = new DefaultTableXYDataset
-
-//  blockSeries.coinbaseSeries.add(300, 400)
-//  blockSeries.coinbaseSeries.add(400, 500, true)
 
   ds.addSeries(blockSeries.txSeries)
   ds.addSeries(blockSeries.coinbaseSeries)
@@ -32,10 +34,13 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
 
   val y: NumberAxis = new NumberAxis("Txs, Coinbase, etc.")
   val x: NumberAxis = new NumberAxis("Block Height")
-  y.setAutoRange(true)
+  //x.setTickUnit(new NumberTickUnit(100))
   y.setAutoRangeIncludesZero(false)
-  x.setAutoRange(true)
   x.setAutoRangeIncludesZero(false)
+
+
+  x.setAutoRange(true)
+
   val plot2: XYPlot = new XYPlot(ds, x, y, new DefaultXYItemRenderer())
   //plot2.setForegroundAlpha(0.5f)
   val c: JFreeChart = new JFreeChart(plot2)
@@ -43,23 +48,27 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   setMargin(true)
   setSpacing(true)
 
-
-
   val lowerPanel = new Panel("Asado Charts")
 
-  val chart = new JFreeChartWrapper(c)
-  chart.setSizeFull()
+  var chart = new JFreeChartWrapper(c)
+  chart.setWidth("100%")
+  chart.setHeight("500px")
 
   lowerPanel.setContent(chart)
   addComponent(lowerPanel)
+  val btn = new Button("Repaint")
+  addComponent(btn)
 
-  //update(1440)
+  btn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+      chart.detach()
+      chart.attach()
+    }
+  })
 
-  def update(blockHeight: Long): Unit = {
-    BlockSeriesFactory.updateSeries(blockHeight, blockSeries)
-    chart.markAsDirty()
+  def update(): Unit = {
+    blockSeriesFactory.updateSeries(2, blockSeries)
+
   }
-
-  def update(lastAnalysis: Analysis): Unit = update(lastAnalysis.analysisHeight)
 
 }

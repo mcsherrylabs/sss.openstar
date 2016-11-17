@@ -18,7 +18,7 @@ resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
 
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "7.5.8"
+val vaadinVer = "7.7.4"
 
 dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
