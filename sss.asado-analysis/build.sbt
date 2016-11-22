@@ -8,45 +8,44 @@ scalaVersion := "2.11.8"
 
 version := "0.1"
 
-resolvers += "indvd00m-github-repo" at "https://github.com/indvd00m/maven-repo/raw/master/repository"
+//resolvers += "indvd00m-github-repo" at "https://github.com/indvd00m/maven-repo/raw/master/repository"
 
-resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases"
+//resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases"
 
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+//resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
-resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
+//resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
 
 //Seq(vaadinWebSettings: _*)
 
 val vaadinVer = "7.7.4"
 
-dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
+//dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies ++= Seq(
   "org.hsqldb" % "hsqldb" % "2.3.4",
-  "com.typesafe.akka" %% "akka-actor" % "2.4.0",
-  "com.typesafe.akka" %% "akka-remote" % "2.4.0",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.+",
+  "com.typesafe.akka" %% "akka-remote" % "2.4.+",
   "com.vaadin" % "vaadin-server" % vaadinVer,
   "com.vaadin" % "vaadin-themes" % vaadinVer,
   "com.vaadin" % "vaadin-push" % vaadinVer,
-  "com.vaadin" % "vaadin-client-compiler" % vaadinVer,
+  //"com.vaadin" % "vaadin-shared" % vaadinVer,
+  //"com.vaadin" % "vaadin-client" % vaadinVer,
+  //"com.vaadin" % "vaadin-client-compiler" % vaadinVer,
   "com.vaadin" % "vaadin-client-compiled" % vaadinVer,
   "us.monoid.web" % "resty" % "0.3.2",
-  "org.vaadin.icons" % "vaadin-icons" % "1.0.1",
-  "org.vaadin.addons" % "animator" % "1.7.4",
+  //"org.vaadin.icons" % "vaadin-icons" % "1.0.1",
+  //"org.vaadin.addons" % "animator" % "1.7.4",
   "com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT",
   "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % "0.3-SNAPSHOT",
   "org.scalatra" % "scalatra_2.11" % "2.4.0",
   "io.spray" %%  "spray-json" % "1.3.2",
+  // https://mvnrepository.com/artifact/javax.portlet/portlet-api
+  "javax.portlet" % "portlet-api" % "2.0",
+  "com.typesafe.akka" % "akka-slf4j_2.11" % "2.4.+",
   "org.vaadin.addon" % "jfreechartwrapper" % "3.0.3" excludeAll ExclusionRule(organization = "javax.servlet"),
   "org.scalatest" %% "scalatest" % "2.2.6" % Test
 )
-
-
-
-
-
-
 
 // Settings for the Vaadin plugin widgetset compilation
 // Widgetset compilation needs memory and to avoid an out of memory error it usually needs more memory:
@@ -61,6 +60,8 @@ libraryDependencies ++= Seq(
 
 mappings in Universal ++= directory("WebContent")
 
-scriptClasspath := Seq("*")
+//scriptClasspath := Seq("*")
+
+excludeFilter in unmanagedSources := HiddenFileFilter || "*vaadin*"
 
 mainClass in (Compile, run) := Some("sss.analysis.Main")

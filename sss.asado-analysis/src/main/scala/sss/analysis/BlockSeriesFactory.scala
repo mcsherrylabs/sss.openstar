@@ -5,6 +5,8 @@ import sss.analysis.BlockSeriesFactory.BlockSeries
 import sss.ancillary.LogFactory
 import sss.db._
 
+import scala.util.{Failure, Success, Try}
+
 /**
   * Created by alan on 11/16/16.
   */
@@ -12,25 +14,31 @@ object BlockSeriesFactory {
   case class BlockSeries(coinbaseSeries: XYSeries = new XYSeries("Coinbase", false, false),
                          ledgerBalanceSeries: XYSeries = new XYSeries("Ledger Balance", false, false),
                          txSeries: XYSeries = new XYSeries("Tx", false, false),
-                         timeSeries: XYSeries = new XYSeries("Time", false, false),
-                         errorSeries: XYSeries = new XYSeries("Error", false, false))
+                         txPerBlockSeries: XYSeries = new XYSeries("Tx Per Block", false, false)
+                         )
 
 }
 class BlockSeriesFactory(implicit db:Db) extends AnalysisDb {
 
   lazy private val analysisTable = db.table(headerTableName)
 
+  def fromMillis(num:Long): Long = {
+    Try((num / 1000).toLong) match {
+      case Failure(e) => num
+      case Success(s) => s
+    }
+  }
+
   def pointsFromBlock(prevAnalysis: Analysis, analysis: Analysis, blockSeries: BlockSeries)  {
-    blockSeries.coinbaseSeries.addOrUpdate(analysis.analysisHeight, analysis.coinbaseTotal)
-    blockSeries.ledgerBalanceSeries.addOrUpdate(analysis.analysisHeight, analysis.balance)
-    LogFactory.log.info(s"${analysis.analysisHeight} ${analysis.balance - prevAnalysis.balance}")
-    blockSeries.txSeries.addOrUpdate(analysis.analysisHeight, analysis.balance - prevAnalysis.balance)
-    blockSeries.timeSeries.addOrUpdate(analysis.analysisHeight, analysis.txInBlockCount- prevAnalysis.txInBlockCount)
+    blockSeries.coinbaseSeries.addOrUpdate(analysis.analysisHeight, fromMillis(analysis.coinbaseTotal))
+    blockSeries.ledgerBalanceSeries.addOrUpdate(analysis.analysisHeight, fromMillis(analysis.balance))
+    blockSeries.txSeries.addOrUpdate(analysis.analysisHeight, analysis.txCount)
+    blockSeries.txPerBlockSeries.addOrUpdate(analysis.analysisHeight, analysis.txInBlockCount)
   }
 
   def seriesFromBlock(previousBlockAnalysis: Analysis, blockHeight: Long, blockSeries: BlockSeries)(implicit db:Db): BlockSeries = {
     if(Analysis.isAnalysed(blockHeight)) {
-      val newPrev = Analysis(blockHeight)
+      val newPrev = Analysis(blockHeight, Some(previousBlockAnalysis.txOuts))
       pointsFromBlock(previousBlockAnalysis, newPrev, blockSeries)
       seriesFromBlock(newPrev, blockHeight + 1, blockSeries)
     } else blockSeries

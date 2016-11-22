@@ -21,7 +21,7 @@ class EndToEndEncryptionSpec extends FlatSpec with Matchers with ByteArrayCompar
   "End to End encryption " should " successfully encrypt and decrypted with a public/private shared secret " in {
 
     val sharedSecret = Curve25519.createSharedSecret(pkPair1.privateKey, pkPair2.publicKey)
-    val iv = CBCEncryption.newInitVector()
+    val iv = CBCEncryption.newInitVector
 
     val encrypted = CBCEncryption.encrypt(sharedSecret, message, iv)
 

@@ -39,19 +39,28 @@ object Analysis extends AnalysisDb with Logging {
 
   def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
 
-  def apply(blockHeight: Long)(implicit db:Db): Analysis = {
+  def apply(blockHeight: Long, outs: Option[Seq[InOut]])(implicit db:Db): Analysis = {
     require(blockHeight > 0, s"Blockheight starts at 1, not $blockHeight")
     analysisCache.getOrElseUpdate(blockHeight, {
       if (blockHeight == 1) blockOneAnalysis
-      else AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), getHeaderTable)
+      else {
+        outs match {
+          case Some(outs) => AnalysisFromTables(blockHeight, outs, getHeaderTable)
+          case None => AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), getHeaderTable)
+        }
+      }
     })
+  }
+
+  def isCheckpoint(blockHeight: Long)(implicit db:Db): Boolean = {
+    getHeaderTable(db).find(idCol -> blockHeight, stateCol -> 2).isDefined
   }
 
   def isAnalysed(blockHeight: Long)(implicit db:Db): Boolean = {
       getHeaderTable(db).find(idCol -> blockHeight).isDefined
   }
 
-  def analyse(block:Block)(implicit db:Db): Analysis = {
+  def analyse(block:Block, prevAnalysis: Analysis)(implicit db:Db): Analysis = {
 
 
     val blockHeight = block.height
@@ -74,9 +83,12 @@ object Analysis extends AnalysisDb with Logging {
 
     def write(acc: Analysis): Analysis = {
       db.tx[Analysis] {
-        acc.txOuts.foreach { io =>
-          table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
-        }
+        val state = if(acc.analysisHeight % 100 == 0) {
+          acc.txOuts.foreach { io =>
+            table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
+          }
+          1
+        } else 2
 
         getHeaderTable.insert(acc.analysisHeight,
           acc.coinbaseTotal,
@@ -84,9 +96,10 @@ object Analysis extends AnalysisDb with Logging {
           acc.balance,
           acc.txInBlockCount,
           acc.timeBlockOpen,
-          1
+          state
           )
-        apply(blockHeight)
+        if(state == 1) apply(blockHeight, None)
+        else apply(blockHeight, Some(acc.txOuts))
       }
     }
 
@@ -146,7 +159,7 @@ object Analysis extends AnalysisDb with Logging {
     }
 
     auditor.write(s"Audit of $blockHeight begins .....")
-    val accumulator = mapNextOuts(block.entries, apply(blockHeight - 1))
+    val accumulator = mapNextOuts(block.entries, prevAnalysis)
     auditor.write(s"Audit of $blockHeight done, writing accumulator .....")
     val written = write(accumulator)
     log.info(s"Wrote accumulator, (${accumulator.txOuts.size} entries).....")
@@ -206,6 +219,11 @@ trait AnalysisDb {
 }
 
 object AnalysisFromTables {
+
+  def apply(analysisHeight: Long, txOuts: Seq[InOut], headerTable: View)(implicit db:Db): Analysis = {
+    val row = headerTable(analysisHeight)
+    new AnalysisFromTable(txOuts, row)
+  }
   def apply(analysisHeight: Long, table: View, headerTable: View)(implicit db:Db): Analysis = {
     val row = headerTable(analysisHeight)
     new AnalysisFromTables(table, row)
@@ -213,10 +231,21 @@ object AnalysisFromTables {
 }
 
 class AnalysisFromTables(table: View, row:Row)(implicit db:Db) extends AnalysisDb with Analysis {
-  override lazy val txOuts: Seq[InOut] = table.map { row =>
+
+  lazy val txOuts: Seq[InOut] = table.map { row =>
     InOut(row[Array[Byte]](txIndexCol).toTxIndex,
       row[Array[Byte]](txOutCol).toTxOutput)
   }
+  override val analysisHeight: Long = row[Long](idCol)
+  lazy override val balance: Long =  row[Long](txOutTotalCol)
+  override val txCount: Long = row[Long](txCountCol)
+  override val txInBlockCount: Long = row[Long](txBlockCountCol)
+  override val timeBlockOpen: Long = row[Long](timeBlockOpenCol)
+  override val coinbaseTotal: Long = row[Long](coinbaseCol)
+
+}
+
+class AnalysisFromTable(override val txOuts: Seq[InOut], row:Row)(implicit db:Db) extends AnalysisDb with Analysis {
 
   override val analysisHeight: Long = row[Long](idCol)
   lazy override val balance: Long =  row[Long](txOutTotalCol)

@@ -1,19 +1,21 @@
 package sss.analysis
 
+import com.vaadin.data.Property.{ValueChangeEvent, ValueChangeListener}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
-import com.vaadin.ui.{Button, Panel, UI, VerticalLayout}
+import com.vaadin.ui._
 import org.jfree.chart.JFreeChart
-import org.jfree.chart.axis.{DateTickUnit, NumberAxis, NumberTickUnit}
-import org.jfree.chart.axis.NumberTickUnit
-import org.jfree.chart.event.PlotChangeEvent
+import org.jfree.chart.axis.{ NumberAxis }
+
 import org.jfree.chart.plot.XYPlot
-import org.jfree.chart.renderer.xy.SamplingXYLineRenderer
+
 import org.jfree.chart.renderer.xy.DefaultXYItemRenderer
-import org.jfree.data.general.DatasetChangeEvent
+
 import org.jfree.data.xy.DefaultTableXYDataset
 import org.vaadin.addon.JFreeChartWrapper
 import sss.analysis.BlockSeriesFactory.BlockSeries
 import sss.asado.nodebuilder.ClientNode
+
+import scala.util.{Failure, Try}
 
 
 /**
@@ -30,7 +32,7 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   ds.addSeries(blockSeries.txSeries)
   ds.addSeries(blockSeries.coinbaseSeries)
   ds.addSeries(blockSeries.ledgerBalanceSeries)
-  ds.addSeries(blockSeries.timeSeries)
+  ds.addSeries(blockSeries.txPerBlockSeries)
 
   val y: NumberAxis = new NumberAxis("Txs, Coinbase, etc.")
   val x: NumberAxis = new NumberAxis("Block Height")
@@ -57,12 +59,103 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   lowerPanel.setContent(chart)
   addComponent(lowerPanel)
   val btn = new Button("Repaint")
-  addComponent(btn)
+  btn.setWidth("200px")
 
   btn.addClickListener(new ClickListener {
     override def buttonClick(event: ClickEvent): Unit = {
       chart.detach()
       chart.attach()
+    }
+  })
+
+  val xChange = new TextField("X minimum")
+  val xMaxChange = new TextField("X maximum")
+  val yMinChange = new TextField("Y minimum")
+  val yMaxChange = new TextField("Y maximum")
+
+  val resetBtn = new Button("Reset")
+  resetBtn.setWidth("200px")
+
+  resetBtn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+      x.setAutoRange(true)
+      y.setAutoRange(true)
+      xChange.setValue("")
+      xMaxChange.setValue("")
+      yMinChange.setValue("")
+      yMaxChange.setValue("")
+      chart.detach()
+      chart.attach()
+    }
+  })
+
+  val hLayout = new HorizontalLayout()
+  addComponent(hLayout)
+  val vLayout1 = new VerticalLayout()
+  val vLayout2 = new VerticalLayout()
+  val vLayout3 = new VerticalLayout()
+  hLayout.setSpacing(true)
+  hLayout.setMargin(true)
+  hLayout.addComponents(vLayout1, vLayout2, vLayout3)
+  vLayout1.setMargin(true)
+  vLayout1.setSpacing(true)
+
+  vLayout2.setMargin(true)
+  vLayout3.setMargin(true)
+  vLayout1.addComponents(btn, resetBtn)
+  vLayout2.addComponents(xChange, xMaxChange)
+  vLayout3.addComponents(yMinChange, yMaxChange)
+
+  yMaxChange.addValueChangeListener(new ValueChangeListener {
+    override def valueChange(event: ValueChangeEvent): Unit = Try {
+      if(event.getProperty.getValue != "") {
+        val newUpper = yMaxChange.getValue.toInt
+        val r = y.getRange
+        y.setRange(r.getLowerBound, newUpper)
+      }
+    } match {
+      case Failure(e) => Notification.show(s"$e")
+      case _ =>
+    }
+  })
+
+  yMinChange.addValueChangeListener(new ValueChangeListener {
+    override def valueChange(event: ValueChangeEvent): Unit = Try {
+      if(event.getProperty.getValue != "") {
+        val newLower = yMinChange.getValue.toInt
+        val r = y.getRange
+        y.setRange(newLower, r.getUpperBound)
+      }
+    } match {
+      case Failure(e) => Notification.show(s"$e")
+      case _ =>
+    }
+  })
+
+
+  xMaxChange.addValueChangeListener(new ValueChangeListener {
+    override def valueChange(event: ValueChangeEvent): Unit = Try {
+      if(event.getProperty.getValue != "") {
+        val newUpper = xMaxChange.getValue.toInt
+        val r = x.getRange
+        x.setRange(r.getLowerBound, newUpper)
+      }
+    } match {
+      case Failure(e) => Notification.show(s"$e")
+      case _ =>
+    }
+  })
+
+  xChange.addValueChangeListener(new ValueChangeListener {
+    override def valueChange(event: ValueChangeEvent): Unit = Try {
+      if(event.getProperty.getValue != "") {
+        val newLower = xChange.getValue.toInt
+        val r = x.getRange
+        x.setRange(newLower, r.getUpperBound)
+      }
+    } match {
+      case Failure(e) => Notification.show(s"$e")
+      case _ =>
     }
   })
 

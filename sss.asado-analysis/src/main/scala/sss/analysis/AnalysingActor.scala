@@ -61,14 +61,16 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case StateMachineInitialised =>
       startNetwork
       self ! ConnectHomeDelay()
-      self ! CheckForAnalysis(2)
+      self ! CheckForAnalysis(bc.lastBlockHeader.height)
 
-    case CheckForAnalysis(blockHeight) if(Analysis.isAnalysed(blockHeight)) =>
-      self ! CheckForAnalysis(blockHeight + 1)
+    case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) && blockHeight > 1 =>
+      self ! CheckForAnalysis(blockHeight - 1)
 
     case CheckForAnalysis(blockHeight) =>
-      self ! Analyse(blockHeight)
-      status.alter(s => s.copy(lastAnalysis = Analysis(blockHeight - 1)))
+      val lastCheckPoint = Analysis(blockHeight, None)
+      status.send(s => s.copy(lastAnalysis = lastCheckPoint))
+      self ! Analyse(blockHeight + 1)
+
 
     case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
         context.system.scheduler.scheduleOnce(
@@ -78,11 +80,11 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case a @ Analyse(blockHeight) =>
       val block = new Block(blockHeight)
       val start = new Date().getTime
-      val analysis = Analysis.analyse(block)
+      val analysis = Analysis.analyse(block, status.get().lastAnalysis)
       val took = new Date().getTime - start
       log.info(s"Block $blockHeight took $took")
       self ! Analyse(blockHeight + 1)
-      status.alter(s => s.copy(lastAnalysis = analysis))
+      status.send(s => s.copy(lastAnalysis = analysis))
       UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis)
 
   }

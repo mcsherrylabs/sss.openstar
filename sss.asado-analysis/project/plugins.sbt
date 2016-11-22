@@ -1,5 +1,5 @@
 // Vaadin SBT plugin
-//resolvers += "sbt-vaadin-plugin repo" at "http://henrikerola.github.io/repository/releases"
+resolvers += "sbt-vaadin-plugin repo" at "http://henrikerola.github.io/repository/releases"
 
 scalaVersion := "2.10.5"
 

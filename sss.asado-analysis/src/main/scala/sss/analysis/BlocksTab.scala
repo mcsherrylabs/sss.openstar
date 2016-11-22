@@ -115,13 +115,13 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
 
         panel.setCaption(s"Asado Block $blockHeight")
         numInBlock.setValue(header.numTxs.toString)
-        if(Analysis.isAnalysed(blockHeight)) {
-          val analysis = Analysis(blockHeight)
+        if(Analysis.isCheckpoint(blockHeight)) {
+          val analysis = Analysis(blockHeight, None)
           balance.setValue(analysis.balance.toString)
           coinbase.setValue(analysis.coinbaseTotal.toString)
           txOuts.setValue(analysis.txInBlockCount.toString)
           new AnalysisMessages(blockHeight).apply.foreach(m => println(format(m)))
-        } else println("No analysis exists for this block")
+        } else println("No analysis checkpoint exists for this block")
 
     }
 
