@@ -5,7 +5,7 @@ scalaVersion := "2.11.8"
 
 version := "0.3-SNAPSHOT"
 
-//resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
 libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
 
