@@ -47,6 +47,7 @@ object MessageComponent extends Logging {
 
   }
 
+
   def toDetails(msg: Message)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
     //val le = msg.tx.toLedgerItem
