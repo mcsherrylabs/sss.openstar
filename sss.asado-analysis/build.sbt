@@ -18,7 +18,7 @@ version := "0.1"
 
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "7.7.4"
+val vaadinVer = "7.7.5"
 
 //dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 

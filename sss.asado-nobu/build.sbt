@@ -16,7 +16,7 @@ resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/p
 
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "7.5.8"
+val vaadinVer = "7.7.5"
 
 
 //dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
