@@ -8,17 +8,15 @@ import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.ui.Button.ClickEvent
 import com.vaadin.ui.{Button, Notification, UI}
+import org.joda.time.LocalDateTime
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
-import sss.asado.balanceledger.{TxIndex, TxOutput}
-import sss.asado.contract.SingleIdentityEnc
-import sss.asado.ledger._
-import sss.asado.nodebuilder.{ClientNode, WalletBuilder}
-import sss.asado.state.HomeDomain
+import sss.asado.message.{Message, MessageInBox}
+import sss.asado.nodebuilder.ClientNode
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.{Wallet, WalletPersistence}
 import sss.ui.design.CenteredAccordianDesign
-import sss.ui.reactor.{ComponentEvent, Register, UIReactor}
+import sss.ui.reactor.{ComponentEvent, UIReactor}
 
 import scala.util.{Failure, Success, Try}
 
@@ -41,7 +39,6 @@ class UnlockClaimView(
 
   private val claimBtnVal = claimBtn
   private val unlockBtnVal = unlockBtn
-
 
   unlockTagText.setVisible(false)
   claimTagText.setVisible(false)
@@ -67,9 +64,9 @@ class UnlockClaimView(
     userDir.loadCombo(identityCombo)
   }
 
-//  claimMnuBtn.addClickListener(new Button.ClickListener{
-//    override def buttonClick(event: ClickEvent): Unit = showClaim
-//  })
+  claimMnuBtn.addClickListener(new Button.ClickListener{
+    override def buttonClick(event: ClickEvent): Unit = showClaim
+  })
 
   unlockMnuBtn.addClickListener(new Button.ClickListener{
     override def buttonClick(event: ClickEvent): Unit = showUnlock
@@ -88,6 +85,35 @@ class UnlockClaimView(
   object UnlockClaimViewActor extends sss.ui.reactor.UIEventActor {
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI) = {
+
+      case ComponentEvent(`claimBtnVal`, _) =>
+
+        val claim = claimIdentityText.getValue
+        val claimTag = claimTagText.getValue
+
+        if(NodeIdentity.keyExists(claim, claimTag)) {
+          push(Notification.show(s"Identity $claim exists, try loading it instead?"))
+        } else {
+          Try {
+            val phrase = claimPhrase.getValue
+            val phraseRetype = claimPhraseRetype.getValue
+            if(phrase != phraseRetype) push(Notification.show(s"The passwords do not match!", Notification.Type.ERROR_MESSAGE))
+            else {
+              val nId = NodeIdentity(claim, claimTag, phrase)
+              val publicKey = nId.publicKey.toBase64Str
+              val message = Message(claim,     msg = Array(),
+                                               tx = Array(),
+                                               index = 0,
+                                               createdAt = new LocalDateTime)
+              MessageInBox(userDir.administrator).addNew(message)
+              push(Notification.show(s"Thank you $claim, your registration CREATE D NEW MESSA"))
+            }
+          } match {
+            case Failure(e) => push(Notification.show(s"${e.getMessage}"))
+            case Success(_) =>
+              push(Notification.show(s"Thank you $claim, your registration has been successfully submitted"))
+          }
+        }
 
       case ComponentEvent(`unlockBtnVal`, _) =>
         Option(identityCombo.getValue) map { idTag =>

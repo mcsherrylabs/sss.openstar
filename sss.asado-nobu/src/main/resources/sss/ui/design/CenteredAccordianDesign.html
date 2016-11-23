@@ -12,6 +12,9 @@
      <vaadin-button icon="fonticon://FontAwesome/f09c" primary-style-name="valo-menu-item" width-full plain-text _id="unlockMnuBtn">
       Unlock
      </vaadin-button>
+     <vaadin-button icon="fonticon://FontAwesome/f002" primary-style-name="valo-menu-item" _id="claimMnuBtn">
+      Register
+     </vaadin-button>
     </vaadin-css-layout>
    </vaadin-css-layout>
    <vaadin-vertical-layout style-name="valo-menu-part" id="unlockIdentity" size-auto margin _id="rhsUnlock">
@@ -31,14 +34,18 @@
    </vaadin-vertical-layout>
    <vaadin-vertical-layout style-name="valo-menu-part" id="claimIdentity" size-auto margin _id="rhsClaim">
     <vaadin-text-area width-full readonly _id="claimInfoTextArea">
-     Claim an identity from the network. Only simple characters and numbers are allowed. Successfully claiming an identity locks it to the private key generated on this machine. The phrase you provide encrypts the private key on this machine rendering it unreadable. Don't forget the phrase, the key is unusable without the phrase.
+     Register with cloughpenny currency network by filling in the following fields.
+     Only simple characters and numbers are allowed in the identity field, try using your name with no spaces.
+     Remember the password you provide secures your transactions and is not resettable.
+     The administrator (Ronan) will need to approve your registration.
     </vaadin-text-area>
     <vaadin-form-layout size-auto :middle :center>
      <vaadin-text-field caption="Identity" style-name="small" width="250px" _id="claimIdentityText"></vaadin-text-field>
      <vaadin-text-field caption="Tag" style-name="small" width="250px" _id="claimTagText"></vaadin-text-field>
-     <vaadin-password-field caption="Phrase" style-name="small" width="250px" _id="claimPhrase"></vaadin-password-field>
+     <vaadin-password-field caption="Password" style-name="small" width="250px" _id="claimPhrase"></vaadin-password-field>
+     <vaadin-password-field caption="Retype" style-name="small" width="250px" _id="claimPhraseRetype"></vaadin-password-field>
      <vaadin-button icon="fonticon://FontAwesome/f007" style-name="small" plain-text _id="claimBtn" :middle :right>
-      Claim
+      Register
      </vaadin-button>
     </vaadin-form-layout>
    </vaadin-vertical-layout>

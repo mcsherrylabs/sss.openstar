@@ -15,12 +15,13 @@ public class CenteredAccordianDesign extends HorizontalLayout {
 
     protected CssLayout menuItems;
     protected Button unlockMnuBtn;
-    //protected Button claimMnuBtn;
+    protected Button claimMnuBtn;
     protected TextArea unlockInfoTextArea;
     protected TextArea claimInfoTextArea;
     protected ComboBox identityCombo;
     protected PasswordField unLockPhrase;
     protected PasswordField claimPhrase;
+    protected PasswordField claimPhraseRetype;
     protected TextField claimIdentityText;
     protected TextField claimTagText;
     protected TextField unlockTagText;
