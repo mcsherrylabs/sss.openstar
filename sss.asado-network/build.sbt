@@ -11,7 +11,7 @@ scalaVersion := "2.11.8"
 
 resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
 
-//resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
+resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
 
