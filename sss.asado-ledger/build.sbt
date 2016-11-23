@@ -15,3 +15,5 @@ libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
 libraryDependencies += "com.mcsherrylabs" %% "sss-db" % "0.9.33"
 
 libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
+
+libraryDependencies += "org.hsqldb" % "hsqldb" % "2.3.4" % Test
