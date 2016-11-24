@@ -1,15 +1,14 @@
 package sss.analysis
 
+import java.util.concurrent.atomic.{AtomicLong}
+
 import com.vaadin.data.Property.{ValueChangeEvent, ValueChangeListener}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
 import org.jfree.chart.JFreeChart
-import org.jfree.chart.axis.{ NumberAxis }
-
+import org.jfree.chart.axis.NumberAxis
 import org.jfree.chart.plot.XYPlot
-
 import org.jfree.chart.renderer.xy.DefaultXYItemRenderer
-
 import org.jfree.data.xy.DefaultTableXYDataset
 import org.vaadin.addon.JFreeChartWrapper
 import sss.analysis.BlockSeriesFactory.BlockSeries
@@ -33,12 +32,15 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   ds.addSeries(blockSeries.coinbaseSeries)
   ds.addSeries(blockSeries.ledgerBalanceSeries)
   ds.addSeries(blockSeries.txPerBlockSeries)
+  ds.addSeries(blockSeries.auditCountSeries)
 
   val y: NumberAxis = new NumberAxis("Txs, Coinbase, etc.")
   val x: NumberAxis = new NumberAxis("Block Height")
   //x.setTickUnit(new NumberTickUnit(100))
   y.setAutoRangeIncludesZero(false)
   x.setAutoRangeIncludesZero(false)
+  x.setStandardTickUnits(NumberAxis.createIntegerTickUnits())
+  y.setStandardTickUnits(NumberAxis.createIntegerTickUnits())
 
 
   x.setAutoRange(true)
@@ -151,6 +153,7 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
       if(event.getProperty.getValue != "") {
         val newLower = xChange.getValue.toInt
         val r = x.getRange
+        update(newLower)
         x.setRange(newLower, r.getUpperBound)
       }
     } match {
@@ -159,9 +162,13 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
     }
   })
 
-  def update(): Unit = {
-    blockSeriesFactory.updateSeries(2, blockSeries)
+  val lowXMark = new AtomicLong(Long.MaxValue)
 
+  def update(fromBlock: Long): Unit = {
+    if(lowXMark.get() > fromBlock) {
+      lowXMark.set(fromBlock)
+    }
+    blockSeriesFactory.updateSeries(fromBlock, blockSeries)
   }
 
 }

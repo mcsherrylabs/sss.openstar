@@ -14,7 +14,8 @@ object BlockSeriesFactory {
   case class BlockSeries(coinbaseSeries: XYSeries = new XYSeries("Coinbase", false, false),
                          ledgerBalanceSeries: XYSeries = new XYSeries("Ledger Balance", false, false),
                          txSeries: XYSeries = new XYSeries("Tx", false, false),
-                         txPerBlockSeries: XYSeries = new XYSeries("Tx Per Block", false, false)
+                         txPerBlockSeries: XYSeries = new XYSeries("Tx Per Block", false, false),
+                         auditCountSeries: XYSeries = new XYSeries("Audit count", false, false)
                          )
 
 }
@@ -34,6 +35,7 @@ class BlockSeriesFactory(implicit db:Db) extends AnalysisDb {
     blockSeries.ledgerBalanceSeries.addOrUpdate(analysis.analysisHeight, fromMillis(analysis.balance))
     blockSeries.txSeries.addOrUpdate(analysis.analysisHeight, analysis.txCount)
     blockSeries.txPerBlockSeries.addOrUpdate(analysis.analysisHeight, analysis.txInBlockCount)
+    blockSeries.auditCountSeries.addOrUpdate(analysis.analysisHeight, analysis.auditCount)
   }
 
   def seriesFromBlock(previousBlockAnalysis: Analysis, blockHeight: Long, blockSeries: BlockSeries)(implicit db:Db): BlockSeries = {

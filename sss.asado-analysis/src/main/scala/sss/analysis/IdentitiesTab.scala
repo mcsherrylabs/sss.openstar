@@ -25,9 +25,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
   panel.setSizeFull
   addComponent(panel)
 
-  val idCount = new AtomicInteger(0)
-
-  update()
+  lazy val idCount = new AtomicInteger(clientNode.identityService.list().size)
 
   private def createHeader(detailLayout: Layout, id: String): Layout = {
 
@@ -67,15 +65,15 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
     enclosingLayout
   }
 
-  def update() {
+  def update(push: ( => Unit) => Unit) {
 
-    layout.removeAllComponents()
     val allIds = clientNode.identityService.list()
-    idCount.set(allIds.size)
+    val comps = allIds map (createRow(_))
 
-    allIds foreach { id =>
-
-      layout.addComponent(createRow(id))
+    push {
+      layout.removeAllComponents()
+      comps foreach (layout.addComponent(_))
+      idCount.set(allIds.size)
     }
 
   }

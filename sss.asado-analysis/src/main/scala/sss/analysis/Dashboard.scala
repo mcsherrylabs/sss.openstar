@@ -3,13 +3,13 @@ package sss.analysis
 import akka.actor.{ActorRef, Props}
 import akka.agent.Agent
 import com.vaadin.ui._
-
 import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
 import sss.ancillary.Logging
 import sss.asado.nodebuilder.ClientNode
 import sss.ui.reactor._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 10/26/16.
   */
@@ -18,7 +18,7 @@ object DashBoard {
   trait DashBoardEvent extends Event {
     override val category: String = "dashBoard"
   }
-  case class NewBlockAnalysed(blockAnalysis: Analysis) extends DashBoardEvent
+  case class NewBlockAnalysed(blockAnalysis: Analysis, chainHeight: Long) extends DashBoardEvent
   case class Connected(node: String) extends DashBoardEvent
   case object LostConnection extends DashBoardEvent
 
@@ -39,7 +39,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
   import summary._
 
-  val ref = uiReactor.actorOf(Props(UICoordinatingActor),
+  val ref = uiReactor.actorOf(Props(UICoordinatingActor).withDispatcher("my-pinned-dispatcher"),
     numBlocksLbl, identitiesLbl, txsLbl, tabSheet)
 
   ref ! Register("dashBoard")
@@ -59,40 +59,54 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
   blocksTab.update(latestStatus.lastAnalysis.analysisHeight)
   summary.setConnected(latestStatus.whoConnectedTo)
-  updateDash(latestStatus.lastAnalysis)
+  updateDash(latestStatus.lastAnalysis, 0)
 
-  private def updateDash(blockAnalysis: Analysis): Unit = {
+  private def updateDash(blockAnalysis: Analysis, chainHeight: Long): Unit = {
     summary.setBalance(blockAnalysis.balance)
     summary.setBlockCount(blockAnalysis.analysisHeight)
     summary.setIdentitiesCount(idsTab.idCount.get())
     summary.setTxCount(blockAnalysis.txCount)
+    summary.setChainHeight(chainHeight)
   }
 
   val dashboardThis: Dashboard = this
+
 
   object UICoordinatingActor extends UIEventActor  {
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
       case ComponentEvent(`numBlocksLbl`,_) => push {
         dashboardThis.setSelectedTab(blocksTab)
-        blocksTab.update(numBlocksLbl.getCaption.toLong)
       }
 
       case ComponentEvent(`identitiesLbl`,_) => push {
         dashboardThis.setSelectedTab(idsTab)
       }
 
-      case ComponentEvent(`tabSheet`, _) => push {
+      case ComponentEvent(`tabSheet`, _) =>
         tabSheet.getSelectedTab match {
-          case `walletsTab` => walletsTab.update()
-          case `chartsTab` => chartsTab.update()
+          case `walletsTab` => walletsTab.update(push _)
+          case `chartsTab` =>
+            val startBlock = Try{
+              val analysedBlockCount = numBlocksLbl.getCaption.toLong
+              if(analysedBlockCount > 1000) analysedBlockCount - 1000
+              else 2
+            } match {
+              case Failure(_) => 2
+              case Success(s) => s
+            }
+            chartsTab.update(startBlock)
+
+          case `blocksTab` => push(Try(numBlocksLbl.getCaption.toLong) map (blocksTab.update(_)))
+
+          case `idsTab` => idsTab.update(push _)
           case _ =>
         }
-      }
+
 
       case Connected(who) => push { setConnected(who)}
       case LostConnection => push { setConnected("Disconnected")}
-      case NewBlockAnalysed(bh) => push { updateDash(bh)  }
+      case NewBlockAnalysed(bh, chainHeight) => push { updateDash(bh, chainHeight)  }
     }
   }
 }

@@ -12,6 +12,7 @@ import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, S
 import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
@@ -21,7 +22,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private case object ConnectHome
   private case class ConnectHomeDelay(delaySeconds: Int = 5)
-  private case class Analyse(block: Long)
+  private case class Analyse(blockHeight: Long, lastAnalysis: Analysis)
   private case class CheckForAnalysis(block: Long)
 
 
@@ -63,29 +64,32 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
       self ! ConnectHomeDelay()
       self ! CheckForAnalysis(bc.lastBlockHeader.height)
 
-    case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) && blockHeight > 1 =>
+    case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) =>
       self ! CheckForAnalysis(blockHeight - 1)
 
     case CheckForAnalysis(blockHeight) =>
       val lastCheckPoint = Analysis(blockHeight, None)
+      assert(Analysis.isCheckpoint(blockHeight), s"This height ${blockHeight} must be a checkpoint")
       status.send(s => s.copy(lastAnalysis = lastCheckPoint))
-      self ! Analyse(blockHeight + 1)
+      self ! Analyse(blockHeight + 1, lastCheckPoint)
 
 
-    case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
+    case a @ Analyse(blockHeight, prev) if(bc.lastBlockHeader.height < blockHeight) =>
         context.system.scheduler.scheduleOnce(
-          FiniteDuration(5, MINUTES),
+          FiniteDuration(1, MINUTES),
           self, a)
 
-    case a @ Analyse(blockHeight) =>
+    case a @ Analyse(blockHeight, prev) =>
       val block = new Block(blockHeight)
-      val start = new Date().getTime
-      val analysis = Analysis.analyse(block, status.get().lastAnalysis)
-      val took = new Date().getTime - start
-      log.info(s"Block $blockHeight took $took")
-      self ! Analyse(blockHeight + 1)
-      status.send(s => s.copy(lastAnalysis = analysis))
-      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis)
+      val chainHeight = bc.lastBlockHeader.height
+      val thisActor = self
+      Future {
+        Analysis.analyse(block, prev, chainHeight)
+      } map { analysis =>
+        thisActor ! Analyse(blockHeight + 1, analysis)
+        status.send(s => s.copy(lastAnalysis = analysis))
+        UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis, chainHeight)
+      }
 
   }
 

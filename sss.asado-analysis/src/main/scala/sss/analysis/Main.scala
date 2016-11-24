@@ -18,10 +18,10 @@ object Main {
     clientNode = new ClientNode {
       override val phrase: Option[String] = Some("password")
       override val configName: String = "analysis"
-      lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
+      //lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
     }
 
-    clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode))
+    clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
     clientNode.initStateMachine
 
 
