@@ -23,10 +23,7 @@ object Analysis extends AnalysisDb with Logging {
   val stateCheckPoint = 2
   val stateAnalysedNoCheckpoint = 1
 
-  def getHeaderTable(implicit db:Db): Table = {
-    db.executeSql(createHeaderTableSql)
-    db.table(headerTableName)
-  }
+  def getHeaderTable(implicit db:Db): Table = db.table(headerTableName)
 
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
   case class AnalysisFromMemory(analysisHeight: Long,
@@ -226,17 +223,6 @@ trait AnalysisDb {
         |$txOutCol BLOB);
         |""".stripMargin
 
-  def createHeaderTableSql =
-    s"""CREATE TABLE IF NOT EXISTS ${headerTableName}
-        |($idCol BIGINT,
-        |$coinbaseCol BIGINT,
-        |$txCountCol BIGINT,
-        |$txOutTotalCol BIGINT,
-        |$txBlockCountCol BIGINT,
-        |$timeBlockOpenCol BIGINT,
-        |$stateCol INTEGER,
-        |$auditCountCol INTEGER, PRIMARY KEY ($idCol));
-        |""".stripMargin
 
 }
 
