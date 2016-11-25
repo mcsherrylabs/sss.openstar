@@ -1,14 +1,28 @@
 package sss.analysis
 
 
+import akka.agent.Agent
 import com.vaadin.ui._
-import sss.ui.{StatisticsChart}
+import sss.analysis.DashBoard.Status
+import sss.ui.StatisticsChart
 import sss.ui.reactor.UIReactor
 
 /**
   * Created by alan on 10/27/16.
   */
-class Summary(uiReactor: UIReactor) extends VerticalLayout {
+class Summary(uiReactor: UIReactor, status: Agent[Status]) extends VerticalLayout {
+
+
+  def update: Unit = {
+    val s = status.get()
+    val blockAnalysis = s.lastAnalysis
+    setBalance(blockAnalysis.balance)
+    setBlockCount(blockAnalysis.analysisHeight)
+    setIdentitiesCount(s.numIds)
+    setTxCount(blockAnalysis.txCount)
+    setChainHeight(s.chainHeight)
+    setConnected(s.whoConnectedTo)
+  }
 
   private def makeLhsLabel(name: String, row: Int) = {
     val lbl = new Label(name)
@@ -64,10 +78,10 @@ class Summary(uiReactor: UIReactor) extends VerticalLayout {
   panel.setContent(grid)
   addComponents(panel)
 
-  def setBlockCount(count: Long) = numBlocksLbl.setCaption(count.toString)
-  def setTxCount(count: Long) = txsLbl.setCaption(count.toString)
-  def setIdentitiesCount(count: Long) = identitiesLbl.setCaption(count.toString)
-  def setBalance(bal: Long) = balanceLbl.setCaption(bal.toString)
+  private def setBlockCount(count: Long) = numBlocksLbl.setCaption(count.toString)
+  private def setTxCount(count: Long) = txsLbl.setCaption(count.toString)
+  private def setIdentitiesCount(count: Long) = identitiesLbl.setCaption(count.toString)
+  private def setBalance(bal: Long) = balanceLbl.setCaption(bal.toString)
   def setConnected(info: String) = connectedRhs.setCaption(info)
   def setChainHeight(height: Long) = chainHeightRhs.setCaption(height.toString)
 }

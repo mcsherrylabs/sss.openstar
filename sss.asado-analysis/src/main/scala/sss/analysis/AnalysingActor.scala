@@ -78,6 +78,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
 
     case a @ Analyse(blockHeight, prev) if(bc.lastBlockHeader.height < blockHeight) =>
+        status.alter(s => s.copy(chainHeight = bc.lastBlockHeader.height, numIds = identityService.list().size))
         context.system.scheduler.scheduleOnce(
           FiniteDuration(1, MINUTES),
           self, a)
@@ -85,20 +86,13 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case a @ Analyse(blockHeight, prev) =>
       val block = new Block(blockHeight)
       val chainHeight = bc.lastBlockHeader.height
-      val thisSelfRef = self
-      val r = new Runnable {
-        override def run() = {
-          log.info("In analysis thread")
-          val analysis = Analysis.analyse(block, prev, chainHeight)
-          thisSelfRef ! Analyse(blockHeight + 1, analysis)
-          //status.send(s => s.copy(lastAnalysis = analysis))
-          //UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis, chainHeight)
-          log.info("Finish analysis thread")
-        }
-      }
-      val t = new Thread(r)
-      t.setName("Analysis ONLY")
-      t.run()
+      log.info("In analysis thread")
+      val analysis = Analysis.analyse(block, prev, chainHeight)
+      analysis.balance
+      self ! Analyse(blockHeight + 1, analysis)
+      status.send(s => s.copy(lastAnalysis = analysis, chainHeight = chainHeight, numIds = identityService.list().size))
+      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis, chainHeight)
+      log.info("Finish analysis thread")
 
   }
 

@@ -22,14 +22,14 @@ object DashBoard {
   case class Connected(node: String) extends DashBoardEvent
   case object LostConnection extends DashBoardEvent
 
-  case class Status(lastAnalysis: Analysis, whoConnectedTo: String)
-  lazy val status: Agent[Status] = Agent(Status(Analysis.blockOneAnalysis, "Not Connected"))
+  case class Status(lastAnalysis: Analysis, whoConnectedTo: String, chainHeight: Long, numIds: Long)
+  lazy val status: Agent[Status] = Agent(Status(Analysis.blockOneAnalysis, "Not Connected", 0,0 ))
 }
 class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet with Logging {
 
   import DashBoard.status
 
-  val summary = new Summary(uiReactor)
+  val summary = new Summary(uiReactor, status)
   val blocksTab = new BlocksTab(clientNode)
   val idsTab = new IdentitiesTab(clientNode, status)
   val walletsTab = new WalletsTab(clientNode, status)
@@ -55,19 +55,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
   addSelectedTabChangeListener(uiReactor)
 
-  val latestStatus = status.get
-
-  blocksTab.update(latestStatus.lastAnalysis.analysisHeight)
-  summary.setConnected(latestStatus.whoConnectedTo)
-  updateDash(latestStatus.lastAnalysis, 0)
-
-  private def updateDash(blockAnalysis: Analysis, chainHeight: Long): Unit = {
-    summary.setBalance(blockAnalysis.balance)
-    summary.setBlockCount(blockAnalysis.analysisHeight)
-    summary.setIdentitiesCount(idsTab.idCount.get())
-    summary.setTxCount(blockAnalysis.txCount)
-    summary.setChainHeight(chainHeight)
-  }
+  summary.update
 
   val dashboardThis: Dashboard = this
 
@@ -104,9 +92,9 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
         }
 
 
-      case Connected(who) => push { setConnected(who)}
-      case LostConnection => push { setConnected("Disconnected")}
-      case NewBlockAnalysed(bh, chainHeight) => push { updateDash(bh, chainHeight)  }
+      case Connected(who) => push { summary.setConnected(who)}
+      case LostConnection => push { summary.setConnected("Disconnected")}
+      case NewBlockAnalysed(bh, chainHeight) => push { summary.update }
     }
   }
 }

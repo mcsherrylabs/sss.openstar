@@ -25,7 +25,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
   panel.setSizeFull
   addComponent(panel)
 
-  lazy val idCount = new AtomicInteger(clientNode.identityService.list().size)
+  private lazy val idCount = new AtomicInteger(clientNode.identityService.list().size)
 
   private def createHeader(detailLayout: Layout, id: String): Layout = {
 

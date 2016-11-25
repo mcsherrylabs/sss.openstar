@@ -68,8 +68,7 @@ object Analysis extends AnalysisDb with Logging {
     val blockHeight = block.height
     val isCheckpointInterval =
       if(blockHeight < 4) true
-      else if( blockHeight + 100 >= chainHeight) blockHeight % 100 == 0
-      else blockHeight % 1000 == 0
+      else blockHeight % 4000 == 0
 
     val auditor = new AnalysisMessages(blockHeight)
     val tableName = makeTableName(blockHeight)
