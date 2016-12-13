@@ -59,17 +59,17 @@ class MessagePersist(tableName: String)(implicit val db: Db) {
 
   private def toMsg(r:Row): Message = Message(
     r[String](fromCol),
-     r[Array[Byte]](messageCol),
+     r[Array[Byte]](messageCol).toMessagePayload,
     r[Array[Byte]](txCol),
     r[Long](idCol),
     new LocalDateTime(r[Long](createdAtCol)))
 
 
-  def pending(from: String, msg: Array[Byte], tx: Array[Byte]): Long = {
+  def pending(from: String, msgPayload: MessagePayload, tx: Array[Byte]): Long = {
     val row = table.insert(Map(
       metaInfoCol -> None,
       fromCol -> from,
-      messageCol -> msg,
+      messageCol -> msgPayload.toBytes,
       statusCol -> statusPending,
       txCol -> tx,
       createdAtCol -> new Date().getTime))

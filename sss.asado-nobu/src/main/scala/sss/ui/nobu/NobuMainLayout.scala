@@ -255,7 +255,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         val tx = userWallet.appendOutputs(baseTx, paymentOuts : _*)
         val signedSTx = signOutputs(tx, secret)
         val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
-        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toBytes, le.toBytes)
+        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
         // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
         log.info("MessageToSend finished, sending bag")
         clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)

@@ -23,7 +23,10 @@ object MessageEcryption {
     TextWithSecret(extracted(0)[String], extracted(1)[Array[Byte]])
   }
 
-  case class EncryptedMessage(encrypted:Array[Byte], iv: InitVector) {
+  case class EncryptedMessage(encrypted:Array[Byte], iv: InitVector) extends TypedMessagePayload {
+
+    override lazy val toMessagePayLoad: MessagePayload = MessagePayload(MessagePayloadDecoder.EncryptedMessageType, toBytes)
+
     lazy val toBytes: Array[Byte] = (ByteArraySerializer(encrypted) ++ StringSerializer(iv.asString)).toBytes
 
     def decrypt(receiver: NodeIdentity,

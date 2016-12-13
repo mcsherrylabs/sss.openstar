@@ -6,7 +6,6 @@ import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.{IvParameterSpec, SecretKeySpec}
 
-import scala.util.Random
 
 /**
   * Created by alan on 6/3/16.

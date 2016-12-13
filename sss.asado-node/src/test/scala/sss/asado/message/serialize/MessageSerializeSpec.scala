@@ -15,12 +15,22 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
 
   val le = LedgerItem(3.toByte, SeedBytes(32), SeedBytes(32))
 
+  "A message payload " should " serialize and deserialize " in {
+    val test = MessagePayload(2.toByte, SeedBytes(32))
+    val asBytes = test.toBytes
+    val hydrated = asBytes.toMessagePayload
+    assert(hydrated.payloadType == test.payloadType)
+    assert(hydrated.payload isSame test.payload)
+    assert(hydrated.hashCode == test.hashCode)
+    assert(hydrated == test)
+  }
+
   "An addressed message " should " serialize and deserialize " in {
-    val test = AddressedMessage(le, SeedBytes(32))
+    val test = AddressedMessage(le, MessagePayload(2.toByte, SeedBytes(12)))
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessageAddressed
     assert(hydrated.ledgerItem == test.ledgerItem)
-    assert(hydrated.msg isSame test.msg)
+    assert(hydrated.msgPayload == test.msgPayload)
     assert(hydrated.hashCode == test.hashCode)
     assert(hydrated == test)
   }
@@ -57,7 +67,7 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
   }
 
   "A Message " should " serialize and deserialize " in {
-    val test= Message("from", SeedBytes(34), le.toBytes, 20, LocalDateTime.now())
+    val test= Message("from", MessagePayload(4.toByte, SeedBytes(34)), le.toBytes, 20, LocalDateTime.now())
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessage
     assert(hydrated.createdAt == test.createdAt)

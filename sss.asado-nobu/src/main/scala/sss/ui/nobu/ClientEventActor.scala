@@ -109,7 +109,7 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
         watchingMsgSpends -= txId.toBase64Str
         val walletUpdate = bag.walletUpdate
         val msg = Message(bag.from,
-          bag.msg.addrMsg.msg,
+          bag.msg.addrMsg.msgPayload,
           bag.sTx.toBytes,
           0, bag.msg.savedAt)
 

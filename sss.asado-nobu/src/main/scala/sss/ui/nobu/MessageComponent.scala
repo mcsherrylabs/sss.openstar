@@ -12,7 +12,8 @@ import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
-import sss.asado.message.{Message, MessageEcryption, SavedAddressedMessage}
+import sss.asado.message.MessageEcryption.EncryptedMessage
+import sss.asado.message.{Message, MessageEcryption, MessagePayloadDecoder, SavedAddressedMessage}
 import sss.ui.design.MessageDesign
 import sss.ui.nobu.NobuNodeBridge.{ClaimBounty, MessageToArchive, MessageToDelete, SentMessageToDelete}
 import sss.ui.reactor.UIReactor
@@ -25,26 +26,37 @@ import scala.util.{Failure, Success, Try}
 object MessageComponent extends Logging {
  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
+  val msgDecoders = (MessagePayloadDecoder.decode orElse PayloadDecoder.decode)
   def toDetails(savedMsg: SavedAddressedMessage)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 
     val bount = savedMsg.addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry.txEntryBytes.toTx.outs(1).amount
 
-    val enc = MessageEcryption.encryptedMessage(savedMsg.addrMsg.msg)
-    Try(identityServiceQuery.account(savedMsg.to)) match {
-      case Failure(e) => throw e
-      case Success(recipient) =>
-        val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
+    msgDecoders(savedMsg.addrMsg.msgPayload) match {
+      case enc: EncryptedMessage =>
+        Try(identityServiceQuery.account(savedMsg.to)) match {
+          case Failure(e) => throw e
+          case Success(recipient) =>
+            val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
+            new MsgDetails {
+              override val secret: Array[Byte] = msgText.secret
+              override val text: String = msgText.text
+              override val fromTo: String = savedMsg.to
+              override val bounty: Int = bount
+              override val createdAt: LocalDateTime = savedMsg.savedAt
+              override val canClaim: Boolean = false
+            }
+        }
+      case IdentityClaimMessagePayload(claim, tag, publicKey) =>
         new MsgDetails {
-          override val secret: Array[Byte] = msgText.secret
-          override val text: String = msgText.text
+          override val secret: Array[Byte] = Array()
+          override val text: String = claim
           override val fromTo: String = savedMsg.to
-          override val bounty: Int = bount
+          override val bounty: Int = 0
           override val createdAt: LocalDateTime = savedMsg.savedAt
           override val canClaim: Boolean = false
         }
     }
-
   }
 
 
@@ -58,20 +70,35 @@ object MessageComponent extends Logging {
     //val tx = sTx.txEntryBytes.toTx
     val tx = msg.tx.toSignedTxEntry.txEntryBytes.toTx
     val bount = tx.outs(1).amount
-    val enc = MessageEcryption.encryptedMessage(msg.msg)
-    Try(identityServiceQuery.account(msg.from)) match {
-      case Failure(e) => throw e
-      case Success(sender) =>
-        val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
+    msgDecoders(msg.msgPayload) match {
+
+      case enc: EncryptedMessage =>
+        Try(identityServiceQuery.account(msg.from)) match {
+          case Failure(e) => throw e
+          case Success(sender) =>
+            val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
+            new MsgDetails {
+              override val secret: Array[Byte] = msgText.secret
+              override val text: String = msgText.text
+              override val fromTo: String = msg.from
+              override val bounty: Int = bount
+              override val createdAt: LocalDateTime = msg.createdAt
+              override val canClaim: Boolean = true
+            }
+        }
+
+      case IdentityClaimMessagePayload(claim, tag, publicKey) =>
         new MsgDetails {
-          override val secret: Array[Byte] = msgText.secret
-          override val text: String = msgText.text
+          override val secret: Array[Byte] = Array()
+          override val text: String = claim
           override val fromTo: String = msg.from
-          override val bounty: Int = bount
+          override val bounty: Int = 0
           override val createdAt: LocalDateTime = msg.createdAt
-          override val canClaim: Boolean = true
+          override val canClaim: Boolean = false
         }
     }
+
+
   }
 
 }

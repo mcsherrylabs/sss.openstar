@@ -50,6 +50,8 @@ class UnlockClaimView(
   unlockInfoTextArea.setRows(8)
   claimInfoTextArea.setRows(8)
 
+  import clientNode.db
+
   uiReactor.actorOf(Props(UnlockClaimViewActor), claimBtnVal, unlockBtnVal)
 
   private def showClaim = {
@@ -97,11 +99,11 @@ class UnlockClaimView(
           Try {
             val phrase = claimPhrase.getValue
             val phraseRetype = claimPhraseRetype.getValue
-            if(phrase != phraseRetype) push(Notification.show(s"The passwords do not match!", Notification.Type.ERROR_MESSAGE))
+            if(phrase != phraseRetype) throw new Error(s"The passwords do not match!")
             else {
               val nId = NodeIdentity(claim, claimTag, phrase)
               val publicKey = nId.publicKey.toBase64Str
-              val message = Message(claim,     msg = Array(),
+              val message = Message(claim,     msgPayload = IdentityClaimMessagePayload(claim, claimTag, nId.publicKey).toMessagePayLoad,
                                                tx = Array(),
                                                index = 0,
                                                createdAt = new LocalDateTime)
@@ -109,7 +111,7 @@ class UnlockClaimView(
               push(Notification.show(s"Thank you $claim, your registration CREATE D NEW MESSA"))
             }
           } match {
-            case Failure(e) => push(Notification.show(s"${e.getMessage}"))
+            case Failure(e) => push(Notification.show(s"${e.getMessage}", Notification.Type.ERROR_MESSAGE))
             case Success(_) =>
               push(Notification.show(s"Thank you $claim, your registration has been successfully submitted"))
           }

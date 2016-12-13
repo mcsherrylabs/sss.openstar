@@ -29,7 +29,7 @@ object MessageInBox {
 
   private def toMsg(r:Row): Message = Message(
     r[String](fromCol),
-    r[Array[Byte]](messageCol),
+    r[Array[Byte]](messageCol).toMessagePayload,
     r[Array[Byte]](txCol),
     r[Long](idCol),
     new LocalDateTime(r[Long](createdAtCol)))
@@ -73,7 +73,7 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
 
   private def toAddressedMsg(r:Row): AddressedMessage = AddressedMessage(
     r[Array[Byte]](txCol).toLedgerItem,
-    r[Array[Byte]](messageCol))
+    r[Array[Byte]](messageCol).toMessagePayload)
 
   private def toSavedAddressedMsg(r:Row): SavedAddressedMessage = SavedAddressedMessage(
     r[String](toCol),
@@ -87,16 +87,16 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
       idCol -> msg.index,
       fromCol -> msg.from,
       statusCol -> statusNew,
-      messageCol -> msg.msg,
+      messageCol -> msg.msgPayload.toBytes,
       txCol -> msg.tx,
       createdAtCol -> msg.createdAt.toDate.getTime)))
   }
 
-  def addSent(to: Identity, msgBytes: Array[Byte], txBytes: Array[Byte]): SavedAddressedMessage = {
+  def addSent(to: Identity, msgPayload: MessagePayload, txBytes: Array[Byte]): SavedAddressedMessage = {
     toSavedAddressedMsg(sentTable.insert(Map(
       toCol -> to,
       statusCol -> statusNew,
-      messageCol -> msgBytes,
+      messageCol -> msgPayload.toBytes,
       txCol -> txBytes,
       createdAtCol -> new Date().getTime)))
   }

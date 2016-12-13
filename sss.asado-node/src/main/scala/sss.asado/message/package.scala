@@ -3,7 +3,7 @@ package sss.asado
 import org.joda.time.LocalDateTime
 import sss.asado.balanceledger._
 import sss.asado.ledger.{LedgerItem, _}
-import sss.asado.message.serialize.{AddressedMessageSerializer, MsgQuerySerializer, MsgResponseSerializer, MsgSerializer}
+import sss.asado.message.serialize._
 import sss.asado.util.Serialize.ToBytes
 /**
   * Created by alan on 6/6/16.
@@ -34,40 +34,32 @@ package object message {
     val success = false
   }
 
+  trait TypedMessagePayload {
+    def toMessagePayLoad: MessagePayload
+  }
+
   case object EndMessagePage
   case object EndMessageQuery
 
   type Identity = String
 
-  case class SavedAddressedMessage(to: Identity, index: Long, savedAt: LocalDateTime, addrMsg: AddressedMessage) {
+  case class SavedAddressedMessage(to: Identity, index: Long, savedAt: LocalDateTime, addrMsg: AddressedMessage)
+  case class AddressedMessage(ledgerItem: LedgerItem, msgPayload : MessagePayload)
+
+  case class MessagePayload(payloadType: Byte, payload: Array[Byte]) {
     override def equals(obj: scala.Any): Boolean = {
       obj match {
-        case that: SavedAddressedMessage =>
-          (that.addrMsg == addrMsg) &&
-            (that.index == index) &&
-            (that.to == to)
+        case that: MessagePayload =>
+          (that.payloadType == payloadType) && (that.payload isSame payload)
         case _ => false
       }
     }
 
-    override def hashCode(): Int = addrMsg.hashCode() + to.hashCode + index.hashCode()
-  }
-
-  case class AddressedMessage(ledgerItem: LedgerItem, msg : Array[Byte]) {
-    override def equals(obj: scala.Any): Boolean = {
-      obj match {
-        case that: AddressedMessage =>
-          (that.ledgerItem == ledgerItem) &&
-            (that.msg isSame msg)
-        case _ => false
-      }
-    }
-
-    override def hashCode(): Int = ledgerItem.hashCode() + msg.hash
+    override def hashCode(): Int = payloadType.hashCode() + payload.hash
   }
 
   case class Message(from: Identity,
-                     msg: Array[Byte],
+                     msgPayload: MessagePayload,
                      tx: Array[Byte],
                      index: Long,
                      createdAt: LocalDateTime) {
@@ -79,15 +71,23 @@ package object message {
             (that.createdAt == createdAt) &&
             (that.from == from) &&
             (that.tx isSame tx) &&
-            (that.msg isSame msg)
+            (that.msgPayload == msgPayload)
         case _ => false
       }
     }
 
-    override def hashCode(): Int = index.hashCode() + createdAt.hashCode + msg.hash + tx.hash
+    override def hashCode(): Int = index.hashCode() + createdAt.hashCode + msgPayload.hashCode + tx.hash
 
   }
 
+
+  implicit class ToMsgPayload(bs: Array[Byte]) {
+    def toMessagePayload: MessagePayload = MsgPayloadSerializer.fromBytes(bs)
+  }
+
+  implicit class MsgPayloadToBytes(o : MessagePayload) extends ToBytes {
+    override def toBytes: Array[Byte] = MsgPayloadSerializer.toBytes(o)
+  }
 
   implicit class ToMsgResponse(bs: Array[Byte]) {
     def toMessageResponse: MessageResponse = MsgResponseSerializer.fromBytes(bs)
