@@ -4,6 +4,7 @@ import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.ui.{Notification, UI}
+import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
@@ -21,6 +22,7 @@ import sss.asado.wallet.Wallet
 import sss.asado.ledger._
 import sss.asado.message._
 import sss.asado.balanceledger._
+import sss.asado.message.MessageEcryption.EncryptedMessage
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 import sss.ui.design.NobuMainDesign
@@ -50,7 +52,7 @@ class NobuMainLayout(uiReactor: UIReactor,
   private implicit val db: Db = nobuNode.db
   private implicit val identityQuery: IdentityServiceQuery = nobuNode.identityService
   private implicit val nodeIdentity = userId
-
+  private val msgDecoders = (MessagePayloadDecoder.decode orElse PayloadDecoder.decode)
 
   private lazy val minNumBlocksInWhichToClaim = nobuNode.conf.getInt("messagebox.minNumBlocksInWhichToClaim")
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
@@ -101,14 +103,27 @@ class NobuMainLayout(uiReactor: UIReactor,
 
     pager.messages.reverse foreach {
 
-      case msg : Message if(isForDeletion) =>
-        itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
-          mainNobuRef, msg))
+      case msg @ Message(_, msgPayload, _, _, _) if(isForDeletion) =>
+        msgDecoders(msgPayload) match {
+          case EncryptedMessage(enc, iv) =>
+            itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
+              mainNobuRef, msg))
+          case IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
 
-      case msg: Message =>
+        }
+
+
+      case msg @ Message(_, msgPayload, _, _, _) =>
         Try {
-          val newMsg = new NewMessageComponent(itemPanelVerticalLayout,
-            mainNobuRef, msg)
+          val newMsg = msgDecoders(msgPayload) match {
+            case EncryptedMessage(enc, iv) =>
+              new NewMessageComponent(itemPanelVerticalLayout,
+                mainNobuRef, msg)
+            case idClaim @ IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
+              new IdentityClaimComponent(itemPanelVerticalLayout,
+                mainNobuRef, msg, nobuNode.homeDomain, idClaim)
+          }
+
 
         itemPanelVerticalLayout.addComponent(newMsg)
         } match {

@@ -1,26 +1,24 @@
 package sss.ui.nobu
 
-import akka.actor.{Actor, Props}
-import com.vaadin.ui.Notification
-import org.joda.time.LocalDateTime
+import akka.actor.Actor
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.balanceledger.TxIndex
+import sss.asado.block._
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
-import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.ui.nobu.NobuNodeBridge.{BountyTracker, Connected, LostConnection, WalletUpdate}
-import sss.ui.reactor.{Register, UIReactor}
-import sss.asado.block._
-import sss.asado.ledger.LedgerItem
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.wallet.WalletPersistence.Lodgement
+import sss.db.Where
+import sss.ui.nobu.NobuNodeBridge.{BountyTracker, Connected, LostConnection}
+import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{FiniteDuration, _}
+import scala.util.{Failure, Try}
 
 /**
   * Created by alan on 11/9/16.
@@ -85,6 +83,17 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
       startNetwork
       self ! ConnectHomeDelay(3)
 
+        Seq("ronan", "monday", "friday1").foreach { name =>
+          Try {
+          val howMany = clientNode.db.table(s"message_${name}") delete (Where(s"id > 0"))
+          val howManys = clientNode.db.table(s"message_${name}_sent") delete (Where(s"id > 0"))
+          println(s"$name $howMany $howManys")
+          } match {
+            case Failure(e) => println(s"$name $e")
+            case _ =>
+          }
+        }
+      println(s"Done deleting")
 
     case b@Bag(userWallet, signedTx, savedAddressedMessage, walletUpdate, from) =>
       val sndr = sender()

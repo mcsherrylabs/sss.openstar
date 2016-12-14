@@ -101,14 +101,18 @@ class UnlockClaimView(
             val phraseRetype = claimPhraseRetype.getValue
             if(phrase != phraseRetype) throw new Error(s"The passwords do not match!")
             else {
-              val nId = NodeIdentity(claim, claimTag, phrase)
-              val publicKey = nId.publicKey.toBase64Str
-              val message = Message(claim,     msgPayload = IdentityClaimMessagePayload(claim, claimTag, nId.publicKey).toMessagePayLoad,
-                                               tx = Array(),
-                                               index = 0,
-                                               createdAt = new LocalDateTime)
-              MessageInBox(userDir.administrator).addNew(message)
-              push(Notification.show(s"Thank you $claim, your registration CREATE D NEW MESSA"))
+              if(clientNode.identityService.accounts(claim).nonEmpty) throw new Error(s"Identity already claimed!")
+              else {
+                val nId = NodeIdentity(claim, claimTag, phrase)
+                val publicKey = nId.publicKey.toBase64Str
+                val message = Message(claim, msgPayload =
+                  IdentityClaimMessagePayload(claim, claimTag, nId.publicKey, claimInfoTextArea.getValue).toMessagePayLoad,
+                  tx = Array(),
+                  index = 0,
+                  createdAt = new LocalDateTime)
+                MessageInBox(userDir.administrator).addNew(message)
+                push(Notification.show(s"Thank you $claim, your registration CREATE D NEW MESSA"))
+              }
             }
           } match {
             case Failure(e) => push(Notification.show(s"${e.getMessage}", Notification.Type.ERROR_MESSAGE))

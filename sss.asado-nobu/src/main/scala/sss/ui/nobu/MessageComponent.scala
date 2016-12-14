@@ -3,20 +3,21 @@ package sss.ui.nobu
 import akka.actor.ActorRef
 import com.vaadin.server.FontAwesome
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
-import com.vaadin.ui.{Button, Layout}
+import com.vaadin.ui.{Button, Layout, Notification}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
-import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.balanceledger._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
 import sss.asado.message.MessageEcryption.EncryptedMessage
-import sss.asado.message.{Message, MessageEcryption, MessagePayloadDecoder, SavedAddressedMessage}
+import sss.asado.message.{Message, MessagePayloadDecoder, SavedAddressedMessage}
+import sss.asado.state.HomeDomain
 import sss.ui.design.MessageDesign
 import sss.ui.nobu.NobuNodeBridge.{ClaimBounty, MessageToArchive, MessageToDelete, SentMessageToDelete}
-import sss.ui.reactor.UIReactor
+import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
 
@@ -26,7 +27,8 @@ import scala.util.{Failure, Success, Try}
 object MessageComponent extends Logging {
  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
-  val msgDecoders = (MessagePayloadDecoder.decode orElse PayloadDecoder.decode)
+  private val msgDecoders = (MessagePayloadDecoder.decode orElse PayloadDecoder.decode)
+
   def toDetails(savedMsg: SavedAddressedMessage)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 
@@ -47,15 +49,7 @@ object MessageComponent extends Logging {
               override val canClaim: Boolean = false
             }
         }
-      case IdentityClaimMessagePayload(claim, tag, publicKey) =>
-        new MsgDetails {
-          override val secret: Array[Byte] = Array()
-          override val text: String = claim
-          override val fromTo: String = savedMsg.to
-          override val bounty: Int = 0
-          override val createdAt: LocalDateTime = savedMsg.savedAt
-          override val canClaim: Boolean = false
-        }
+
     }
   }
 
@@ -87,15 +81,6 @@ object MessageComponent extends Logging {
             }
         }
 
-      case IdentityClaimMessagePayload(claim, tag, publicKey) =>
-        new MsgDetails {
-          override val secret: Array[Byte] = Array()
-          override val text: String = claim
-          override val fromTo: String = msg.from
-          override val bounty: Int = 0
-          override val createdAt: LocalDateTime = msg.createdAt
-          override val canClaim: Boolean = false
-        }
     }
 
 
@@ -138,6 +123,46 @@ class MessageComponent(parentLayout: Layout,
   deliveredAt.setValue(msgDetails.createdAt.toString(dtFmt))
 
 }
+
+class IdentityClaimComponent(parentLayout: Layout,
+                             mainActorRef: ActorRef,
+                             msg:Message,
+                             homeDomain: HomeDomain,
+                             identityClaimMessagePayload: IdentityClaimMessagePayload)
+                         (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends
+  MessageDesign {
+
+  fromLabel.setValue("NEW IDENTITY REQUEST")
+  val explain = s"Use the thumbs up or down icon to approve or reject this request for identity ${identityClaimMessagePayload.claimedIdentity}"
+  val claimText = if(identityClaimMessagePayload.supportingText.isEmpty) "No supporting text provided!" else identityClaimMessagePayload.supportingText
+  messageText.setValue(s"$explain\n$claimText")
+  deliveredAt.setValue(msg.createdAt.toString(dtFmt))
+  deleteMsgBtn.setVisible(false)
+  replyMsgBtn.setIcon(FontAwesome.THUMBS_O_DOWN)
+  forwardMsgBtn.setIcon(FontAwesome.THUMBS_O_UP)
+
+  replyMsgBtn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+      parentLayout.removeComponent(IdentityClaimComponent.this)
+
+    }
+  })
+
+  forwardMsgBtn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+
+      Try(new Resty().text(s"${homeDomain.http}/claim?claim=${identityClaimMessagePayload.claimedIdentity}" +
+        s"&tag=${identityClaimMessagePayload.tag}" +
+        s"&pKey=${identityClaimMessagePayload.publicKey.toBase64Str}")) match {
+        case Success(e) => Notification.show(s"$e")
+        case Failure(e) => Notification.show(s"$e")
+      }
+      parentLayout.removeComponent(IdentityClaimComponent.this)
+    }
+  })
+
+}
+
 
 class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Message)
                          (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends

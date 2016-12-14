@@ -9,15 +9,16 @@ import sss.asado.util.Serialize._
 object IdentityClaimMessagePayload {
 
   def fromBytes(bytes: Array[Byte]):IdentityClaimMessagePayload = {
-    val extracted = bytes.extract(StringDeSerialize, StringDeSerialize, ByteArrayDeSerialize)
-    IdentityClaimMessagePayload(extracted(0)[String], extracted(1)[String], extracted(2)[Array[Byte]])
+    val extracted = bytes.extract(StringDeSerialize, StringDeSerialize, ByteArrayDeSerialize, StringDeSerialize)
+    IdentityClaimMessagePayload(extracted(0)[String], extracted(1)[String], extracted(2)[Array[Byte]], extracted(3)[String])
   }
 }
 
-//TODO Add supporting text!!!
-case class IdentityClaimMessagePayload(claimedIdentity: String, tag: String, publicKey: PublicKey) extends TypedMessagePayload {
+
+case class IdentityClaimMessagePayload(claimedIdentity: String, tag: String, publicKey: PublicKey, supportingText: String) extends TypedMessagePayload {
   override def toMessagePayLoad: MessagePayload = MessagePayload(2.toByte,
     (StringSerializer(claimedIdentity) ++
       StringSerializer(tag) ++
-      ByteArraySerializer(publicKey)).toBytes)
+      ByteArraySerializer(publicKey) ++
+      StringSerializer(supportingText)).toBytes)
 }
