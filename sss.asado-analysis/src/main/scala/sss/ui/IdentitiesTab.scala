@@ -1,14 +1,12 @@
-package sss.analysis
+package sss.ui
 
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.agent.Agent
-import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import sss.analysis.DashBoard.Status
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.util.ByteArrayEncodedStrOps._
-
+import sss.ui.DashBoard._
 /**
   * Created by alan on 10/27/16.
   */

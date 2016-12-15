@@ -1,11 +1,12 @@
-package sss.analysis
+package sss.ui
 
 import akka.actor.{ActorRef, Props}
 import akka.agent.Agent
 import com.vaadin.ui._
-import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed}
+import sss.analysis._
 import sss.ancillary.Logging
 import sss.asado.nodebuilder.ClientNode
+import sss.ui.DashBoard._
 import sss.ui.reactor._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -34,6 +35,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   val idsTab = new IdentitiesTab(clientNode, status)
   val walletsTab = new WalletsTab(clientNode, status)
   val chartsTab = new ChartsTab(clientNode)
+  val exportTxsTab = new QueryTxsTab(clientNode)
 
   val tabSheet = this
 
@@ -52,6 +54,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   addTab(idsTab, "Identities")
   addTab(walletsTab, "Wallets")
   addTab(chartsTab, "Charts")
+  addTab(exportTxsTab, "Export")
 
   addSelectedTabChangeListener(uiReactor)
 

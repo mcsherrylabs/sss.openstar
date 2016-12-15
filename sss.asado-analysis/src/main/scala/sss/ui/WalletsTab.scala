@@ -1,11 +1,11 @@
-package sss.analysis
+package sss.ui
 
 import akka.agent.Agent
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import sss.analysis.DashBoard.Status
+import sss.analysis.{WalletAnalysis, WalletsAnalysis}
 import sss.asado.nodebuilder.ClientNode
-
+import sss.ui.DashBoard._
 
 /**
   * Created by alan on 10/27/16.

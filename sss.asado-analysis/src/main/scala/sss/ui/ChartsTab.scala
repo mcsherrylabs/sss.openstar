@@ -1,6 +1,6 @@
-package sss.analysis
+package sss.ui
 
-import java.util.concurrent.atomic.{AtomicLong}
+import java.util.concurrent.atomic.AtomicLong
 
 import com.vaadin.data.Property.{ValueChangeEvent, ValueChangeListener}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
@@ -11,6 +11,7 @@ import org.jfree.chart.plot.XYPlot
 import org.jfree.chart.renderer.xy.DefaultXYItemRenderer
 import org.jfree.data.xy.DefaultTableXYDataset
 import org.vaadin.addon.JFreeChartWrapper
+import sss.analysis.BlockSeriesFactory
 import sss.analysis.BlockSeriesFactory.BlockSeries
 import sss.asado.nodebuilder.ClientNode
 

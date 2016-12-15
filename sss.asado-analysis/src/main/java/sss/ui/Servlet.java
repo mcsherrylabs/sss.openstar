@@ -2,7 +2,7 @@ package sss.ui;
 
 import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.VaadinServlet;
-import sss.analysis.MainUI;
+import sss.ui.MainUI;
 
 import sss.ui.reactor.ReactorActorSystem$;
 

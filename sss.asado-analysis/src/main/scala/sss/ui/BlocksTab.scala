@@ -1,12 +1,12 @@
-package sss.analysis
+package sss.ui
 
 import java.util.concurrent.atomic.AtomicLong
 
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
 import org.joda.time.format.DateTimeFormat
-import sss.analysis.Analysis.InOut
 import sss.analysis.AnalysisMessages.Message
+import sss.analysis.{Analysis, AnalysisMessages}
 import sss.asado.nodebuilder.ClientNode
 
 import scala.util.{Failure, Success, Try}

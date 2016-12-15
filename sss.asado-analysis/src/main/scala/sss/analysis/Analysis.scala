@@ -5,9 +5,8 @@ import com.twitter.util.SynchronizedLruMap
 import sss.analysis.Analysis.InOut
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
-import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
-import sss.asado.block.{Block,  BlockTx}
-import sss.asado.balanceledger._
+import sss.asado.balanceledger.{Tx, TxIndex, TxInput, TxOutput, _}
+import sss.asado.block.{Block, BlockTx}
 import sss.asado.identityledger._
 import sss.asado.ledger._
 import sss.db._
@@ -60,6 +59,7 @@ object Analysis extends AnalysisDb with Logging {
   def isAnalysed(blockHeight: Long)(implicit db:Db): Boolean = {
       getHeaderTable(db).find(idCol -> blockHeight, stateCol -> stateAnalysedNoCheckpoint).isDefined
   }
+
 
   def analyse(block:Block, prevAnalysis: Analysis, chainHeight: Long)(implicit db:Db): Analysis = {
 

@@ -1,11 +1,9 @@
-package sss.analysis
-
+package sss.ui
 
 import akka.agent.Agent
 import com.vaadin.ui._
-import sss.analysis.DashBoard.Status
-import sss.ui.StatisticsChart
 import sss.ui.reactor.UIReactor
+import sss.ui.DashBoard._
 
 /**
   * Created by alan on 10/27/16.

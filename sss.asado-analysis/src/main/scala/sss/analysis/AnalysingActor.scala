@@ -4,7 +4,7 @@ import java.util.Date
 
 import akka.actor.Actor
 import sss.analysis.BlockSeriesFactory.BlockSeries
-import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
+import sss.ui.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
@@ -12,7 +12,6 @@ import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, S
 import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.concurrent.duration._
 
 /**
@@ -27,6 +26,9 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
 
   import clientNode._
+
+  val transactionHistory = new TransactionHistory(balanceLedger)
+  val transactionHistoryWriter = new TransactionHistoryWriter()
 
   override def receive: Receive = connecting orElse analysis
 
@@ -60,11 +62,11 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      startNetwork
+      /*startNetwork
       self ! ConnectHomeDelay()
       context.system.scheduler.scheduleOnce(
         FiniteDuration(config.getInt("analysis.delay"), MINUTES),
-        self, CheckForAnalysis(bc.lastBlockHeader.height))
+        self, CheckForAnalysis(bc.lastBlockHeader.height))*/
 
 
     case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) =>
@@ -88,6 +90,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
       val chainHeight = bc.lastBlockHeader.height
       log.info("In analysis thread")
       val analysis = Analysis.analyse(block, prev, chainHeight)
+      transactionHistoryWriter.write(transactionHistory.toExpandedTxStream(block))
       analysis.balance
       self ! Analyse(blockHeight + 1, analysis)
       status.send(s => s.copy(lastAnalysis = analysis, chainHeight = chainHeight, numIds = identityService.list().size))
