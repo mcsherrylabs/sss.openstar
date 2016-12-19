@@ -1,12 +1,10 @@
 package sss.analysis
 
-import java.util.Date
 
 import akka.actor.Actor
-import sss.analysis.BlockSeriesFactory.BlockSeries
+import org.joda.time.LocalDateTime
 import sss.ui.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
 import sss.ui.reactor.UIReactor
@@ -26,9 +24,6 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
 
   import clientNode._
-
-  val transactionHistory = new TransactionHistory(balanceLedger)
-  val transactionHistoryWriter = new TransactionHistoryWriter()
 
   override def receive: Receive = connecting orElse analysis
 
@@ -62,11 +57,11 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      /*startNetwork
+      startNetwork
       self ! ConnectHomeDelay()
       context.system.scheduler.scheduleOnce(
         FiniteDuration(config.getInt("analysis.delay"), MINUTES),
-        self, CheckForAnalysis(bc.lastBlockHeader.height))*/
+        self, CheckForAnalysis(bc.lastBlockHeader.height))
 
 
     case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) =>
@@ -78,7 +73,6 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
       status.send(s => s.copy(lastAnalysis = lastCheckPoint))
       self ! Analyse(blockHeight + 1, lastCheckPoint)
 
-
     case a @ Analyse(blockHeight, prev) if(bc.lastBlockHeader.height < blockHeight) =>
         status.alter(s => s.copy(chainHeight = bc.lastBlockHeader.height, numIds = identityService.list().size))
         context.system.scheduler.scheduleOnce(
@@ -86,11 +80,11 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
           self, a)
 
     case a @ Analyse(blockHeight, prev) =>
-      val block = new Block(blockHeight)
+      val block = bc.block(blockHeight)
+      val blockTime = bc.blockHeader(blockHeight).time
       val chainHeight = bc.lastBlockHeader.height
       log.info("In analysis thread")
-      val analysis = Analysis.analyse(block, prev, chainHeight)
-      transactionHistoryWriter.write(transactionHistory.toExpandedTxStream(block))
+      val analysis = Analysis.analyse(block, prev, chainHeight, new LocalDateTime(blockTime.getTime))
       analysis.balance
       self ! Analyse(blockHeight + 1, analysis)
       status.send(s => s.copy(lastAnalysis = analysis, chainHeight = chainHeight, numIds = identityService.list().size))

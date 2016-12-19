@@ -1,12 +1,17 @@
 package sss.analysis
 
 
+
+
 import com.twitter.util.SynchronizedLruMap
+import org.joda.time.LocalDateTime
 import sss.analysis.Analysis.InOut
+import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{Tx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.block.{Block, BlockTx}
+import sss.asado.contract.{Encumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc}
 import sss.asado.identityledger._
 import sss.asado.ledger._
 import sss.db._
@@ -16,6 +21,8 @@ import sss.asado.util.ByteArrayEncodedStrOps._
   * Created by alan on 11/3/16.
   */
 object Analysis extends AnalysisDb with Logging {
+
+
 
   private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](100)
 
@@ -61,9 +68,9 @@ object Analysis extends AnalysisDb with Logging {
   }
 
 
-  def analyse(block:Block, prevAnalysis: Analysis, chainHeight: Long)(implicit db:Db): Analysis = {
+  def analyse(block:Block, prevAnalysis: Analysis, chainHeight: Long, blockTime: LocalDateTime)(implicit db:Db): Analysis = {
 
-
+    val transactionHistoryWriter = new TransactionHistoryPersistence()
     var errorCount = 0
     val blockHeight = block.height
     val isCheckpointInterval =
@@ -75,7 +82,7 @@ object Analysis extends AnalysisDb with Logging {
 
     db.tx {
       auditor.delete
-
+      transactionHistoryWriter.delete(blockHeight)
       getHeaderTable.delete(where(s"$idCol = ?") using blockHeight)
 
       db.executeSqls(Seq(
@@ -137,14 +144,17 @@ object Analysis extends AnalysisDb with Logging {
             val tx = e.txEntryBytes.toTx
             // are the tx ins in the list of txouts? yes? remove.
 
-            tx.ins.foreach { in =>
+            val expandedInElements = tx.ins.map { in =>
               if (isCoinBase(in)) {
                 audit(tx.outs.head.amount == 1000, s"Coinbase tx is not 1000, ${tx.outs.head.amount}")
                 audit(tx.outs.size == 1, s"Coinbase tx has more than one output, ${tx.outs.size}")
                 coinBaseIncrease = coinBaseIncrease + tx.outs.head.amount
+                ExpandedTxElement(tx.txId, "coinbase", in.amount)
                 //newCoinbases = newCoinbases :+ InOut(TxIndex(tx.txId, 0), tx.outs.head)
               } else {
-                audit(acc.find(_.txIndex == in.txIndex).isDefined, s"TxIndex from nowhere ${in.txIndex}")
+                val foundOpt = acc.find(_.txIndex == in.txIndex)
+                audit(foundOpt.isDefined, s"TxIndex from nowhere ${in.txIndex}")
+                ExpandedTxElement(tx.txId, getIdFromEncumbrance(foundOpt.get.txOut.encumbrance), in.amount)
               }
             }
 
@@ -153,10 +163,14 @@ object Analysis extends AnalysisDb with Logging {
             val plusNewOuts = tx.outs.indices.map { i =>
               //audit(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
               val newIndx = TxIndex(tx.txId, i)
-              InOut(newIndx, tx.outs(i))
+              val out = tx.outs(i)
+              (InOut(newIndx, out), ExpandedTxElement(tx.txId, getIdFromEncumbrance(tx.outs(i).encumbrance), out.amount))
             }
+            val expandedOutElements = plusNewOuts.map(_._2)
+            val transactionHistory = ExpandedTx(expandedInElements, expandedOutElements, blockTime, blockHeight)
+            transactionHistoryWriter.write(transactionHistory)
 
-            plusNewOuts ++ newOuts
+            plusNewOuts.map(_._1) ++ newOuts
           case x =>
             println(s"Another type of ledger? $x")
             acc
@@ -169,6 +183,7 @@ object Analysis extends AnalysisDb with Logging {
     }
 
     auditor.write(s"Audit of $blockHeight begins .....")
+
     val accumulator = mapNextOuts(block.entries, prevAnalysis)
     auditor.write(s"Audit of $blockHeight done, writing accumulator .....")
     val written = write(accumulator)
@@ -182,6 +197,17 @@ object Analysis extends AnalysisDb with Logging {
     written
   }
 
+
+  private def getIdFromEncumbrance(enc: Encumbrance): String = {
+    enc match {
+      case SingleIdentityEnc(id, minBlockHeight) => id
+      case SaleOrReturnSecretEnc(returnIdentity,
+      claimant,
+      hashOfSecret,
+      returnBlockHeight) => claimant
+      case _ => "coinbase"
+    }
+  }
 }
 
 trait Analysis {

@@ -35,7 +35,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
   val idsTab = new IdentitiesTab(clientNode, status)
   val walletsTab = new WalletsTab(clientNode, status)
   val chartsTab = new ChartsTab(clientNode)
-  val exportTxsTab = new QueryTxsTab(clientNode)
+  val exportTxsTab = new QueryTxsTab(new TransactionHistoryPersistence()(clientNode.db))
 
   val tabSheet = this
 
