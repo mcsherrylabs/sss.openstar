@@ -1,6 +1,10 @@
 package sss.ui.nobu
 
+import java.io.File
+
 import akka.actor.Actor
+import org.joda.time.DateTime
+import sss.ancillary.Memento
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block._
@@ -27,12 +31,13 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
 
   private case object ConnectHome
   private case object BroadcastConnected
+  private case object RunCronTransfers
   private case class ConnectHomeDelay(delaySeconds: Int = 500)
   private case class Analyse(block: Long)
 
   import clientNode._
 
-
+  val cronTransferFolder = ""
   var watchingBounties: Map[String, BountyTracker] = Map()
   var watchingMsgSpends: Map[String, Bag] = Map()
 
@@ -82,18 +87,9 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
     case StateMachineInitialised =>
       startNetwork
       self ! ConnectHomeDelay(3)
-
-        Seq("ronan", "monday", "friday1").foreach { name =>
-          Try {
-          val howMany = clientNode.db.table(s"message_${name}") delete (Where(s"id > 0"))
-          val howManys = clientNode.db.table(s"message_${name}_sent") delete (Where(s"id > 0"))
-          println(s"$name $howMany $howManys")
-          } match {
-            case Failure(e) => println(s"$name $e")
-            case _ =>
-          }
-        }
-      println(s"Done deleting")
+      context.system.scheduler.schedule(FiniteDuration(5, MINUTES),
+        FiniteDuration(10, HOURS),
+        self, RunCronTransfers)
 
     case b@Bag(userWallet, signedTx, savedAddressedMessage, walletUpdate, from) =>
       val sndr = sender()
@@ -149,6 +145,20 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
       //push(Notification.show(s"Got NACK ${m.msg}"))
       watchingBounties -= m.txId.toBase64Str
       watchingMsgSpends -= m.txId.toBase64Str
+
+
+    case RunCronTransfers =>
+
+      val folder = new File(cronTransferFolder)
+      folder.listFiles().filter(_.isFile).map(_.getName) foreach { scheduled =>
+        Memento(scheduled).read map { schedule =>
+          val fields = schedule.split(",")
+          val s = ScheduledMessage(fields)
+          if(s.isDue(DateTime.now) {
+
+          }
+        }
+      }
 
 
   }
