@@ -148,6 +148,7 @@ class UnlockClaimView(
     def gotoMainView(nId: NodeIdentity): Unit = {
       val userWallet = createWallet(nId)
       getSession().setAttribute(UnlockClaimView.identityAttr, nId.id)
+      UserSession.note(nId, userWallet)
       val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId, clientNode, clientEventActor)
       push {
         getUI().getNavigator.addView(mainView.name, mainView)

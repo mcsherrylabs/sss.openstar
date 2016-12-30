@@ -1,6 +1,5 @@
 package sss.ui.nobu
 
-import akka.agent.Agent
 import sss.asado.account.NodeIdentity
 import sss.asado.wallet.Wallet
 
@@ -9,7 +8,14 @@ import sss.asado.wallet.Wallet
   */
 object UserSession {
 
+  def apply(user: String): UserSession = allSessions(user)
+
+
+  def note(nodeId: NodeIdentity, userWallet: Wallet) = {
+    allSessions = allSessions + (nodeId.id -> UserSession(nodeId, userWallet))
+  }
+
   case class UserSession(nodeId: NodeIdentity, userWallet: Wallet)
 
-  val allSessions: Agent[List[UserSession]] = Agent(List())
+  private var allSessions: Map[String, UserSession] = Map()
 }

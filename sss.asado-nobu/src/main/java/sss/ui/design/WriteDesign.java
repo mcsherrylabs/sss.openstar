@@ -18,6 +18,7 @@ import com.vaadin.ui.declarative.Design;
 @SuppressWarnings("serial")
 public class WriteDesign extends VerticalLayout {
 	protected ComboBox toCombo;
+	protected ComboBox scheduleCombo;
 	protected TextArea messageText;
 	protected Button sendButton;
 	protected TextField amountField;
