@@ -1,23 +1,23 @@
 package sss.ui.nobu
 
-import java.io.File
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-import sss.ancillary.Memento
+
 import sss.asado.MessageKeys
-import sss.asado.account.{NodeIdentity, PublicKeyAccount}
-import sss.asado.balanceledger.{Tx, TxOutput}
+import sss.asado.account.{NodeIdentity}
+import sss.asado.balanceledger.TxOutput
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
-import sss.asado.ledger.{LedgerItem, SignedTxEntry}
+import sss.asado.ledger.{LedgerItem}
 import sss.asado.message.{Identity, MessageEcryption, MessageInBox, SavedAddressedMessage}
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.wallet.Wallet
-import sss.ui.nobu.NobuNodeBridge.{MessageToSend, WalletUpdate}
+import sss.ui.nobu.NobuNodeBridge.{WalletUpdate}
 import sss.ui.nobu.ScheduledTransfersActor.DetailedMessageToSend
 
 import scala.concurrent.duration.{FiniteDuration, HOURS, MINUTES}
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Random, Success, Try}
 
 /**
@@ -33,15 +33,19 @@ object ScheduledTransfersActor {
 
 class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) extends Actor with ActorLogging {
 
+  import nobuNode.db
+
   private case object RunCronTransfers
 
   private lazy val minNumBlocksInWhichToClaim = nobuNode.conf.getInt("messagebox.minNumBlocksInWhichToClaim")
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
   private lazy val amountBuriedInMail = nobuNode.conf.getInt("messagebox.amountBuriedInMail")
 
+  private val oneDayHours =  1
+  private val every = MINUTES //HOURS
 
-  context.system.scheduler.schedule(FiniteDuration(24, HOURS),
-    FiniteDuration(24, HOURS),
+  context.system.scheduler.schedule(FiniteDuration(oneDayHours, every),
+    FiniteDuration(oneDayHours, every),
     self, RunCronTransfers)
 
 
@@ -86,13 +90,19 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
       SchedulerPersistence().retrieve foreach {  schedule =>
           val s = Scheduler.toDetails(schedule)
           if (s.isDue(DateTime.now)) {
-            self ! DetailedMessageToSend(
-              senderIdentity = UserSession(s.from).nodeId,
-              userWallet = UserSession(s.from).userWallet,
-              s.to,
-              s.account,
-              s.text,
-              s.amount)
+            UserSession(s.from) match {
+              case None => log.error(s"${s.from} has no user session in memory now, they need to log in to unlock their keys")
+              case Some(us) =>
+                log.info("Sending now .... ")
+                /*self ! DetailedMessageToSend(
+                senderIdentity = us.nodeId,
+                userWallet = us.userWallet,
+                s.to,
+                s.account,
+                s.text,
+                s.amount)*/
+            }
+
           }
       }
 

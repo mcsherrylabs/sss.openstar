@@ -23,6 +23,9 @@ object Main {
     }
 
     clientEventActor = clientNode.actorSystem.actorOf(Props(classOf[ClientEventActor], clientNode))
+
+    clientNode.actorSystem.actorOf(Props(classOf[ScheduledTransfersActor], clientNode, clientEventActor))
+
     clientNode.initStateMachine
 
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")

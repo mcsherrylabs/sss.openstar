@@ -8,10 +8,10 @@ import sss.asado.wallet.Wallet
   */
 object UserSession {
 
-  def apply(user: String): UserSession = allSessions(user)
+  def apply(user: String): Option[UserSession] = allSessions.get(user)
 
 
-  def note(nodeId: NodeIdentity, userWallet: Wallet) = {
+  def note(nodeId: NodeIdentity, userWallet: Wallet) = synchronized {
     allSessions = allSessions + (nodeId.id -> UserSession(nodeId, userWallet))
   }
 

@@ -64,8 +64,7 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                         Option(scheduleCombo.getValue.toString) match {
                           case None | Some(Scheduler.once) =>
                           case Some(schedule) =>
-                            val from = VaadinSession.getCurrent()
-                              .getSession().getAttribute(UnlockClaimView.identityAttr).toString
+                            val from = getSession().getAttribute(UnlockClaimView.identityAttr).toString
                             val serialised = Scheduler.serialiseDetails(from, schedule, mts)
                             SchedulerPersistence().persist(serialised)
 

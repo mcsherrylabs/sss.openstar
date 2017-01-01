@@ -14,12 +14,20 @@ object SchedulerPersistence extends Configure {
 
 class SchedulerPersistence(storageFolder: File) {
 
+  private val delim = "=&="
+
   def persist(details: Seq[String]) = {
-    Memento("", Option("scheduled"))
+    Memento(details.take(3).mkString("."), Option("schedules")).write(details.mkString(delim))
   }
   def retrieve: Seq[Seq[String]] = {
-    (storageFolder.listFiles().filter(_.isFile)).map(_.getName).map { scheduled : String =>
-      Memento(scheduled).read.get.split(",").toSeq
+    val resOpt = Option(storageFolder.listFiles()).map(_.filter(_.isFile)).map { filesInFolder =>
+      filesInFolder.map(_.getName).map { scheduleFile : String =>
+        Memento(scheduleFile, Option("schedules")).read.get.split(delim).toSeq
+      }
+    }
+    resOpt match {
+      case None => Seq()
+      case Some(x) => x
     }
   }
 }
