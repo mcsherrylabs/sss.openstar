@@ -3,6 +3,7 @@ package sss.ui.nobu
 import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
+import com.vaadin.server.FontAwesome
 import com.vaadin.ui.{Notification, UI}
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
@@ -40,6 +41,8 @@ import scala.util.{Failure, Random, Success, Try}
 case class ShowWrite(to: String = "", text: String = "")
 case class Show(s: String)
 case object ShowBalance
+case object ShowSchedules
+
 case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessage, walletUpdate: WalletUpdate, from: String)
 
 class NobuMainLayout(uiReactor: UIReactor,
@@ -58,11 +61,14 @@ class NobuMainLayout(uiReactor: UIReactor,
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
   private lazy val amountBuriedInMail = nobuNode.conf.getInt("messagebox.amountBuriedInMail")
 
+  schedulesButton.setIcon(FontAwesome.CALENDAR_CHECK_O)
+
   statusButton.setVisible(false)
   settingsButton.setVisible(false)
 
   val name = "main"
 
+  val schedulesBtn = schedulesButton
   val inBoxBtn = inboxButton
   val writeBtn = writeButton
   val archiveBtn = archiveButton
@@ -74,6 +80,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   writeBtn.addClickListener(uiReactor)
   inBoxBtn.addClickListener(uiReactor)
+  schedulesBtn.addClickListener(uiReactor)
   archiveBtn.addClickListener(uiReactor)
   sentBtn.addClickListener(uiReactor)
   logoutBtn.addClickListener(uiReactor)
@@ -84,7 +91,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
 
   val mainNobuRef = uiReactor.actorOf(Props(NobuMainActor),
-    logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl)
+    logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl, schedulesBtn)
 
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
 
@@ -177,6 +184,11 @@ class NobuMainLayout(uiReactor: UIReactor,
         itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, to, text, userDir))
       }
 
+      case ShowSchedules => push {
+        itemPanelVerticalLayout.removeAllComponents()
+        itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id))
+      }
+
       case ShowInBox =>
         pager = initInBoxPager
         Try(push(updatePagingAreas(pager))) match {
@@ -213,6 +225,8 @@ class NobuMainLayout(uiReactor: UIReactor,
           case _ =>
         }
 
+      case ComponentEvent(`schedulesBtn`, _) =>
+        self ! ShowSchedules
 
       case ComponentEvent(`inBoxBtn`, _) =>
         self ! ShowInBox

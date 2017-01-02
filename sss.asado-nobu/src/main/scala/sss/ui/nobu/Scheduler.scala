@@ -23,12 +23,13 @@ object Scheduler {
     val account: PublicKey
     val text: String
     val amount: Int
-
+    val schedule: String
   }
+
 
   def toDetails(fields: Seq[String]): ScheduleDetails = {
     val ffrom = fields(0)
-    val schedule = fields(1)
+    val schedule_text = fields(1)
     val msg_to = fields(2)
     val msg_amount = fields(3)
     val msg_account_publicKey = fields(4)
@@ -40,6 +41,7 @@ object Scheduler {
       override val from: String = ffrom
       override val amount: Int = msg_amount.toInt
       override val to: String = msg_to
+      override val schedule: String = schedule_text
 
       override def isDue(dateTime: DateTime): Boolean = {
         schedule match {
@@ -50,6 +52,10 @@ object Scheduler {
       }
     }
 
+  }
+
+  def serialiseDetails(details:ScheduleDetails): Seq[String] = {
+    Seq(details.from, details.schedule, details.to, details.amount.toString, details.account.toBase64Str, details.text)
   }
 
   def serialiseDetails(from: String, schedule: String, msg: MessageToSend): Seq[String] = {
