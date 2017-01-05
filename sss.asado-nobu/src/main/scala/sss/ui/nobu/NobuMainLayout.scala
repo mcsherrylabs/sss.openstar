@@ -55,7 +55,7 @@ class NobuMainLayout(uiReactor: UIReactor,
   private implicit val db: Db = nobuNode.db
   private implicit val identityQuery: IdentityServiceQuery = nobuNode.identityService
   private implicit val nodeIdentity = userId
-  private val msgDecoders = (MessagePayloadDecoder.decode orElse PayloadDecoder.decode)
+  private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
   private lazy val minNumBlocksInWhichToClaim = nobuNode.conf.getInt("messagebox.minNumBlocksInWhichToClaim")
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
@@ -111,29 +111,41 @@ class NobuMainLayout(uiReactor: UIReactor,
     pager.messages.reverse foreach {
 
       case msg @ Message(_, msgPayload, _, _, _) if(isForDeletion) =>
-        msgDecoders(msgPayload) match {
-          case EncryptedMessage(enc, iv) =>
-            itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
-              mainNobuRef, msg))
-          case IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
-
+        val tried = Try(MessagePayloadDecoder.decode.apply(msgPayload))
+        if(tried.isSuccess) {
+          itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
+            mainNobuRef, msg))
         }
 
 
       case msg @ Message(_, msgPayload, _, _, _) =>
-        Try {
-          val newMsg = msgDecoders(msgPayload) match {
+        val res = Try {
+          val a = Try(MessagePayloadDecoder.decode.apply(msgPayload))
+          val b = Try(PayloadDecoder.decode.apply(msgPayload))
+          if(a.isSuccess) {
+            val newC = new NewMessageComponent(itemPanelVerticalLayout,
+              mainNobuRef, msg)
+            itemPanelVerticalLayout.addComponent(newC)
+
+          } else if(b.isSuccess) {
+            itemPanelVerticalLayout.addComponent(new IdentityClaimComponent(itemPanelVerticalLayout,
+              mainNobuRef, msg, nobuNode.homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
+          }
+
+          /*val newMsg = msgDecoders(msgPayload) match {
             case EncryptedMessage(enc, iv) =>
               new NewMessageComponent(itemPanelVerticalLayout,
                 mainNobuRef, msg)
             case idClaim @ IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
               new IdentityClaimComponent(itemPanelVerticalLayout,
                 mainNobuRef, msg, nobuNode.homeDomain, idClaim)
+            case x => log.warn("WHAT?"); throw new RuntimeException("")
           }
+          itemPanelVerticalLayout.addComponent(newMsg)*/
 
+        }
 
-        itemPanelVerticalLayout.addComponent(newMsg)
-        } match {
+        res match {
           case Failure(e) => log.warn(e.toString)
           case Success(_) =>
       }
@@ -144,6 +156,7 @@ class NobuMainLayout(uiReactor: UIReactor,
       }
 
   }
+
 
   setSizeFull
 
@@ -276,7 +289,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         log.info("MessageToSend begins")
         val baseTx = createFundedTx(amount)
         val changeTxOut = baseTx.outs.take(1)
-        val secret = Array[Byte](8) //SeedBytes(16)
+        val secret = new Array[Byte](8) //SeedBytes(16)
         Random.nextBytes(secret)
 
         val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
@@ -285,9 +298,22 @@ class NobuMainLayout(uiReactor: UIReactor,
         val signedSTx = signOutputs(tx, secret)
         val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
         val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
+        val bag = Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
+
+        /*val msg = Message(bag.from,
+          bag.msg.addrMsg.msgPayload,
+          bag.sTx.toBytes,
+          0, bag.msg.savedAt)
+
+        val newMsg = MessageInBox(bag.msg.to).addNew(msg)
+        val msgP = newMsg.msgPayload
+        val enc1 = MessageEcryption.encryptedMessage(msgP.payload)
+        val n = NodeIdentity(to, "defaultTag", "password")
+        val twithsec = enc1.decrypt(n, account.publicKey)*/
+
         // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
         log.info("MessageToSend finished, sending bag")
-        clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
+        clientEventActor ! bag
 
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))

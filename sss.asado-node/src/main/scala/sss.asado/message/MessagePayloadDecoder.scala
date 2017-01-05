@@ -9,10 +9,10 @@ object MessagePayloadDecoder {
 
   val decode = new PartialFunction[MessagePayload, TypedMessagePayload] {
 
-    override def isDefinedAt(x: MessagePayload): Boolean = 0 > x.payloadType && x.payloadType < 2
+    override def isDefinedAt(x: MessagePayload): Boolean = 0 < x.payloadType && 2 > x.payloadType
 
     override def apply(msgPayLoad: MessagePayload): TypedMessagePayload = msgPayLoad match {
-      case MessagePayload(EncryptedMessageType, bytes) => MessageEcryption.encryptedMessage(bytes)
+      case MessagePayload(1, bytes) => MessageEcryption.encryptedMessage(bytes)
     }
   }
 }

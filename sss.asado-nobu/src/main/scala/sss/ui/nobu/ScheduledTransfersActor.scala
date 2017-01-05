@@ -66,7 +66,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
       log.info("MessageToSend begins")
       val baseTx = userWallet.createTx(amount)
       val changeTxOut = baseTx.outs.take(1)
-      val secret = Array[Byte](8) //SeedBytes(16)
+      val secret = new Array[Byte](8) //SeedBytes(16)
       Random.nextBytes(secret)
 
       val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(senderIdentity, receiverPublicKey, text, secret)
@@ -94,13 +94,13 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
               case None => log.error(s"${s.from} has no user session in memory now, they need to log in to unlock their keys")
               case Some(us) =>
                 log.info("Sending now .... ")
-                /*self ! DetailedMessageToSend(
+                self ! DetailedMessageToSend(
                 senderIdentity = us.nodeId,
                 userWallet = us.userWallet,
                 s.to,
                 s.account,
                 s.text,
-                s.amount)*/
+                s.amount)
             }
 
           }
