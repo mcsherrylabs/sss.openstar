@@ -17,8 +17,8 @@ object CreateIdentity {
       val ledgerUrl = args(0)
       val identity = args(1)
 
-      require(identity.forall(c => c.isDigit || c.isLower),
-        s"Identity ($identity) must be lower case and a simple alpha numeric")
+      //require(identity.forall(c => c.isDigit || c.isLower),
+       // s"Identity ($identity) must be lower case and a simple alpha numeric")
 
 
       if (NodeIdentity.keyExists(identity, defaultTag)) {

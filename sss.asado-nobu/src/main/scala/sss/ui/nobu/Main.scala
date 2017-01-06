@@ -17,7 +17,7 @@ object Main {
   def main(args: Array[String]) {
 
     clientNode = new ClientNode {
-      override val phrase: Option[String] = Some("password")
+      override val phrase: Option[String] = Some("fpaifpai33")
       override val configName: String = "node"
       lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
     }

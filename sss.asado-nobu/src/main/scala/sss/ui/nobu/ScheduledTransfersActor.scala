@@ -41,8 +41,8 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
   private lazy val amountBuriedInMail = nobuNode.conf.getInt("messagebox.amountBuriedInMail")
 
-  private val oneDayHours =  1
-  private val every = MINUTES //HOURS
+  private val oneDayHours =  24
+  private val every = HOURS
 
   context.system.scheduler.schedule(FiniteDuration(oneDayHours, every),
     FiniteDuration(oneDayHours, every),
