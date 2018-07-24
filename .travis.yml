@@ -1,14 +1,16 @@
 language: scala
+
 jdk:
   - oraclejdk8
+
 scala:
-   - 2.11.7
+   - 2.12.6
+
 branches:
   only:
     - master
-script:
-    - cd sss.asado-common ; sbt clean test 
-    - cd ../sss.asado-network ; sbt clean test
-    - cd ../sss.asado-ledger ; sbt clean test
-    - cd ../sss.asado-node ; sbt clean test 
-    - cd ../test-rigs/message-sender ; sbt clean test
+
+script: "sbt clean coverage test"
+
+after_success: "sbt coverageReport coveralls"
+
