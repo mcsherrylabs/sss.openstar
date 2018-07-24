@@ -12,7 +12,7 @@ lazy val commonSettings = Seq(
 
 
 lazy val root = (project in file("."))
-  .aggregate(common)
+  .aggregate(common, network, ledger, node, nobu, analysis)
 
 lazy val common  = (project in file("sss.asado-common"))
   .settings(commonSettings)
