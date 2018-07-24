@@ -5,7 +5,7 @@ import java.net.{InetAddress, InetSocketAddress, URI, NetworkInterface => JNetwo
 import sss.ancillary.Logging
 import sss.asado.network.NetworkController.BindControllerSettings
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.util.{Random, Try}
 
@@ -71,8 +71,8 @@ object NetworkInterface extends Logging {
         val myHost = uri.getHost
         val myAddrs = InetAddress.getAllByName(myHost)
 
-        JNetworkInterface.getNetworkInterfaces.exists { intf =>
-          intf.getInterfaceAddresses.exists { intfAddr =>
+        JNetworkInterface.getNetworkInterfaces.asScala.exists { intf =>
+          intf.getInterfaceAddresses.asScala.exists { intfAddr =>
             val extAddr = intfAddr.getAddress
             myAddrs.contains(extAddr)
           }

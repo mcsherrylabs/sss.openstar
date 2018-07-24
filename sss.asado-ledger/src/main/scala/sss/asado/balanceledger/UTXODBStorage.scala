@@ -2,7 +2,7 @@ package sss.asado.balanceledger
 
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.db.{Db, Where}
+import sss.db._
 
 private[balanceledger] class UTXODBStorage(implicit db: Db) extends Logging {
 
@@ -22,13 +22,13 @@ private[balanceledger] class UTXODBStorage(implicit db: Db) extends Logging {
 
   def delete(k: TxIndex): Boolean = {
     val hexStr = k.txId.toBase64Str
-    val numDeleted = utxoLedgerTable.delete(Where("txid = ? AND indx = ?", hexStr, k.index))
+    val numDeleted = utxoLedgerTable.delete(where(ps"txid = $hexStr AND indx = ${k.index}"))
     numDeleted == 1
   }
 
   def get(k: TxIndex): Option[TxOutput] = inTransaction {
     val hexStr = k.txId.toBase64Str
-    utxoLedgerTable.find(Where("txid = ? AND indx = ?", hexStr, k.index)).map(r => r[Array[Byte]]("entry").toTxOutput)
+    utxoLedgerTable.find(where(ps"txid = $hexStr AND indx = ${k.index}")).map(r => r[Array[Byte]]("entry").toTxOutput)
   }
 
   def write(k: TxIndex, le: TxOutput): Long = {

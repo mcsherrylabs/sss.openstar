@@ -20,8 +20,9 @@ import sss.asado.network._
 import sss.asado.state._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
+import sss.db.datasource.DataSource
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
@@ -76,7 +77,7 @@ trait NodeConfigBuilder {
     lazy val dbConfig = conf.getConfig("database")
     lazy val blockChainSettings: BlockChainSettings = DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
     lazy val production: Boolean = conf.getBoolean("production")
-    lazy val peersList: Set[NodeId] = conf.getStringList("peers").toSet.map(NetworkController.toNodeId)
+    lazy val peersList: Set[NodeId] = conf.getStringList("peers").asScala.toSet.map(NetworkController.toNodeId)
     lazy val quorum = NetworkController.quorum(peersList.size)
   }
 }
@@ -96,10 +97,11 @@ trait HomeDomainBuilder {
   }
 }
 
+
 trait DbBuilder {
 
   self : NodeConfigBuilder =>
-    lazy implicit val db = Db(nodeConfig.dbConfig)
+    lazy implicit val db = Db(nodeConfig.dbConfig)(DataSource(nodeConfig.dbConfig.getConfig("datasource")))
 
 }
 
@@ -170,7 +172,7 @@ trait BootstrapIdentitiesBuilder {
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] = buildBootstrapIdentities
   def buildBootstrapIdentities: List[BootstrapIdentity] = {
-    nodeConfig.conf.getStringList("bootstrap").toList.map { str =>
+    nodeConfig.conf.getStringList("bootstrap").asScala.toList.map { str =>
           val strAry = str.split(":::")
           BootstrapIdentity(strAry.head, strAry.tail.head)
         }

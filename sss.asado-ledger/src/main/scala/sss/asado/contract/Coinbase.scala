@@ -41,7 +41,9 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
   }
 
   private def getTxIdForBlockHeight(blockHeight: Long): Option[String] =
-    table.find(where(s"$block_height_str = ?")  using blockHeight) map (r => r[String](txId_str))
+    table.find(
+      where(block_height_str -> blockHeight))
+      .map (r => r[String](txId_str))
 
   def validate(currentBlockHeight: Long, params: Seq[Seq[Array[Byte]]], tx:Tx) {
     require(tx.ins.size == 1, s"Only one input per coinbase tx allowed (not ${tx.ins.size})")

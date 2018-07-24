@@ -4,7 +4,7 @@ import com.twitter.util.SynchronizedLruMap
 import sss.ancillary.Logging
 import sss.asado.ledger._
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.db.{Db, OrderAsc, Row, Where}
+import sss.db._
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -116,7 +116,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
   }
 
   def getUnconfirmed(requiredConfirms: Int): Seq[(Int, BlockTx)] = {
-    blockTxTable.filter(Where("confirm < ?", requiredConfirms)) map (row => (row[Int]("confirm"), toBlockTx(row)))
+    blockTxTable.filter(where(ps"confirm < $requiredConfirms")) map (row => (row[Int]("confirm"), toBlockTx(row)))
   }
 
   def confirm(blockTxId: BlockTxId): Try[Int] = {

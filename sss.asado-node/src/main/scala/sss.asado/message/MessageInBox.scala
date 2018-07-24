@@ -108,13 +108,13 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
   }
 
   def sentPager(pageSize: Int) =
-    new MessagePage(PagedView(sentTable, pageSize, (s"$statusCol = ?", Seq(statusNew))).last, toSavedAddressedMsg)
+    new MessagePage(PagedView(sentTable, pageSize, (s"$statusCol = ?", Seq(statusNew))).lastPage, toSavedAddressedMsg)
 
   def inBoxPager(pageSize: Int) =
-    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusNew))).last, toMsg)
+    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusNew))).lastPage, toMsg)
 
   def archivedPager(pageSize: Int) =
-    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusArchived))).last, toMsg)
+    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusArchived))).lastPage, toMsg)
 
 
   def archive(index: Long) = table.update(Map(idCol ->  index, statusCol -> statusArchived))

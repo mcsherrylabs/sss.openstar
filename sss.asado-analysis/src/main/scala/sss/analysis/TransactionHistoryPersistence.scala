@@ -1,9 +1,9 @@
 package sss.analysis
 
-import org.joda.time.{DateTime, LocalDateTime}
-import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
-import sss.db._
+import org.joda.time.LocalDateTime
+import sss.analysis.TransactionHistory.ExpandedTx
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.db._
 
 
 /**
@@ -100,13 +100,16 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
     val allTxs = rowsInvolvingIdentity.map(_.apply[String](txIdCol))
     if(allTxs.nonEmpty) {
       val replaceableParams = (0 until allTxs.size).map(_ => "?").mkString(",")
-      val rows = txTable.filter(Where(s"$txIdCol IN ($replaceableParams) ORDER BY $blockTimeCol DESC", allTxs: _*))
+      val rows = txTable.filter(where(s"$txIdCol IN ($replaceableParams) ORDER BY $blockTimeCol DESC", allTxs: _*))
       toExpandedTxs(rows)
     } else Seq()
   }
 
   override def list: Seq[ExpandedTx] = {
-    val rows = txTable.filter(Where(s"$idCol > ? ORDER BY $blockTimeCol DESC", 0))
+    val rows = txTable.filter(
+      where(s"$idCol > ?", 0)
+        .orderBy(OrderDesc(blockTimeCol)))
+
     toExpandedTxs(rows)
   }
 }

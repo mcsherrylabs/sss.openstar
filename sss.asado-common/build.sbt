@@ -1,21 +1,11 @@
 
 name := "sss.asado-common"
 
-scalaVersion := "2.11.8"
+libraryDependencies += "org.consensusresearch" %% "scrypto" % Vers.scryptoVer
 
-version := "0.3-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % Vers.ancillaryVer
 
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
-
-libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
-
-libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
-
-libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
-
-libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
-
-libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.12.5" % Test
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % Vers.akkaVer
 
 
 
