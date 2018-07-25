@@ -2,7 +2,7 @@ package sss.asado.message.serialize
 
 import org.joda.time.LocalDateTime
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.ledger.LedgerItem
 import sss.asado.message._
 import sss.asado.util.ByteArrayComparisonOps
@@ -13,10 +13,10 @@ import sss.asado.util.ByteArrayComparisonOps
 
 class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
-  val le = LedgerItem(3.toByte, SeedBytes(32), SeedBytes(32))
+  val le = LedgerItem(3.toByte, DummySeedBytes(32), DummySeedBytes(32))
 
   "A message payload " should " serialize and deserialize " in {
-    val test = MessagePayload(2.toByte, SeedBytes(32))
+    val test = MessagePayload(2.toByte, DummySeedBytes(32))
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessagePayload
     assert(hydrated.payloadType == test.payloadType)
@@ -26,7 +26,7 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
   }
 
   "An addressed message " should " serialize and deserialize " in {
-    val test = AddressedMessage(le, MessagePayload(2.toByte, SeedBytes(12)))
+    val test = AddressedMessage(le, MessagePayload(2.toByte, DummySeedBytes(12)))
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessageAddressed
     assert(hydrated.ledgerItem == test.ledgerItem)
@@ -47,7 +47,7 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
   }
 
   "A Success Message response " should " serialize and deserialize " in {
-    val test: MessageResponse = SuccessResponse(SeedBytes(32))
+    val test: MessageResponse = SuccessResponse(DummySeedBytes(32))
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessageResponse
     assert(hydrated.success == test.success)
@@ -57,7 +57,7 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
   }
 
   "A Failure Message response " should " serialize and deserialize " in {
-    val test: MessageResponse = FailureResponse(SeedBytes(3), "What the hell happened here?")
+    val test: MessageResponse = FailureResponse(DummySeedBytes(3), "What the hell happened here?")
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessageResponse
     assert(hydrated.success == test.success)
@@ -67,7 +67,7 @@ class MessageSerializeSpec extends FlatSpec with Matchers with ByteArrayComparis
   }
 
   "A Message " should " serialize and deserialize " in {
-    val test= Message("from", MessagePayload(4.toByte, SeedBytes(34)), le.toBytes, 20, LocalDateTime.now())
+    val test= Message("from", MessagePayload(4.toByte, DummySeedBytes(34)), le.toBytes, 20, LocalDateTime.now())
     val asBytes = test.toBytes
     val hydrated = asBytes.toMessage
     assert(hydrated.createdAt == test.createdAt)

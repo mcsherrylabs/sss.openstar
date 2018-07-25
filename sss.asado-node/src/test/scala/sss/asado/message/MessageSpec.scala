@@ -4,7 +4,7 @@ package sss.asado.message
 
 import org.joda.time.{LocalDateTime, Period}
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
 
@@ -16,13 +16,13 @@ class MessageSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
   implicit val db = Db()
 
-  val rndBytes = SeedBytes(99)
+  val rndBytes = DummySeedBytes(99)
   val rndPayload = MessagePayload(100.toByte,rndBytes)
   val when = LocalDateTime.now().minus(Period.seconds(1))
   val identity = "karl"
   val lenny = "lenny"
 
-  val tx = SeedBytes(12)
+  val tx = DummySeedBytes(12)
   val from = "from"
 
   "A message " should " be persistable " in {
@@ -45,7 +45,7 @@ class MessageSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   "Messages " should " be retrievable in order " in {
 
     val mp = MessagePersist(lenny)
-    val msgs = (0 until 100) map(i => MessagePayload(i.toByte, SeedBytes(i)))
+    val msgs = (0 until 100) map(i => MessagePayload(i.toByte, DummySeedBytes(i)))
     msgs.map(mp.pending(from, _, tx)).map(mp.accept(_))
 
     val tenPages = (0 until 10) map { i =>

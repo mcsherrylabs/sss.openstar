@@ -1,6 +1,7 @@
 package sss.asado.identityledger
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
@@ -14,7 +15,7 @@ class IdentityServiceSpec extends FlatSpec with Matchers with ByteArrayCompariso
   val myIdentity = "intothelight_diffferent"
   val myRescuerIdentity = "backupguy_different"
 
-  val key1 = PrivateKeyAccount().publicKey
+  val key1 = PrivateKeyAccount(DummySeedBytes).publicKey
 
   "The identity ledger " should " be able to claim an identity to a key" in {
 
@@ -37,7 +38,7 @@ class IdentityServiceSpec extends FlatSpec with Matchers with ByteArrayCompariso
   }
 
   it should " be able to link a second key to an identity " in {
-    val key = PrivateKeyAccount().publicKey
+    val key = PrivateKeyAccount(DummySeedBytes).publicKey
     val acm = IdentityService()
     assert(acm.accountOpt(myIdentity).isDefined)
 

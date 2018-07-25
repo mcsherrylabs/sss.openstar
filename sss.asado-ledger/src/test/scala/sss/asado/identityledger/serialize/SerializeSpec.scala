@@ -1,7 +1,7 @@
 package sss.asado.identityledger.serialize
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.identityledger._
 import sss.asado.util.ByteArrayComparisonOps
 
@@ -12,7 +12,7 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
   "A Claim " should " serialize and deserialize " in {
-    val claim = Claim("idenairy", SeedBytes(56))
+    val claim = Claim("idenairy", DummySeedBytes.randomSeed(56))
     val asBytes = claim.toBytes
     val hydrated = asBytes.toClaim
     assert(claim.identity == hydrated.identity)
@@ -35,7 +35,7 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
   "A Link  " should " serialize and deserialize " in {
-    val test = Link("idenairy", SeedBytes(56), "asdalsdjalsdjalid")
+    val test = Link("idenairy", DummySeedBytes.randomSeed(56), "asdalsdjalsdjalid")
     val asBytes = test.toBytes
     val hydrated = asBytes.toLink
     assert(test.identity == hydrated.identity)
@@ -47,7 +47,7 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
   "A Rescue  " should " serialize and deserialize " in {
-    val test = Rescue("rescuerasdasd", "idenairy", SeedBytes(56), "asdalsdjalsdjalid")
+    val test = Rescue("rescuerasdasd", "idenairy", DummySeedBytes.randomSeed(56), "asdalsdjalsdjalid")
     val asBytes = test.toBytes
     val hydrated = asBytes.toRescue
     assert(test.identity == hydrated.identity)
@@ -59,7 +59,7 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   }
 
   "An Unlink by Key " should " serialize and deserialize " in {
-    val test = UnLinkByKey("rescuerasdasd", SeedBytes(56))
+    val test = UnLinkByKey("rescuerasdasd", DummySeedBytes.randomSeed(56))
     val asBytes = test.toBytes
     val hydrated = asBytes.toUnLinkByKey
     assert(test.identity == hydrated.identity)

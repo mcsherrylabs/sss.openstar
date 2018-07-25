@@ -3,7 +3,7 @@ package sss.asado.block
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.NodeIdentity
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.ledger._
 import sss.db.Db
 
@@ -44,7 +44,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
   def resetUTXOBlockAndCreateTx(height: Long): LedgerItem  = {
     resetUtxo
     Block(height).truncate
-    LedgerItem(99, SeedBytes(32), SeedBytes(12))
+    LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
   }
 
   it should "allow journaling of a tx " in {

@@ -1,25 +1,13 @@
 package sss.ui.nobu
 
 
-
 import akka.actor.ActorRef
-import com.vaadin.ui.{Notification, UI}
-import sss.asado.MessageKeys
 import sss.asado.account.PublicKeyAccount
-import sss.asado.balanceledger.{BalanceLedgerQuery, StandardTx, Tx, TxIndex, TxOutput, _}
-import sss.asado.block._
-import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
-import sss.asado.crypto.SeedBytes
-import sss.asado.identityledger.IdentityServiceQuery
+import sss.asado.balanceledger.{TxIndex, TxOutput, _}
 import sss.asado.ledger._
 import sss.asado.message._
-import sss.asado.network.NetworkController.SendToNodeId
-import sss.asado.network.NetworkMessage
-import sss.asado.state.HomeDomain
-import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.Wallet
-import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.ui.reactor.{Event, UIEventActor}
+import sss.ui.reactor.Event
 
 /**
   * Created by alan on 6/15/16.

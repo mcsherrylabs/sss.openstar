@@ -27,7 +27,7 @@ object CBCEncryption {
     override lazy val asString: String = Base64.getEncoder.encodeToString(bytes)
   }
 
-  def newInitVector = initVector( SecureSeedBytes(16))
+  def newInitVector (seedBytes: SeedBytes) = initVector( seedBytes.strongSeed(16))
 
   def encrypt(key: String, value: String, iv: InitVector): Array[Byte] = {
     encrypt(key, value.getBytes(UTF_8), iv)

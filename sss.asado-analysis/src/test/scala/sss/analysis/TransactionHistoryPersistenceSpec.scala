@@ -1,9 +1,9 @@
 package sss.analysis
 
-import org.joda.time.{LocalDate, LocalDateTime}
+import org.joda.time.LocalDateTime
 import org.scalatest.{FlatSpec, Matchers}
 import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.ledger.TxId
 import sss.db.Db
 
@@ -15,7 +15,7 @@ class TransactionHistoryPersistenceSpec extends FlatSpec with Matchers {
   implicit val db = Db("analysis.database")
   val txPeristence = new TransactionHistoryPersistence()
 
-  val txIds: Seq[TxId] = (0 to 2).map(_ => SeedBytes(32))
+  val txIds: Seq[TxId] = (0 to 2).map(_ => DummySeedBytes(32))
   val whenDate = new LocalDateTime()
 
   val simpleInOut = ExpandedTx(Seq(ExpandedTxElement(txIds(0), "bob", 34)),

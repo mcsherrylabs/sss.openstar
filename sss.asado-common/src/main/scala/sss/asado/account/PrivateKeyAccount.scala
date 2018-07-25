@@ -2,7 +2,7 @@ package sss.asado.account
 
 import scorex.crypto.signatures.Curve25519
 import scorex.crypto.signatures.SigningFunctions._
-import sss.asado.crypto.SecureSeedBytes
+import sss.asado.crypto.SeedBytes
 
 /**
   * Binds a private key to public key and provides signing of messages.
@@ -21,8 +21,8 @@ case class PrivateKeyAccount(privateKey: Array[Byte],
 object PrivateKeyAccount {
   def apply(keyPair: (Array[Byte], Array[Byte])):PrivateKeyAccount = PrivateKeyAccount(keyPair._1, keyPair._2)
   def apply(seed: Array[Byte]):PrivateKeyAccount = apply(Curve25519.createKeyPair(seed))
-  def apply():PrivateKeyAccount = {
-    val seed = SecureSeedBytes(32)
+  def apply(seedBytes:SeedBytes):PrivateKeyAccount = {
+    val seed = seedBytes.strongSeed(32)
     apply(Curve25519.createKeyPair(seed))
   }
 }

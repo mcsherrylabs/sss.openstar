@@ -1,5 +1,7 @@
 package sss.asado.account
 
+import sss.asado.DummySeedBytes
+
 
 /**
   * Created by alan on 6/3/16.
@@ -10,6 +12,9 @@ object TestClientKey {
             phrase: String = "testpassword",
             tag: String = "testtag"): PrivateKeyAccount = {
     KeyPersister.deleteKey(clientIdentity, tag)
-    new KeyPersister(clientIdentity, true, phrase, tag).account
+    PrivateKeyAccount(KeyPersister(clientIdentity, tag, phrase, () => {
+      val pk = PrivateKeyAccount(DummySeedBytes)
+      (pk.privateKey, pk.publicKey)
+    }))
   }
 }

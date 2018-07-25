@@ -1,10 +1,10 @@
 package sss.asado.ledger.serialize
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.balanceledger._
 import sss.asado.contract.{PrivateKeySig, SinglePrivateKey}
-import sss.asado.crypto.SeedBytes
 import sss.asado.ledger.TxId
 
 /**
@@ -13,9 +13,9 @@ import sss.asado.ledger.TxId
 
 class TxTest extends FlatSpec with Matchers {
 
-  val randomTxId: TxId = SeedBytes(32)
+  val randomTxId: TxId = DummySeedBytes.randomSeed(32)
   val txIndex = TxIndex(randomTxId, 3456)
-  val pkPair = PrivateKeyAccount()
+  val pkPair = PrivateKeyAccount(DummySeedBytes)
   val txOutput = TxOutput(33, SinglePrivateKey(pkPair.publicKey))
   val txInput = TxInput(txIndex, 34, PrivateKeySig)
   val tx = StandardTx(Seq(txInput, txInput, txInput), Seq(txOutput, txOutput, txOutput))

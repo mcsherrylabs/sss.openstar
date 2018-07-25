@@ -1,17 +1,17 @@
 package sss.asado.ledger
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 
 
 class SignedTxEntrySpec extends FlatSpec with Matchers {
 
-  val randomTxEntryBytes1 = SeedBytes(345)
-  val randomTxEntryBytes2 = SeedBytes(35)
-  val randomTxEntryBytes3 = SeedBytes(5)
+  val randomTxEntryBytes1 = DummySeedBytes.randomSeed(345)
+  val randomTxEntryBytes2 = DummySeedBytes.randomSeed(35)
+  val randomTxEntryBytes3 = DummySeedBytes.randomSeed(5)
 
-  val randomSigBytes1 = SeedBytes(35)
-  val randomSigBytes2 = SeedBytes(5)
+  val randomSigBytes1 = DummySeedBytes.randomSeed(35)
+  val randomSigBytes2 = DummySeedBytes.randomSeed(5)
 
   val stx = SignedTxEntry(randomTxEntryBytes1, Seq(Seq(randomSigBytes1)))
   val stx2 = SignedTxEntry(randomTxEntryBytes1, Seq(Seq(randomSigBytes1), Seq(randomSigBytes2)))

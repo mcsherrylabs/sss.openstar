@@ -1,8 +1,8 @@
 package sss.asado.ledger.serialize
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.balanceledger._
-import sss.asado.crypto.SeedBytes
 
 /**
   * Created by alan on 2/15/16.
@@ -13,7 +13,7 @@ class TxIndexTest extends FlatSpec with Matchers   {
 
 
   type TxId = Array[Byte]
-  val randomTxId: TxId = SeedBytes(32)
+  val randomTxId: TxId = DummySeedBytes.randomSeed(32)
   val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId, randomTxId.length)
   val txIndex = TxIndex(randomTxId, 3456)
 

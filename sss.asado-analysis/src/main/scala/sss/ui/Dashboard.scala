@@ -26,7 +26,7 @@ object DashBoard {
   case class Status(lastAnalysis: Analysis, whoConnectedTo: String, chainHeight: Long, numIds: Long)
   lazy val status: Agent[Status] = Agent(Status(Analysis.blockOneAnalysis, "Not Connected", 0,0 ))
 }
-class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet with Logging {
+class DashBoard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet with Logging {
 
   import DashBoard.status
 
@@ -60,7 +60,7 @@ class Dashboard(uiReactor: UIReactor, clientNode: ClientNode) extends TabSheet w
 
   summary.update
 
-  val dashboardThis: Dashboard = this
+  val dashboardThis: DashBoard = this
 
 
   object UICoordinatingActor extends UIEventActor  {

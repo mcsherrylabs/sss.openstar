@@ -1,10 +1,10 @@
 package sss.asado.balanceledger
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.account.{NodeIdentity, PrivateKeyAccount}
+import sss.asado.DummySeedBytes
+import sss.asado.account.{NodeIdentityManager, PrivateKeyAccount}
 import sss.asado.block.BlockId
 import sss.asado.contract._
-import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger._
 import sss.db.Db
@@ -14,8 +14,9 @@ import sss.db.Db
   */
 class BalanceLedgerTest extends FlatSpec with Matchers {
 
-  NodeIdentity.deleteKey("testKey", "tag")
-  val nodeIdentity = NodeIdentity("testKey", "tag", "phrase1233333333")
+  val nodeIdentityManager = new NodeIdentityManager(DummySeedBytes)
+  nodeIdentityManager.deleteKey("testKey", "tag")
+  val nodeIdentity = nodeIdentityManager("testKey", "tag", "phrase1233333333")
 
   def pKeyOfFirstSigner(blockHeight:Long) = Option(nodeIdentity.publicKey)
 
@@ -120,7 +121,7 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
 
   it should " prevent spend from invalid tx in" in {
 
-    val ins = Seq(TxInput(TxIndex(SeedBytes(3), 2), 100,  NullDecumbrance))
+    val ins = Seq(TxInput(TxIndex(DummySeedBytes.randomSeed(3), 2), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
     intercept[IllegalArgumentException] {
       ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), 0)
@@ -151,8 +152,8 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
 
   it should " handle different encumbrances on different inputs " in {
 
-    lazy val pkPair1 = PrivateKeyAccount(SeedBytes(32))
-    lazy val pkPair2 = PrivateKeyAccount(SeedBytes(32))
+    lazy val pkPair1 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
+    lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
 
     val ins = Seq(TxInput(validOut, 97, NullDecumbrance))
 

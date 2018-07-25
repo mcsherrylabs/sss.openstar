@@ -15,7 +15,7 @@ import sss.ui.reactor.{ReactorActorSystem, UIReactor}
 class MainUI extends UI with ReactorActorSystem {
 
   override def init(request: VaadinRequest): Unit = {
-    setContent(new Dashboard(UIReactor(this), Main.clientNode))
+    setContent(new DashBoard(UIReactor(this), Main.clientNode))
   }
 }
 

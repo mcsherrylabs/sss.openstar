@@ -19,15 +19,15 @@ lazy val common  = (project in file("sss.asado-common"))
 
 lazy val network = (project in file("sss.asado-network"))
   .settings(commonSettings)
-  .dependsOn(common)
+  .dependsOn(common % "compile->compile;test->test")
 
 lazy val ledger = (project in file("sss.asado-ledger"))
   .settings(commonSettings)
-  .dependsOn(common)
+  .dependsOn(common % "compile->compile;test->test")
 
 lazy val node = (project in file("sss.asado-node"))
   .settings(commonSettings)
-  .dependsOn(common, network, ledger)
+  .dependsOn(common % "compile->compile;test->test", network, ledger)
 
 lazy val nobu = (project in file("sss.asado-nobu"))
   .settings(commonSettings)
@@ -35,5 +35,5 @@ lazy val nobu = (project in file("sss.asado-nobu"))
 
 lazy val analysis = (project in file("sss.asado-analysis"))
   .settings(commonSettings)
-  .dependsOn(node)
+  .dependsOn(common % "compile->compile;test->test", node)
 

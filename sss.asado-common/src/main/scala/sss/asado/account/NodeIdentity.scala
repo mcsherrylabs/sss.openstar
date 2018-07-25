@@ -2,6 +2,7 @@ package sss.asado.account
 
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions.{MessageToSign, PublicKey, SharedSecret, Signature}
+import sss.asado.crypto.SeedBytes
 
 import scala.io.StdIn
 import scala.util.{Failure, Success, Try}
@@ -20,10 +21,15 @@ trait NodeIdentity {
   def createSharedSecret(publicKey: PublicKey): SharedSecret
 }
 
-object NodeIdentity {
+class NodeIdentityManager(seedBytes: SeedBytes) {
 
   val nodeIdKey = "nodeId"
   val tagKey = "tag"
+
+  implicit val keyGenerator: () => (Array[Byte], Array[Byte]) = () => {
+    val acc = PrivateKeyAccount(seedBytes)
+    (acc.privateKey, acc.publicKey)
+  }
 
   def keyExists(identity: String, tag: String): Boolean = {
     KeyPersister.keyExists(identity, tag)
@@ -46,7 +52,7 @@ object NodeIdentity {
         new String(chars)
     }
 
-    Try(NodeIdentity(identity, tag, phrase)) match {
+    Try(apply(identity, tag, phrase)) match {
       case Success(nodeIdentity) => nodeIdentity
       case Failure(e) => unlockNodeIdentityFromConsole(identity, tag)
     }
@@ -55,8 +61,18 @@ object NodeIdentity {
   def apply(nodeConfig: Config, phrase: String): NodeIdentity =
     apply(nodeConfig.getString(nodeIdKey), nodeConfig.getString(tagKey), phrase)
 
-  def apply(nodeId: String, tagOfNodeKey: String, phrase: String): NodeIdentity = {
-    val nodeKey = new KeyPersister(nodeId, true, phrase, tagOfNodeKey).account
+  def get(nodeId: String,
+          tagOfNodeKey: String,
+          phrase: String): Option[NodeIdentity] = {
+    for {
+      kys <- KeyPersister.get(nodeId, tagOfNodeKey, phrase)
+      nodeKey = PrivateKeyAccount(kys)
+    } yield (apply(nodeKey, nodeId, tagOfNodeKey))
+  }
+
+  def apply(nodeKey: PrivateKeyAccount,
+            nodeId: String,
+            tagOfNodeKey: String): NodeIdentity = {
     new NodeIdentity {
       override def verify(sig: Signature, msg: Array[Byte]): Boolean = nodeKey.verify(sig, msg)
       override def sign(msg: MessageToSign): Signature = nodeKey.sign(msg)
@@ -64,8 +80,15 @@ object NodeIdentity {
       override val publicKey: PublicKey = nodeKey.publicKey
       override val id: String = nodeId
       override val tag: String = tagOfNodeKey
-
     }
+  }
+  def apply(
+             nodeId: String,
+             tagOfNodeKey: String,
+             phrase: String
+            ): NodeIdentity = {
+    val nodeKey = PrivateKeyAccount(KeyPersister(nodeId, tagOfNodeKey, phrase, keyGenerator ))
+    apply(nodeKey,nodeId,tagOfNodeKey)
   }
 
 }

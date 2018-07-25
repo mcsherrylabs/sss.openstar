@@ -8,10 +8,11 @@ import akka.agent.Agent
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
-import sss.asado.account.{NodeIdentity, PublicKeyAccount}
+import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.contract.CoinbaseValidator
+import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
@@ -129,13 +130,21 @@ trait MessageRouterActorBuilder {
   lazy val messageRouterActor: ActorRef = actorSystem.actorOf(Props(classOf[MessageRouter]))
 }
 
+trait SeedBytesBuilder {
+  lazy val seedBytes = new SeedBytes {}
+}
+
 trait NodeIdentityBuilder {
 
-  self : NodeConfigBuilder with PhraseBuilder =>
+  self : ConfigBuilder with
+    PhraseBuilder with
+    SeedBytesBuilder =>
+
+  lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
   lazy val nodeIdentity: NodeIdentity = {
     phrase match {
-      case None => NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
-      case Some(secret) => NodeIdentity(nodeConfig.conf, secret)
+      case None => nodeIdentityManager.unlockNodeIdentityFromConsole(conf)
+      case Some(secret) => nodeIdentityManager(conf, secret)
     }
   }
 }
@@ -362,6 +371,7 @@ trait MinimumNode extends Logging with
     DbBuilder with
     NodeConfigBuilder with
     PhraseBuilder with
+    SeedBytesBuilder with
     NodeIdentityBuilder with
     IdentityServiceBuilder with
     BootstrapIdentitiesBuilder with

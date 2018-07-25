@@ -4,6 +4,7 @@ package sss.asado.account
 
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.Curve25519
+import sss.asado.DummySeedBytes
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.ByteArrayEncodedStrOps._
 
@@ -12,7 +13,7 @@ import sss.asado.util.ByteArrayEncodedStrOps._
   */
 class AccountSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
-  lazy val pkPair = PrivateKeyAccount()
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes)
 
   "An account " should " generate a new public and private key " in {
 
@@ -37,7 +38,7 @@ class AccountSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     assert(sut == sut2)
     assert(sut.hashCode() == sut2.hashCode())
 
-    lazy val pkPair2 = PrivateKeyAccount()
+    lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes)
     val sut3 = new Account(pkPair2.address)
     assert(sut != sut3)
     assert(sut != pkPair.address)

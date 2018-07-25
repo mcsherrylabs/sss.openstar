@@ -1,6 +1,7 @@
 package sss.asado.crypto
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.util.ByteArrayComparisonOps
 
 /**
@@ -30,7 +31,7 @@ class ECBEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonO
 
   it should "encrypt and decrypt a byte array " in {
 
-    val bytes = SeedBytes(100)
+    val bytes = DummySeedBytes.randomSeed(100)
     val encrypted = ECBEncryption.encrypt(encKey, bytes)
 
     val decrypted = ECBEncryption.decrypt(encKey, encrypted)

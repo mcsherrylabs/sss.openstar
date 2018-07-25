@@ -2,9 +2,9 @@ package sss.asado.contract
 
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.contract.ContractSerializer._
-import sss.asado.crypto.SeedBytes
 
 /**
   * Created by alan on 2/15/16.
@@ -12,7 +12,7 @@ import sss.asado.crypto.SeedBytes
 class ContractSerializerTest extends FlatSpec with Matchers {
 
 
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
 
   "A SinglePrivateKey contract " should " be correctly serialised and deserialized " in {
     val pKeyEncumbrance = SinglePrivateKey(pkPair.publicKey)

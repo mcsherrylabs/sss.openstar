@@ -1,9 +1,9 @@
 package sss.asado.ledger.serialize
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.balanceledger._
 import sss.asado.contract.PrivateKeySig
-import sss.asado.crypto.SeedBytes
 import sss.asado.ledger.TxId
 
 /**
@@ -12,7 +12,7 @@ import sss.asado.ledger.TxId
 
 class TxInputTest extends FlatSpec with Matchers {
 
-  val randomTxId: TxId = SeedBytes(32)
+  val randomTxId: TxId = DummySeedBytes.randomSeed((32))
   val copyRandomTxId: TxId = java.util.Arrays.copyOf(randomTxId, randomTxId.length)
   val txIndex = TxIndex(randomTxId, 3456)
   val txInput = TxInput(txIndex, 33, PrivateKeySig)

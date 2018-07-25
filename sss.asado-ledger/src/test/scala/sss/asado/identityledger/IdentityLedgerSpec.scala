@@ -2,6 +2,7 @@ package sss.asado.identityledger
 
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.SigningFunctions.PublicKey
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.util.ByteArrayComparisonOps
@@ -15,8 +16,8 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
   implicit val db = Db()
   val myIdentity= "intothelight"
   val rescuerIdentity = "someguy"
-  val privateAcc1 = PrivateKeyAccount()
-  val privateAcc2 = PrivateKeyAccount()
+  val privateAcc1 = PrivateKeyAccount(DummySeedBytes)
+  val privateAcc2 = PrivateKeyAccount(DummySeedBytes)
   val key1 = privateAcc1.publicKey
   val key2 = privateAcc2.publicKey
   val ledgerId = 99.toByte
@@ -129,7 +130,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
 
 
   it should " allow rescue from an approved rescuer (followed by removal of rescuer) " in {
-    val newKeyAcc = PrivateKeyAccount()
+    val newKeyAcc = PrivateKeyAccount(DummySeedBytes)
     val rescue = Rescue(rescuerIdentity, myIdentity, newKeyAcc.publicKey, "rescued")
     val sig = privateAcc2.sign(rescue.txId)
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
@@ -155,7 +156,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
   it should " revent rescue from an unapproved rescuer " in {
 
     val randomerIdentity = "randomer"
-    val newKeyAcc = PrivateKeyAccount()
+    val newKeyAcc = PrivateKeyAccount(DummySeedBytes)
     identityLedger(makeClaim(randomerIdentity, key2), 0)
     val rescue = Rescue(randomerIdentity, myIdentity, newKeyAcc.publicKey, "rescued")
     val sig = privateAcc2.sign(rescue.txId)

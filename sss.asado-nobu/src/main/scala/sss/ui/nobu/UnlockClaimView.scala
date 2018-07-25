@@ -93,7 +93,7 @@ class UnlockClaimView(
         val claim = claimIdentityText.getValue
         val claimTag = claimTagText.getValue
 
-        if(NodeIdentity.keyExists(claim, claimTag)) {
+        if(clientNode.nodeIdentityManager.keyExists(claim, claimTag)) {
           push(Notification.show(s"Identity $claim exists, try loading it instead?"))
         } else {
           Try {
@@ -103,7 +103,7 @@ class UnlockClaimView(
             else {
               if(clientNode.identityService.accounts(claim).nonEmpty) throw new Error(s"Identity already claimed!")
               else {
-                val nId = NodeIdentity(claim, claimTag, phrase)
+                val nId = clientNode.nodeIdentityManager(claim, claimTag, phrase)
                 val publicKey = nId.publicKey.toBase64Str
                 val message = Message(claim, msgPayload =
                   IdentityClaimMessagePayload(claim, claimTag, nId.publicKey, claimInfoTextArea.getValue).toMessagePayLoad,
@@ -127,7 +127,7 @@ class UnlockClaimView(
           val tag = claimAndTag.tag
           val identity = claimAndTag.identity
           val phrase = unLockPhrase.getValue
-          Try(NodeIdentity(identity, tag, phrase)) match {
+          Try(clientNode.nodeIdentityManager(identity, tag, phrase)) match {
             case Failure(e) =>
               log.error("Failed to unlock {} {}", identity, e)
               push(Notification.show(s"${e.getMessage}"))

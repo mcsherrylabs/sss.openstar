@@ -1,13 +1,9 @@
 package sss.ui
 
-import com.vaadin.server.{BrowserWindowOpener, ExternalResource}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import org.joda.time.LocalDateTime
-import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
-import sss.asado.crypto.SeedBytes
-import sss.asado.nodebuilder.ClientNode
 import sss.analysis.Main.dateFormat
+import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
 import sss.analysis.TransactionHistoryQuery
 
 
