@@ -4,6 +4,8 @@ enablePlugins(JavaAppPackaging)
 
 packageSummary in Linux := "asado-nobu"
 
+resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
+
 resolvers += "indvd00m-github-repo" at "https://github.com/indvd00m/maven-repo/raw/master/repository"
 
 resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases"
