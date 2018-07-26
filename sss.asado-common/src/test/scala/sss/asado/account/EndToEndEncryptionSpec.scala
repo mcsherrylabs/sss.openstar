@@ -4,7 +4,8 @@ import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.Curve25519
-import sss.asado.crypto.{CBCEncryption, SeedBytes}
+import sss.asado.DummySeedBytes
+import sss.asado.crypto.CBCEncryption
 import sss.asado.util.ByteArrayComparisonOps
 
 
@@ -13,15 +14,15 @@ import sss.asado.util.ByteArrayComparisonOps
   */
 class EndToEndEncryptionSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
-  lazy val pkPair1 = PrivateKeyAccount(SeedBytes(32))
-  lazy val pkPair2 = PrivateKeyAccount(SeedBytes(32))
+  lazy val pkPair1 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
+  lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
 
   lazy val message = "There once was a man from Nantucket, and rode her like Billy the Kid"
 
   "End to End encryption " should " successfully encrypt and decrypted with a public/private shared secret " in {
 
     val sharedSecret = Curve25519.createSharedSecret(pkPair1.privateKey, pkPair2.publicKey)
-    val iv = CBCEncryption.newInitVector
+    val iv = CBCEncryption.newInitVector(DummySeedBytes)
 
     val encrypted = CBCEncryption.encrypt(sharedSecret, message, iv)
 

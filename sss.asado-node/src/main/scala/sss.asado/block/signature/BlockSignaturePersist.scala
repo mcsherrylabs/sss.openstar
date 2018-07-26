@@ -7,7 +7,7 @@ import java.util
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions._
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.db.{Db, OrderAsc, Row, Where}
+import sss.db.{Db, OrderAsc, Row}
 
 import scala.util.{Failure, Success, Try}
 
@@ -120,7 +120,7 @@ object BlockSignatures {
     }
 
     override def indexOfBlockSignature(nodeId: String): Option[Int] = {
-      table.find(Where(s"$nodeId_str = ?", nodeId)) map( r => r[Int](id))
+      table.find(nodeId_str -> nodeId) map( r => r[Int](id))
     }
 
     override def signatures(maxToReturn: Int): Seq[BlockSignature] = {

@@ -114,7 +114,7 @@ object IdentityService {
         case None => false
         case Some(rowId) =>
           val asChars = publicKey.toBase64Str
-          keyTable.find(Where(s"$identityLnkCol = ? AND $publicKeyCol = ? ", rowId, asChars)).isDefined
+          keyTable.find(where(s"$identityLnkCol = ? AND $publicKeyCol = ? ", rowId, asChars)).isDefined
       }
     }
 
@@ -174,7 +174,7 @@ object IdentityService {
     override def accounts(identity: String): Seq[TaggedPublicKeyAccount] = {
       toIdOpt(identity) match {
         case None => Seq()
-        case Some(rowId) => keyTable.filter(where(s"$identityLnkCol = ?") using rowId) map { r: Row =>
+        case Some(rowId) => keyTable.filter(where(identityLnkCol -> rowId)) map { r: Row =>
             TaggedPublicKeyAccount(PublicKeyAccount(r(publicKeyCol).toByteArray), r(tagCol))
           }
       }
@@ -182,7 +182,7 @@ object IdentityService {
 
     override def identify(publicKey: PublicKey): Option[TaggedIdentity] = {
       val pKey = publicKey.toBase64Str
-      keyTable.find(where (s"$publicKeyCol = ?") using pKey) map { r =>
+      keyTable.find(where (publicKeyCol -> pKey)) map { r =>
         val linkId = r[Long](identityLnkCol)
         val id = identityTable(linkId)[String](identityCol)
         val tag = r[String](tagCol)

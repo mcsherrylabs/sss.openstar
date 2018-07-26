@@ -1,13 +1,17 @@
 package sss.analysis
 
 
+
+
 import com.twitter.util.SynchronizedLruMap
+import org.joda.time.LocalDateTime
 import sss.analysis.Analysis.InOut
+import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
-import sss.asado.balanceledger.{TxIndex, TxInput, TxOutput}
-import sss.asado.block.{Block,  BlockTx}
-import sss.asado.balanceledger._
+import sss.asado.balanceledger.{Tx, TxIndex, TxInput, TxOutput, _}
+import sss.asado.block.{Block, BlockTx}
+import sss.asado.contract.{Encumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc}
 import sss.asado.identityledger._
 import sss.asado.ledger._
 import sss.db._
@@ -18,13 +22,14 @@ import sss.asado.util.ByteArrayEncodedStrOps._
   */
 object Analysis extends AnalysisDb with Logging {
 
+
+
   private lazy val analysisCache = new SynchronizedLruMap[Long, Analysis](100)
 
+  val stateCheckPoint = 2
+  val stateAnalysedNoCheckpoint = 1
 
-  def getHeaderTable(implicit db:Db): Table = {
-    db.executeSql(createHeaderTableSql)
-    db.table(headerTableName)
-  }
+  def getHeaderTable(implicit db:Db): Table = db.table(headerTableName)
 
   case class InOut(txIndex: TxIndex, txOut: TxOutput)
   case class AnalysisFromMemory(analysisHeight: Long,
@@ -32,10 +37,11 @@ object Analysis extends AnalysisDb with Logging {
                                 txOuts: Seq[InOut],
                                 txCount: Long,
                                 txInBlockCount: Long,
-                                timeBlockOpen: Long) extends Analysis
+                                timeBlockOpen: Long,
+                                auditCount: Int) extends Analysis
 
 
-  val blockOneAnalysis = AnalysisFromMemory(1, 0, Seq(), 0, 0, 0)
+  val blockOneAnalysis = AnalysisFromMemory(1, 0, Seq(), 0, 0, 0, 0)
 
   def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
 
@@ -53,23 +59,30 @@ object Analysis extends AnalysisDb with Logging {
   }
 
   def isCheckpoint(blockHeight: Long)(implicit db:Db): Boolean = {
-    getHeaderTable(db).find(idCol -> blockHeight, stateCol -> 2).isDefined
+    if (blockHeight == 1) true
+    else getHeaderTable(db).find(idCol -> blockHeight, stateCol -> stateCheckPoint).isDefined
   }
 
   def isAnalysed(blockHeight: Long)(implicit db:Db): Boolean = {
-      getHeaderTable(db).find(idCol -> blockHeight).isDefined
+      getHeaderTable(db).find(idCol -> blockHeight, stateCol -> stateAnalysedNoCheckpoint).isDefined
   }
 
-  def analyse(block:Block, prevAnalysis: Analysis)(implicit db:Db): Analysis = {
 
+  def analyse(block:Block, prevAnalysis: Analysis, chainHeight: Long, blockTime: LocalDateTime)(implicit db:Db): Analysis = {
 
+    val transactionHistoryWriter = new TransactionHistoryPersistence()
+    var errorCount = 0
     val blockHeight = block.height
+    val isCheckpointInterval =
+      if(blockHeight < 4) true
+      else blockHeight % 4000 == 0
+
     val auditor = new AnalysisMessages(blockHeight)
     val tableName = makeTableName(blockHeight)
 
     db.tx {
       auditor.delete
-
+      transactionHistoryWriter.delete(blockHeight)
       getHeaderTable.delete(where(s"$idCol = ?") using blockHeight)
 
       db.executeSqls(Seq(
@@ -79,16 +92,19 @@ object Analysis extends AnalysisDb with Logging {
 
     val table = db.table(tableName)
 
-    def audit(cond: Boolean, msg: String): Unit = if(!cond) auditor.write(msg)
+    def audit(cond: Boolean, msg: String): Unit = if(!cond) {
+      errorCount += 1
+      auditor.write(msg)
+    }
 
     def write(acc: Analysis): Analysis = {
       db.tx[Analysis] {
-        val state = if(acc.analysisHeight % 100 == 0) {
+        val state = if(isCheckpointInterval) {
           acc.txOuts.foreach { io =>
             table.insert(Map(txIndexCol -> io.txIndex.toBytes, txOutCol -> io.txOut.toBytes))
           }
-          1
-        } else 2
+          stateCheckPoint
+        } else stateAnalysedNoCheckpoint
 
         getHeaderTable.insert(acc.analysisHeight,
           acc.coinbaseTotal,
@@ -96,9 +112,10 @@ object Analysis extends AnalysisDb with Logging {
           acc.balance,
           acc.txInBlockCount,
           acc.timeBlockOpen,
-          state
+          state,
+          acc.auditCount
           )
-        if(state == 1) apply(blockHeight, None)
+        if(state == stateCheckPoint) apply(blockHeight, None)
         else apply(blockHeight, Some(acc.txOuts))
       }
     }
@@ -127,14 +144,17 @@ object Analysis extends AnalysisDb with Logging {
             val tx = e.txEntryBytes.toTx
             // are the tx ins in the list of txouts? yes? remove.
 
-            tx.ins.foreach { in =>
+            val expandedInElements = tx.ins.map { in =>
               if (isCoinBase(in)) {
                 audit(tx.outs.head.amount == 1000, s"Coinbase tx is not 1000, ${tx.outs.head.amount}")
                 audit(tx.outs.size == 1, s"Coinbase tx has more than one output, ${tx.outs.size}")
                 coinBaseIncrease = coinBaseIncrease + tx.outs.head.amount
+                ExpandedTxElement(tx.txId, "coinbase", in.amount)
                 //newCoinbases = newCoinbases :+ InOut(TxIndex(tx.txId, 0), tx.outs.head)
               } else {
-                audit(acc.find(_.txIndex == in.txIndex).isDefined, s"TxIndex from nowhere ${in.txIndex}")
+                val foundOpt = acc.find(_.txIndex == in.txIndex)
+                audit(foundOpt.isDefined, s"TxIndex from nowhere ${in.txIndex}")
+                ExpandedTxElement(tx.txId, getIdFromEncumbrance(foundOpt.get.txOut.encumbrance), in.amount)
               }
             }
 
@@ -143,10 +163,14 @@ object Analysis extends AnalysisDb with Logging {
             val plusNewOuts = tx.outs.indices.map { i =>
               //audit(tx.outs(i).amount > 0, "Why txOut is 0?")<-because the server charge can be 0
               val newIndx = TxIndex(tx.txId, i)
-              InOut(newIndx, tx.outs(i))
+              val out = tx.outs(i)
+              (InOut(newIndx, out), ExpandedTxElement(tx.txId, getIdFromEncumbrance(tx.outs(i).encumbrance), out.amount))
             }
+            val expandedOutElements = plusNewOuts.map(_._2)
+            val transactionHistory = ExpandedTx(expandedInElements, expandedOutElements, blockTime, blockHeight)
+            transactionHistoryWriter.write(transactionHistory)
 
-            plusNewOuts ++ newOuts
+            plusNewOuts.map(_._1) ++ newOuts
           case x =>
             println(s"Another type of ledger? $x")
             acc
@@ -155,17 +179,35 @@ object Analysis extends AnalysisDb with Logging {
       val txInBlockCount = allEntries.size
 
       AnalysisFromMemory(block.height, previousAnalysis.coinbaseTotal + coinBaseIncrease,
-        result, previousAnalysis.txCount + txInBlockCount, txInBlockCount, 0)
+        result, previousAnalysis.txCount + txInBlockCount, txInBlockCount, 0, errorCount)
     }
 
     auditor.write(s"Audit of $blockHeight begins .....")
+
     val accumulator = mapNextOuts(block.entries, prevAnalysis)
     auditor.write(s"Audit of $blockHeight done, writing accumulator .....")
     val written = write(accumulator)
-    log.info(s"Wrote accumulator, (${accumulator.txOuts.size} entries).....")
+
+    log.info(s"Wrote accumulator, checkoint=$isCheckpointInterval, " +
+      s"balance=${accumulator.balance}, " +
+      s"height=${accumulator.analysisHeight}, " +
+      s"entries=${accumulator.txOuts.size}, " +
+      s"audits=${accumulator.auditCount} .....")
+
     written
   }
 
+
+  private def getIdFromEncumbrance(enc: Encumbrance): String = {
+    enc match {
+      case SingleIdentityEnc(id, minBlockHeight) => id
+      case SaleOrReturnSecretEnc(returnIdentity,
+      claimant,
+      hashOfSecret,
+      returnBlockHeight) => claimant
+      case _ => "coinbase"
+    }
+  }
 }
 
 trait Analysis {
@@ -173,7 +215,7 @@ trait Analysis {
   val txOuts: Seq[InOut]
   lazy val balance: Long = txOuts.foldLeft(0)((acc, e) => { acc + e.txOut.amount })
   val coinbaseTotal: Long
-
+  val auditCount: Int
   val txCount: Long
   val txInBlockCount: Long
   val timeBlockOpen: Long
@@ -191,6 +233,7 @@ trait AnalysisDb {
   val txOutTotalCol = "txOutTotal"
   val txBlockCountCol = "txBlockCount"
   val timeBlockOpenCol = "timeBlockOpen"
+  val auditCountCol = "auditCount"
   val idCol = "id"
 
   def makeTableName( blockHeight: Long) = s"analysis_$blockHeight"
@@ -205,16 +248,6 @@ trait AnalysisDb {
         |$txOutCol BLOB);
         |""".stripMargin
 
-  def createHeaderTableSql =
-    s"""CREATE TABLE IF NOT EXISTS ${headerTableName}
-        |($idCol BIGINT,
-        |$coinbaseCol BIGINT,
-        |$txCountCol BIGINT,
-        |$txOutTotalCol BIGINT,
-        |$txBlockCountCol BIGINT,
-        |$timeBlockOpenCol BIGINT,
-        |$stateCol INTEGER, PRIMARY KEY ($idCol));
-        |""".stripMargin
 
 }
 
@@ -238,6 +271,7 @@ class AnalysisFromTables(table: View, row:Row)(implicit db:Db) extends AnalysisD
   }
   override val analysisHeight: Long = row[Long](idCol)
   lazy override val balance: Long =  row[Long](txOutTotalCol)
+  override val auditCount: Int =  row[Int](auditCountCol)
   override val txCount: Long = row[Long](txCountCol)
   override val txInBlockCount: Long = row[Long](txBlockCountCol)
   override val timeBlockOpen: Long = row[Long](timeBlockOpenCol)
@@ -249,6 +283,7 @@ class AnalysisFromTable(override val txOuts: Seq[InOut], row:Row)(implicit db:Db
 
   override val analysisHeight: Long = row[Long](idCol)
   lazy override val balance: Long =  row[Long](txOutTotalCol)
+  override val auditCount: Int =  row[Int](auditCountCol)
   override val txCount: Long = row[Long](txCountCol)
   override val txInBlockCount: Long = row[Long](txBlockCountCol)
   override val timeBlockOpen: Long = row[Long](timeBlockOpenCol)

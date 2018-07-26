@@ -4,41 +4,34 @@ enablePlugins(JavaAppPackaging)
 
 packageSummary in Linux := "asado-nobu"
 
-scalaVersion := "2.11.8"
-
-version := "0.1"
+resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
 
 resolvers += "indvd00m-github-repo" at "https://github.com/indvd00m/maven-repo/raw/master/repository"
 
 resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases"
 
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
-
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "7.7.5"
+val vaadinVer = "7.7.13"
 
 
 //dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies ++= Seq(
-  "com.typesafe.akka" %% "akka-actor" % "2.4.+",
-  "com.typesafe.akka" %% "akka-remote" % "2.4.+",
+  "com.typesafe.akka" %% "akka-actor" % Vers.akkaVer,
+  "com.typesafe.akka" %% "akka-remote" % Vers.akkaVer,
   "com.vaadin" % "vaadin-server" % vaadinVer,
   "com.vaadin" % "vaadin-themes" % vaadinVer,
   "com.vaadin" % "vaadin-push" % vaadinVer,
   "com.vaadin" % "vaadin-client-compiler" % vaadinVer,
   "com.vaadin" % "vaadin-client-compiled" % vaadinVer,
-  "us.monoid.web" % "resty" % "0.3.2",
+  "us.monoid.web" % "resty" % Vers.restyVer,
   "org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   "org.vaadin.addons" % "animator" % "1.7.4",
-  "com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-asado-ledger" % "0.3-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % "0.3-SNAPSHOT",
-  "org.scalatra" % "scalatra_2.11" % "2.4.0",
-  "io.spray" %%  "spray-json" % "1.3.2",
-  "com.typesafe.akka" % "akka-slf4j_2.11" % "2.4.8",
-  "org.scalatest" %% "scalatest" % "2.2.6" % Test
+  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % Vers.sssVaadinReact,
+  "org.scalatra" %% "scalatra" % Vers.scalatraVer,
+  "io.spray" %%  "spray-json" % Vers.sprayJsonVer,
+  "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
 )
 
 

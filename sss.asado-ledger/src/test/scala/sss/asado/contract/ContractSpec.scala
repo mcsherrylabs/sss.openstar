@@ -2,8 +2,8 @@ package sss.asado.contract
 
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
@@ -14,7 +14,7 @@ import sss.db.Db
 class ContractSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
   implicit val db = Db()
 
   import LedgerContext._
@@ -33,7 +33,7 @@ class ContractSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
   it  should " correctly support equality and hashcode " in {
 
-    val otherPkPair = PrivateKeyAccount(SeedBytes(32))
+    val otherPkPair = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
     val enc = SinglePrivateKey(pkPair.publicKey)
     val enc2 = SinglePrivateKey(pkPair.publicKey)
     val enc3 = SinglePrivateKey(otherPkPair.publicKey)
@@ -89,9 +89,9 @@ class ContractSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
     val myTag = "homepc"
     val myTag2 = "mobile"
-    val txId = SeedBytes(32)
-    lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
-    lazy val pkPair2 = PrivateKeyAccount(SeedBytes(32))
+    val txId = DummySeedBytes.randomSeed(32)
+    lazy val pkPair = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
+    lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
     val myIdentity = "hithereworld"
 
     val idService: IdentityService  = lc.identityService.get

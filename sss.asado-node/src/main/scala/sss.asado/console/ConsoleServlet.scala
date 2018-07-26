@@ -14,7 +14,7 @@ import sss.asado.network.{Connection, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.asado.wallet.{Wallet, WalletPersistence}
-import sss.db.{Db, Where}
+import sss.db._
 import sss.asado.ledger._
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
 /**
@@ -105,7 +105,7 @@ class ConsoleServlet(peerList: Agent[Set[Connection]],
     },
     "blockheader" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = {
-        blocks.filter(Where("height = ?", params.head.toLong)).map(_.toString)
+        blocks.filter(where("height" -> params.head.toLong)).map(_.toString)
       }
     },
     "utxo" -> new Cmd {

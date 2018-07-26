@@ -3,25 +3,19 @@ package sss.ui.nobu
 import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
+import com.vaadin.server.FontAwesome
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
-import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput}
+import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
-import sss.asado.crypto.{CBCEncryption, SeedBytes}
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageInBox.MessagePage
-import sss.asado.message.{ForceCheckForMessages, Message, MessageEcryption, MessageInBox, SavedAddressedMessage}
-import sss.asado.network.NetworkController.SendToNodeId
-import sss.asado.network.NetworkMessage
+import sss.asado.message.{Message, MessageEcryption, MessageInBox, SavedAddressedMessage, _}
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.wallet.Wallet
-import sss.asado.ledger._
-import sss.asado.message._
-import sss.asado.balanceledger._
-import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 import sss.ui.design.NobuMainDesign
 import sss.ui.nobu.NobuNodeBridge._
@@ -38,6 +32,8 @@ import scala.util.{Failure, Random, Success, Try}
 case class ShowWrite(to: String = "", text: String = "")
 case class Show(s: String)
 case object ShowBalance
+case object ShowSchedules
+
 case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessage, walletUpdate: WalletUpdate, from: String)
 
 class NobuMainLayout(uiReactor: UIReactor,
@@ -50,17 +46,20 @@ class NobuMainLayout(uiReactor: UIReactor,
   private implicit val db: Db = nobuNode.db
   private implicit val identityQuery: IdentityServiceQuery = nobuNode.identityService
   private implicit val nodeIdentity = userId
-
+  private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
   private lazy val minNumBlocksInWhichToClaim = nobuNode.conf.getInt("messagebox.minNumBlocksInWhichToClaim")
   private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
   private lazy val amountBuriedInMail = nobuNode.conf.getInt("messagebox.amountBuriedInMail")
+
+  schedulesButton.setIcon(FontAwesome.CALENDAR_CHECK_O)
 
   statusButton.setVisible(false)
   settingsButton.setVisible(false)
 
   val name = "main"
 
+  val schedulesBtn = schedulesButton
   val inBoxBtn = inboxButton
   val writeBtn = writeButton
   val archiveBtn = archiveButton
@@ -72,6 +71,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   writeBtn.addClickListener(uiReactor)
   inBoxBtn.addClickListener(uiReactor)
+  schedulesBtn.addClickListener(uiReactor)
   archiveBtn.addClickListener(uiReactor)
   sentBtn.addClickListener(uiReactor)
   logoutBtn.addClickListener(uiReactor)
@@ -82,7 +82,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
 
   val mainNobuRef = uiReactor.actorOf(Props(NobuMainActor),
-    logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl)
+    logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl, schedulesBtn)
 
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
 
@@ -101,17 +101,42 @@ class NobuMainLayout(uiReactor: UIReactor,
 
     pager.messages.reverse foreach {
 
-      case msg : Message if(isForDeletion) =>
-        itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
-          mainNobuRef, msg))
+      case msg @ Message(_, msgPayload, _, _, _) if(isForDeletion) =>
+        val tried = Try(MessagePayloadDecoder.decode.apply(msgPayload))
+        if(tried.isSuccess) {
+          itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
+            mainNobuRef, msg))
+        }
 
-      case msg: Message =>
-        Try {
-          val newMsg = new NewMessageComponent(itemPanelVerticalLayout,
-            mainNobuRef, msg)
 
-        itemPanelVerticalLayout.addComponent(newMsg)
-        } match {
+      case msg @ Message(_, msgPayload, _, _, _) =>
+        val res = Try {
+          val a = Try(MessagePayloadDecoder.decode.apply(msgPayload))
+          val b = Try(PayloadDecoder.decode.apply(msgPayload))
+          if(a.isSuccess) {
+            val newC = new NewMessageComponent(itemPanelVerticalLayout,
+              mainNobuRef, msg)
+            itemPanelVerticalLayout.addComponent(newC)
+
+          } else if(b.isSuccess) {
+            itemPanelVerticalLayout.addComponent(new IdentityClaimComponent(itemPanelVerticalLayout,
+              mainNobuRef, msg, nobuNode.homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
+          }
+
+          /*val newMsg = msgDecoders(msgPayload) match {
+            case EncryptedMessage(enc, iv) =>
+              new NewMessageComponent(itemPanelVerticalLayout,
+                mainNobuRef, msg)
+            case idClaim @ IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
+              new IdentityClaimComponent(itemPanelVerticalLayout,
+                mainNobuRef, msg, nobuNode.homeDomain, idClaim)
+            case x => log.warn("WHAT?"); throw new RuntimeException("")
+          }
+          itemPanelVerticalLayout.addComponent(newMsg)*/
+
+        }
+
+        res match {
           case Failure(e) => log.warn(e.toString)
           case Success(_) =>
       }
@@ -122,6 +147,7 @@ class NobuMainLayout(uiReactor: UIReactor,
       }
 
   }
+
 
   setSizeFull
 
@@ -162,6 +188,11 @@ class NobuMainLayout(uiReactor: UIReactor,
         itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, to, text, userDir))
       }
 
+      case ShowSchedules => push {
+        itemPanelVerticalLayout.removeAllComponents()
+        itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id))
+      }
+
       case ShowInBox =>
         pager = initInBoxPager
         Try(push(updatePagingAreas(pager))) match {
@@ -198,6 +229,8 @@ class NobuMainLayout(uiReactor: UIReactor,
           case _ =>
         }
 
+      case ComponentEvent(`schedulesBtn`, _) =>
+        self ! ShowSchedules
 
       case ComponentEvent(`inBoxBtn`, _) =>
         self ! ShowInBox
@@ -247,7 +280,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         log.info("MessageToSend begins")
         val baseTx = createFundedTx(amount)
         val changeTxOut = baseTx.outs.take(1)
-        val secret = Array[Byte](8) //SeedBytes(16)
+        val secret = new Array[Byte](8) //SeedBytes(16)
         Random.nextBytes(secret)
 
         val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
@@ -255,10 +288,23 @@ class NobuMainLayout(uiReactor: UIReactor,
         val tx = userWallet.appendOutputs(baseTx, paymentOuts : _*)
         val signedSTx = signOutputs(tx, secret)
         val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
-        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toBytes, le.toBytes)
+        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
+        val bag = Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
+
+        /*val msg = Message(bag.from,
+          bag.msg.addrMsg.msgPayload,
+          bag.sTx.toBytes,
+          0, bag.msg.savedAt)
+
+        val newMsg = MessageInBox(bag.msg.to).addNew(msg)
+        val msgP = newMsg.msgPayload
+        val enc1 = MessageEcryption.encryptedMessage(msgP.payload)
+        val n = NodeIdentity(to, "defaultTag", "password")
+        val twithsec = enc1.decrypt(n, account.publicKey)*/
+
         // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
         log.info("MessageToSend finished, sending bag")
-        clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
+        clientEventActor ! bag
 
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))

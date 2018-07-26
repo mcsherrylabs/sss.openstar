@@ -3,19 +3,25 @@ package sss.ui.nobu
 import akka.actor.ActorRef
 import com.vaadin.server.FontAwesome
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
-import com.vaadin.ui.{Button, Layout}
+import com.vaadin.ui.{Button, Layout, Notification}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
-import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.balanceledger._
+import sss.asado.contract.SingleIdentityEnc
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
-import sss.asado.message.{Message, MessageEcryption, SavedAddressedMessage}
+import sss.asado.message.MessageEcryption.EncryptedMessage
+import sss.asado.message.{Message, MessageEcryption, MessagePayloadDecoder, SavedAddressedMessage}
+import sss.asado.state.HomeDomain
+import sss.asado.wallet.WalletPersistence
+import sss.asado.wallet.WalletPersistence.Lodgement
+import sss.db.Db
 import sss.ui.design.MessageDesign
 import sss.ui.nobu.NobuNodeBridge.{ClaimBounty, MessageToArchive, MessageToDelete, SentMessageToDelete}
-import sss.ui.reactor.UIReactor
+import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
 
@@ -25,27 +31,30 @@ import scala.util.{Failure, Success, Try}
 object MessageComponent extends Logging {
  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
+  private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
+
   def toDetails(savedMsg: SavedAddressedMessage)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 
     val bount = savedMsg.addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry.txEntryBytes.toTx.outs(1).amount
+    val enc = MessagePayloadDecoder.decode(savedMsg.addrMsg.msgPayload).asInstanceOf[EncryptedMessage]
 
-    val enc = MessageEcryption.encryptedMessage(savedMsg.addrMsg.msg)
-    Try(identityServiceQuery.account(savedMsg.to)) match {
-      case Failure(e) => throw e
-      case Success(recipient) =>
-        val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
-        new MsgDetails {
-          override val secret: Array[Byte] = msgText.secret
-          override val text: String = msgText.text
-          override val fromTo: String = savedMsg.to
-          override val bounty: Int = bount
-          override val createdAt: LocalDateTime = savedMsg.savedAt
-          override val canClaim: Boolean = false
+        Try(identityServiceQuery.account(savedMsg.to)) match {
+          case Failure(e) => throw e
+          case Success(recipient) =>
+            val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
+            new MsgDetails {
+              override val secret: Array[Byte] = msgText.secret
+              override val text: String = msgText.text
+              override val fromTo: String = savedMsg.to
+              override val bounty: Int = bount
+              override val createdAt: LocalDateTime = savedMsg.savedAt
+              override val canClaim: Boolean = false
+            }
         }
-    }
 
   }
+
 
   def toDetails(msg: Message)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
@@ -57,21 +66,26 @@ object MessageComponent extends Logging {
     //val tx = sTx.txEntryBytes.toTx
     val tx = msg.tx.toSignedTxEntry.txEntryBytes.toTx
     val bount = tx.outs(1).amount
-    val enc = MessageEcryption.encryptedMessage(msg.msg)
-    Try(identityServiceQuery.account(msg.from)) match {
-      case Failure(e) => throw e
-      case Success(sender) =>
-        val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
-        new MsgDetails {
-          override val secret: Array[Byte] = msgText.secret
-          override val text: String = msgText.text
-          override val fromTo: String = msg.from
-          override val bounty: Int = bount
-          override val createdAt: LocalDateTime = msg.createdAt
-          override val canClaim: Boolean = true
+
+    val enc1 = MessageEcryption.encryptedMessage(msg.msgPayload.payload)
+
+    val enc = MessagePayloadDecoder.decode(msg.msgPayload).asInstanceOf[EncryptedMessage]
+
+        Try(identityServiceQuery.account(msg.from)) match {
+          case Failure(e) => throw e
+          case Success(sender) =>
+            val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
+            new MsgDetails {
+              override val secret: Array[Byte] = msgText.secret
+              override val text: String = msgText.text
+              override val fromTo: String = msg.from
+              override val bounty: Int = bount
+              override val createdAt: LocalDateTime = msg.createdAt
+              override val canClaim: Boolean = true
+            }
         }
+
     }
-  }
 
 }
 
@@ -110,6 +124,58 @@ class MessageComponent(parentLayout: Layout,
   deliveredAt.setValue(msgDetails.createdAt.toString(dtFmt))
 
 }
+
+class IdentityClaimComponent(parentLayout: Layout,
+                             mainActorRef: ActorRef,
+                             msg:Message,
+                             homeDomain: HomeDomain,
+                             identityClaimMessagePayload: IdentityClaimMessagePayload)
+                         (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery, db: Db) extends
+  MessageDesign {
+
+  fromLabel.setValue("NEW IDENTITY REQUEST")
+  val explain = s"Use the thumbs up or down icon to approve or reject this request for identity ${identityClaimMessagePayload.claimedIdentity}"
+  val claimText = if(identityClaimMessagePayload.supportingText.isEmpty) "No supporting text provided!" else identityClaimMessagePayload.supportingText
+  messageText.setValue(s"$explain\n$claimText")
+  deliveredAt.setValue(msg.createdAt.toString(dtFmt))
+  deleteMsgBtn.setVisible(false)
+  replyMsgBtn.setIcon(FontAwesome.THUMBS_O_DOWN)
+  forwardMsgBtn.setIcon(FontAwesome.THUMBS_O_UP)
+
+  replyMsgBtn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+      parentLayout.removeComponent(IdentityClaimComponent.this)
+      mainActorRef ! MessageToArchive(msg.index)
+    }
+  })
+
+  forwardMsgBtn.addClickListener(new ClickListener {
+    override def buttonClick(event: ClickEvent): Unit = {
+
+      Try(new Resty().text(s"${homeDomain.http}/claim?claim=${identityClaimMessagePayload.claimedIdentity}" +
+        s"&tag=${identityClaimMessagePayload.tag}" +
+        s"&pKey=${identityClaimMessagePayload.publicKey.toBase64Str}")) match {
+        case Success(resultText) =>
+          resultText.toString match {
+            case msgStr if msgStr.startsWith("ok:") =>
+              val asAry = msgStr.substring(3).split(":")
+              val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
+              val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(identityClaimMessagePayload.claimedIdentity, 0))
+              val inBlock = asAry(3).toLong
+              val walletPersistence = new WalletPersistence(identityClaimMessagePayload.claimedIdentity, db)
+              walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
+              mainActorRef ! MessageToArchive(msg.index)
+              Notification.show(s"$resultText")
+            case msgStr => Notification.show(s"$msgStr")
+          }
+        case Failure(e) => Notification.show(s"$e")
+      }
+      parentLayout.removeComponent(IdentityClaimComponent.this)
+    }
+  })
+
+}
+
 
 class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Message)
                          (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends

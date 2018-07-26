@@ -8,45 +8,43 @@ import sss.asado.util.ByteArrayEncodedStrOps._
 /**
   * Persists the key pair, tag and identity...
   *
-  * @param mementoName
-  * @param createIfMissing
-  * @param phrase
-  * @param tag
   */
-private class KeyPersister(val mementoName: String,
-                            val createIfMissing: Boolean,
-                           phrase: String, tag: String) extends Logging {
-
-  require(phrase.length > 7, "Password must be 8 characters or more." )
-  require(tag.length > 0, "Tag cannot be an empty string" )
-
-  private val m = KeyPersister.memento(mementoName, tag)
-
-  lazy val account = PrivateKeyAccount(privKey, pubKey)
-
-  private lazy val privKey: Array[Byte] = loadKey._2
-  private lazy val pubKey: Array[Byte] = loadKey._1
+private object KeyPersister extends Logging {
 
 
-  private def loadKey: (Array[Byte], Array[Byte]) = {
-    m.read match {
-      case None => {
-        if(createIfMissing) {
-          lazy val pkPair = PrivateKeyAccount()
-          val privKStr: String = pkPair.privateKey.toBase64Str
-          val pubKStr: String = pkPair.publicKey.toBase64Str
-          val encrypted = encrypt(phrase, privKStr)
-          val hashedPhrase = PasswordStorage.createHash(phrase)
-          val created = s"$pubKStr:::$hashedPhrase:::$encrypted"
-          log.debug(s"CREATED - ${created}")
-          m.write(created)
-          loadKey
-        } else throw new Error(s"No key found at $mementoName")
-      }
-      case Some(str) =>
+  def deleteKey(identity: String, tag: String) = memento(identity, tag).clear
+  def keyExists(identity: String, tag: String): Boolean = memento(identity, tag).read.isDefined
+  def apply(identity: String,
+            tag: String,
+            phrase: String,
+            keyGenerator: () => (Array[Byte], Array[Byte])): (Array[Byte], Array[Byte]) = {
+
+    get(identity, tag, phrase).getOrElse {
+      val pkPair = keyGenerator()
+      val privKStr: String = pkPair._1.toBase64Str
+      val pubKStr: String = pkPair._2.toBase64Str
+      val encrypted = encrypt(phrase, privKStr)
+      val hashedPhrase = PasswordStorage.createHash(phrase)
+      val created = s"$pubKStr:::$hashedPhrase:::$encrypted"
+      log.debug(s"CREATED - ${created}")
+      memento(identity, tag).write(created)
+      apply(identity, tag, phrase, keyGenerator)
+    }
+
+  }
+
+  def get(identity: String,
+          tag: String,
+          phrase: String
+         ): Option[(Array[Byte], Array[Byte])] = {
+
+    require(phrase.length > 7, "Password must be 8 characters or more." )
+    require(tag.length > 0, "Tag cannot be an empty string" )
+
+    def toKey(str: String): (Array[Byte], Array[Byte]) = {
         val aryOfSecuredKeys = str.split(":::")
         require(aryOfSecuredKeys.length == 3,
-          s"File $mementoName is corrupt. Restore from backup or set up a new key.")
+          s"File $identity.$tag is corrupt. Restore from backup or set up a new key.")
         val pubKStr = aryOfSecuredKeys(0)
         val hashedPhrase = aryOfSecuredKeys(1)
         val encryptedPrivateKey = aryOfSecuredKeys(2)
@@ -54,16 +52,15 @@ private class KeyPersister(val mementoName: String,
         require(PasswordStorage.verifyPassword(phrase, hashedPhrase), "Incorrect password")
 
         val decryptedKey = decrypt(phrase, encryptedPrivateKey )
-        (pubKStr.toByteArray, decryptedKey.toByteArray)
-
+        (decryptedKey.toByteArray, pubKStr.toByteArray)
     }
+
+    for {
+      contents <- memento(identity, tag).read
+    } yield toKey(contents)
+
   }
 
-}
-
-private object KeyPersister {
-  def deleteKey(identity: String, tag: String) = memento(identity, tag).clear
-  def keyExists(identity: String, tag: String): Boolean = memento(identity, tag).read.isDefined
   def memento(identity: String, tag: String): Memento = Memento(s"$identity.$tag")
 
 }

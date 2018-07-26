@@ -5,10 +5,11 @@ import java.util.UUID
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.NullEncumbrance
-import sss.asado.crypto.SeedBytes
+
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.db.Db
+import sss.asado.DummySeedBytes
 
 /**
   * Created by alan on 2/15/16.
@@ -20,8 +21,8 @@ class WalletPersistenceSpec extends FlatSpec with Matchers with ByteArrayCompari
 
   val wp = new WalletPersistence(UUID.randomUUID().toString.substring(0,8), db)
 
-  val txId0 = SeedBytes(32)
-  val txId1 = SeedBytes(32)
+  val txId0 = DummySeedBytes(32)
+  val txId1 = DummySeedBytes(32)
 
   val txIndex0 = TxIndex(txId0, 0)
   val txOutput0 = TxOutput(50, NullEncumbrance)

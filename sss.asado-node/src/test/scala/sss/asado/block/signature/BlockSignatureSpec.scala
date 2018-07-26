@@ -1,7 +1,7 @@
 package sss.asado.block.signature
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.db.Db
 
 /**
@@ -12,11 +12,11 @@ class BlockSignatureSpec  extends FlatSpec with Matchers {
   implicit val db: Db = Db()
 
   "A Block Sig" should " be persisted " in {
-    BlockSignatures(2).add(SeedBytes(50), SeedBytes(90), "someNodeId")
+    BlockSignatures(2).add(DummySeedBytes(50), DummySeedBytes(90), "someNodeId")
   }
 
   it should "prevent a second signature from the same node id " in {
-    intercept[Exception] {BlockSignatures(2).add(SeedBytes(50), SeedBytes(90),"someNodeId")}
+    intercept[Exception] {BlockSignatures(2).add(DummySeedBytes(50), DummySeedBytes(90),"someNodeId")}
   }
 
   it should " not retrieve a non existent sig " in {
@@ -25,14 +25,14 @@ class BlockSignatureSpec  extends FlatSpec with Matchers {
   }
 
   it should " re write a sig correctly " in {
-    val sigAdded = BlockSignatures(3).add(SeedBytes(50), SeedBytes(90), "someNodeId")
+    val sigAdded = BlockSignatures(3).add(DummySeedBytes(50), DummySeedBytes(90), "someNodeId")
     val sigRewritten = BlockSignatures(3).write(sigAdded)
     assert(sigAdded === sigRewritten)
   }
 
   it should " retrieve the correct index for signatures " in {
     (0 to 10) foreach  { i =>
-      BlockSignatures(4).add(SeedBytes(50), SeedBytes(90), s"nodeId$i")
+      BlockSignatures(4).add(DummySeedBytes(50), DummySeedBytes(90), s"nodeId$i")
     }
 
     (0 to 10) foreach  { i =>
@@ -44,7 +44,7 @@ class BlockSignatureSpec  extends FlatSpec with Matchers {
 
   it should " retrieve only the specified number of signatures but in order " in {
     (0 to 10) foreach  { i =>
-      BlockSignatures(5).add(SeedBytes(50), SeedBytes(90), s"nodeId$i")
+      BlockSignatures(5).add(DummySeedBytes(50), DummySeedBytes(90), s"nodeId$i")
     }
     val returned = BlockSignatures(5).signatures(5)
     assert(returned.size === 5)

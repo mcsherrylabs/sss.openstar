@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
 import sss.asado.block._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.ledger.LedgerItem
 
 import scala.util.Random
@@ -17,11 +17,11 @@ import scala.util.Random
 class BlockSerializerTest extends FlatSpec with Matchers {
 
 
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes(32))
 
   val height = 33
   val id = 20000
-  val stx = LedgerItem(1, SeedBytes(32), SeedBytes(100))
+  val stx = LedgerItem(1, DummySeedBytes(32), DummySeedBytes(100))
 
   "A BlockChain Tx " should " be correctly serialised and deserialized " in {
     val c = BlockChainTx(height, BlockTx(9, stx))
@@ -124,9 +124,9 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
 
   "A block signature " should " be corrrectly serialised and deserialized " in {
-    val pk = SeedBytes(Random.nextInt(200))
-    val sig = SeedBytes(Random.nextInt(200))
-    val sig2 = SeedBytes(Random.nextInt(200))
+    val pk = DummySeedBytes(Random.nextInt(200))
+    val sig = DummySeedBytes(Random.nextInt(200))
+    val sig2 = DummySeedBytes(Random.nextInt(200))
     val c = BlockSignature(23, new DateTime(), 45, "mycrazynode", pk, sig)
     val asBytes = c.toBytes
     val backAgain = asBytes.toBlockSignature
@@ -141,7 +141,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
 
   "A tx message " should " be corrrectly serialised and deserialized " in {
-    val txId = SeedBytes(Random.nextInt(50))
+    val txId = DummySeedBytes(Random.nextInt(50))
     val msg = TxMessage(3.toByte, txId, "Here we are now, entertain us, here we are now...")
     val asBytes = msg.toBytes
     val recovered = asBytes.toTxMessage
@@ -153,10 +153,10 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
   "A block signature close block " should " be corrrectly serialised and deserialized " in {
 
-    val sig2 = SeedBytes(Random.nextInt(200))
+    val sig2 = DummySeedBytes(Random.nextInt(200))
     val allSigs = (0 to 10) map { i =>
-      val pk = SeedBytes(Random.nextInt(200))
-      val sig = SeedBytes(Random.nextInt(200))
+      val pk = DummySeedBytes(Random.nextInt(200))
+      val sig = DummySeedBytes(Random.nextInt(200))
       BlockSignature(i, new DateTime(), 45 * i, s"${i}mycrazynode", pk, sig)
     }
     val bId = BlockId(222, 3433)

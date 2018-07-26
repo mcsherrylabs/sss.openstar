@@ -1,13 +1,13 @@
-package sss.analysis
+package sss.ui
 
 import java.util.concurrent.atomic.AtomicLong
 
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import org.joda.time.format.DateTimeFormat
-import sss.analysis.Analysis.InOut
 import sss.analysis.AnalysisMessages.Message
+import sss.analysis.{Analysis, AnalysisMessages}
 import sss.asado.nodebuilder.ClientNode
+import sss.analysis.Main.dateFormat
 
 import scala.util.{Failure, Success, Try}
 
@@ -22,7 +22,7 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
   private val maxRows = 8
   private val grid = new GridLayout(2, maxRows)
 
-  val dateFormat =  DateTimeFormat.forPattern("yyyy-MM-dd HH:mm")
+
   private val currentBlockHeight = new AtomicLong(0)
   grid.setSpacing(true)
   grid.setMargin(true)
@@ -115,13 +115,14 @@ class BlocksTab(clientNode: ClientNode) extends VerticalLayout {
 
         panel.setCaption(s"Asado Block $blockHeight")
         numInBlock.setValue(header.numTxs.toString)
-        if(Analysis.isCheckpoint(blockHeight)) {
+        if(Analysis.isCheckpoint(blockHeight)) println("This is a checkpoint block")
+        if(Analysis.isCheckpoint(blockHeight) || Analysis.isAnalysed(blockHeight)) {
           val analysis = Analysis(blockHeight, None)
           balance.setValue(analysis.balance.toString)
           coinbase.setValue(analysis.coinbaseTotal.toString)
           txOuts.setValue(analysis.txInBlockCount.toString)
           new AnalysisMessages(blockHeight).apply.foreach(m => println(format(m)))
-        } else println("No analysis checkpoint exists for this block")
+        }
 
     }
 

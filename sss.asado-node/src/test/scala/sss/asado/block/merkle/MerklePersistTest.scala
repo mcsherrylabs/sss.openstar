@@ -3,7 +3,7 @@ package sss.asado.block.merkle
 import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.db.Db
 
 import scala.collection.mutable
@@ -21,7 +21,7 @@ class MerklePersistTest extends FlatSpec with Matchers {
   import MerklePersist._
 
   lazy val leafs: IndexedSeq[mutable.WrappedArray[Byte]] = (0 to 99) map(i => {
-    val k : mutable.WrappedArray[Byte] = SeedBytes(32)
+    val k : mutable.WrappedArray[Byte] = DummySeedBytes(32)
     k})
 
   lazy val mt: MerkleTree[mutable.WrappedArray[Byte]] = MerkleTree[mutable.WrappedArray[Byte]](leafs)

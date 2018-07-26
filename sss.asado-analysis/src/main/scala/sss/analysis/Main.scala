@@ -1,8 +1,10 @@
 package sss.analysis
 
 import akka.actor.{ActorSystem, Props}
+import org.joda.time.format.DateTimeFormat
 import sss.ancillary.{DynConfig, _}
 import sss.asado.nodebuilder.ClientNode
+import sss.ui.ExportServlet
 import sss.ui.reactor.ReactorActorSystem
 
 /**
@@ -13,6 +15,8 @@ object Main {
   var server :ServerLauncher = _
   var clientNode: ClientNode = _
 
+  val dateFormat =  DateTimeFormat.forPattern("yyyy-MM-dd HH:mm")
+
   def main(args: Array[String]) {
 
     clientNode = new ClientNode {
@@ -21,14 +25,14 @@ object Main {
       lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
     }
 
-    clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode))
+    clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
     clientNode.initStateMachine
 
 
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")
     server = ServerLauncher(httpConfig,
       ServletContext("/", "WebContent", InitServlet(buildUIServlet, "/*")),
-      ServletContext("/service", ""))
+      ServletContext("/export", "", InitServlet(new ExportServlet(new TransactionHistoryPersistence()(clientNode.db)), "/*")))
 
     server.start
     server.join

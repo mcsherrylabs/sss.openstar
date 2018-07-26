@@ -5,7 +5,7 @@ import java.net.InetAddress
 import org.bitlet.weupnp.{GatewayDevice, GatewayDiscover}
 import sss.ancillary.Logging
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 trait UPnPSettings {
@@ -28,7 +28,7 @@ class UPnP(settings:UPnPSettings) extends Logging {
     val defaultDiscoverTimeout = settings.upnpDiscoverTimeoutOpt.getOrElse(discover.getTimeout)
     discover.setTimeout(defaultDiscoverTimeout)
 
-    val gatewayMap = Option(discover.discover).map(_.toMap).getOrElse(Map())
+    val gatewayMap = Option(discover.discover.asScala).map(_.toMap).getOrElse(Map())
     if (gatewayMap.isEmpty) {
       log.debug("There are no UPnP gateway devices")
     } else {

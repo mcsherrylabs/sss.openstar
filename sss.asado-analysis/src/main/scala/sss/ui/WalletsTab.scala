@@ -1,11 +1,11 @@
-package sss.analysis
+package sss.ui
 
 import akka.agent.Agent
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import sss.analysis.DashBoard.Status
+import sss.analysis.{WalletAnalysis, WalletsAnalysis}
 import sss.asado.nodebuilder.ClientNode
-
+import sss.ui.DashBoard._
 
 /**
   * Created by alan on 10/27/16.
@@ -24,7 +24,6 @@ class WalletsTab(clientNode: ClientNode, status: Agent[Status]) extends Vertical
   panel.setSizeFull
   addComponent(panel)
 
-  update()
 
   private def createHeader(detailLayout: Layout, wallet: WalletAnalysis): Layout = {
 
@@ -107,20 +106,21 @@ class WalletsTab(clientNode: ClientNode, status: Agent[Status]) extends Vertical
     enclosingLayout
   }
 
-  def update() {
+  def update(push: ( => Unit) => Unit) {
 
     val wallets = new WalletsAnalysis(status.get.lastAnalysis.txOuts)
-    layout.removeAllComponents()
-
     var totalBalance = 0l
-
-    wallets.sortedById.keys foreach { id =>
-
+    val components = wallets.sortedById.keys map { id =>
       val wallet = wallets(id)
       totalBalance += wallet.balance
-      layout.addComponent(createRow(wallet))
+      createRow(wallet)
     }
-    panel.setCaption(s"Asado Wallets - $totalBalance accounted for")
+
+    push {
+      layout.removeAllComponents()
+      layout.addComponents(components.toSeq: _*)
+      panel.setCaption(s"Asado Wallets - $totalBalance accounted for")
+    }
   }
 
 }

@@ -3,8 +3,8 @@ package sss.asado.contract
 import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityService
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
@@ -21,9 +21,9 @@ class SaleOrReturnSecretEncSpec extends FlatSpec with Matchers with ByteArrayCom
 
   val myTag = "homepc"
   val myTag2 = "mobile"
-  val txId = SeedBytes(32)
-  lazy val pkPair = PrivateKeyAccount(SeedBytes(32))
-  lazy val pkPair2 = PrivateKeyAccount(SeedBytes(32))
+  val txId = DummySeedBytes.randomSeed(32)
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
+  lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
 
 
   val idService: IdentityService  = lc.identityService.get

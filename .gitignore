@@ -72,3 +72,11 @@ project/plugins/project/
 .worksheet
 
 # Created by .ignore support plugin (hsz.mobi)
+READ_RE_DEPS
+testKey.tag
+test-rigs/dumptags/
+keys/
+sss.asado-nobu/keys/
+sss.asado-node/*.testTag
+sss.asado-node/*.testtag
+*.defaultTag

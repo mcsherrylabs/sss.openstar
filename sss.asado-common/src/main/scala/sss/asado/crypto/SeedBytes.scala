@@ -1,22 +1,49 @@
 package sss.asado.crypto
 
 import java.security.SecureRandom
-import java.util.Base64
+
+import util.Random
 
 /**
-  * Created by alan on 2/12/16.
+  Make this the indirection to getting 'random' bytes
   */
-object SeedBytes {
+trait SeedBytes {
 
-  def string(num :Int): String = {
-    Base64.getEncoder.encodeToString(apply(num)).substring(0, num)
-  }
+  /*
+  https://tersesystems.com/blog/2015/12/17/the-right-way-to-use-securerandom/
+   */
+  private lazy val secureRandom = new SecureRandom()
+  private lazy val strongSecureRandom = SecureRandom.getInstanceStrong
+  private lazy val random = new Random()
 
-  def apply(num :Int): Array[Byte] = {
-    require(num >= 0, "Can't make array of bytes with negative length.")
+  private def getBytes(num: Int,r :Random) = {
     val bytes = new Array[Byte](num)
-    new SecureRandom().nextBytes(bytes)
+    r.nextBytes(bytes)
     bytes
   }
+
+  /**
+    * Uses SecureRandom.getInstanceStrong in production
+    * @param num
+    * @return
+    */
+  def strongSeed(num: Int) = getBytes(num, strongSecureRandom)
+
+  /**
+    * uses a SecureRandom instance
+    * @param num
+    * @return
+    */
+  def secureSeed(num: Int) = getBytes(num, secureRandom)
+
+  /**
+    * Uses Random() to generate
+    *
+    * @param num
+    * @return
+    */
+  def randomSeed(num: Int) = getBytes(num, random)
 }
+
+object SeedBytes extends SeedBytes
 

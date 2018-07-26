@@ -3,8 +3,8 @@ package sss.asado.block
 import java.sql.SQLException
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.crypto.SeedBytes
 import sss.asado.ledger._
 import sss.db.Db
 
@@ -13,17 +13,17 @@ import sss.db.Db
   */
 
 object BlockTestSpec {
-  lazy val pkPair = PrivateKeyAccount()
+  lazy val pkPair = PrivateKeyAccount(DummySeedBytes)
 
   implicit val db = Db()
   val someBlock = Block(99)
   val block999 = Block(999)
 
-  lazy val dumbSignedTx = LedgerItem(99, SeedBytes(32), SeedBytes(12))
+  lazy val dumbSignedTx = LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
 
-  lazy val dumbSignedTx2 = LedgerItem(99, SeedBytes(32), SeedBytes(12))
+  lazy val dumbSignedTx2 = LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
 
-  lazy val dumbSignedTx3 = LedgerItem(99, SeedBytes(32), SeedBytes(12))
+  lazy val dumbSignedTx3 = LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
 
 }
 class BlockTestSpec extends FlatSpec with Matchers {
@@ -94,13 +94,13 @@ class BlockTestSpec extends FlatSpec with Matchers {
   }
 
   it should "not retrieve non existent txid " in {
-    assert(block999.get(SeedBytes(TxIdLen)).isEmpty)
+    assert(block999.get(DummySeedBytes(TxIdLen)).isEmpty)
   }
 
 
   it should " allow standard ledger entries to be persisted " in {
 
-    val stx = LedgerItem(99, SeedBytes(32), SeedBytes(12))
+    val stx = LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
 
     intercept[NoSuchElementException] {
       someBlock(stx.txId)

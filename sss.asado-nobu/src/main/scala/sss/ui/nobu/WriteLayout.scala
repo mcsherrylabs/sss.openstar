@@ -2,6 +2,7 @@ package sss.ui.nobu
 
 
 import akka.actor.ActorRef
+import com.vaadin.server.VaadinSession
 import com.vaadin.ui.Button.ClickEvent
 import com.vaadin.ui.{Button, Notification}
 import sss.ancillary.Logging
@@ -20,10 +21,14 @@ import scala.util.{Failure, Success, Try}
 class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: UserDirectory)
                  (implicit identityQuery: IdentityServiceQuery) extends WriteDesign with Logging {
 
+
   import NobuUI.CRLF
 
+  scheduleCombo.setNullSelectionAllowed(false)
+  scheduleCombo.setValue(Scheduler.once)
   toCombo.setNullSelectionAllowed(false)
   userDir.loadCombo(toCombo)
+
   toCombo.setValue(to)
 
   if (text.length > 0) messageText.setValue(CRLF + CRLF + text)
@@ -54,7 +59,17 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                       case Some(text) =>
                         sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
-                        mainNobuRef ! MessageToSend(to, ac, text, amount)
+                        val mts = MessageToSend(to, ac, text, amount)
+                        mainNobuRef ! mts
+                        Option(scheduleCombo.getValue.toString) match {
+                          case None | Some(Scheduler.once) =>
+                          case Some(schedule) =>
+                            val from = getSession().getAttribute(UnlockClaimView.identityAttr).toString
+                            val serialised = Scheduler.serialiseDetails(from, schedule, mts)
+                            SchedulerPersistence().persist(serialised)
+
+
+                        }
                     }
                 }
             }

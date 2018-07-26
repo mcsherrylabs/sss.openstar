@@ -1,26 +1,27 @@
 package sss.ui.nobu
 
-import akka.actor.{Actor, Props}
-import com.vaadin.ui.Notification
-import org.joda.time.LocalDateTime
+
+import akka.actor.Actor
+
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.balanceledger.TxIndex
+import sss.asado.block._
+
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.MessageRouter.RegisterRef
 import sss.asado.network.NetworkController.SendToNodeId
 import sss.asado.network.NetworkMessage
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
-import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.ui.nobu.NobuNodeBridge.{BountyTracker, Connected, LostConnection, WalletUpdate}
-import sss.ui.reactor.{Register, UIReactor}
-import sss.asado.block._
-import sss.asado.ledger.LedgerItem
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.wallet.WalletPersistence.Lodgement
+
+import sss.ui.nobu.NobuNodeBridge._
+import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{FiniteDuration, _}
+
 
 /**
   * Created by alan on 11/9/16.
@@ -33,7 +34,6 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
   private case class Analyse(block: Long)
 
   import clientNode._
-
 
   var watchingBounties: Map[String, BountyTracker] = Map()
   var watchingMsgSpends: Map[String, Bag] = Map()
@@ -109,7 +109,7 @@ class ClientEventActor(clientNode: ClientNode) extends Actor with AsadoEventSubs
         watchingMsgSpends -= txId.toBase64Str
         val walletUpdate = bag.walletUpdate
         val msg = Message(bag.from,
-          bag.msg.addrMsg.msg,
+          bag.msg.addrMsg.msgPayload,
           bag.sTx.toBytes,
           0, bag.msg.savedAt)
 

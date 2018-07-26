@@ -1,35 +1,20 @@
-
-scalacOptions += "-target:jvm-1.8"
+name := "sss.asado-network"
 
 parallelExecution in Test := false
 
-name := "sss.asado-network"
+libraryDependencies += "com.typesafe.akka" %% "akka-testkit"  % Vers.akkaVer % Test
 
-version := "0.3-SNAPSHOT"
+libraryDependencies += "org.scalactic" %% "scalactic" % Vers.scalacticVer
 
-scalaVersion := "2.11.8"
-
-resolvers += "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/"
-
-resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/nexus/content/groups/public"
-
-libraryDependencies += "org.scalatest" %% "scalatest" % "2.2.6" % Test
-
-libraryDependencies += "com.typesafe.akka" %% "akka-testkit"  % "2.4.+" % Test
-
-libraryDependencies += "org.scalactic" %% "scalactic" % "2.2.6"
-
-libraryDependencies += "org.consensusresearch" %% "scrypto" % "1.2.0-RC3"
+libraryDependencies += "org.consensusresearch" %% "scrypto" % Vers.scryptoVer
 
 libraryDependencies += "commons-net" % "commons-net" % "3.+"
 
-libraryDependencies += "com.google.guava" % "guava" % "16.+"
+libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % Vers.ancillaryVer
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % "1.1-SNAPSHOT"
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" %  Vers.akkaVer
 
-libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
-
-libraryDependencies += "com.typesafe.akka" %% "akka-agent" % "2.4.+"
+libraryDependencies += "com.typesafe.akka" %% "akka-agent" %  Vers.akkaVer
 
 libraryDependencies += "org.bitlet" % "weupnp" % "0.1.+"
 

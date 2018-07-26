@@ -17,12 +17,15 @@ object Main {
   def main(args: Array[String]) {
 
     clientNode = new ClientNode {
-      override val phrase: Option[String] = Some("password")
+      override val phrase: Option[String] = Some("fpaifpai33")
       override val configName: String = "node"
       lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
     }
 
     clientEventActor = clientNode.actorSystem.actorOf(Props(classOf[ClientEventActor], clientNode))
+
+    clientNode.actorSystem.actorOf(Props(classOf[ScheduledTransfersActor], clientNode, clientEventActor))
+
     clientNode.initStateMachine
 
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")

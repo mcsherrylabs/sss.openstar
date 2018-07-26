@@ -1,14 +1,12 @@
-package sss.analysis
+package sss.ui
 
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.agent.Agent
-import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
-import sss.analysis.DashBoard.Status
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.util.ByteArrayEncodedStrOps._
-
+import sss.ui.DashBoard._
 /**
   * Created by alan on 10/27/16.
   */
@@ -25,9 +23,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
   panel.setSizeFull
   addComponent(panel)
 
-  val idCount = new AtomicInteger(0)
-
-  update()
+  private lazy val idCount = new AtomicInteger(clientNode.identityService.list().size)
 
   private def createHeader(detailLayout: Layout, id: String): Layout = {
 
@@ -67,15 +63,15 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
     enclosingLayout
   }
 
-  def update() {
+  def update(push: ( => Unit) => Unit) {
 
-    layout.removeAllComponents()
     val allIds = clientNode.identityService.list()
-    idCount.set(allIds.size)
+    val comps = allIds map (createRow(_))
 
-    allIds foreach { id =>
-
-      layout.addComponent(createRow(id))
+    push {
+      layout.removeAllComponents()
+      comps foreach (layout.addComponent(_))
+      idCount.set(allIds.size)
     }
 
   }

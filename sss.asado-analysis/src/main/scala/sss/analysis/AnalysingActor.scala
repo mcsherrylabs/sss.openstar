@@ -1,12 +1,10 @@
 package sss.analysis
 
-import java.util.Date
 
 import akka.actor.Actor
-import sss.analysis.BlockSeriesFactory.BlockSeries
-import sss.analysis.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
+import org.joda.time.LocalDateTime
+import sss.ui.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.block.Block
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
 import sss.ui.reactor.UIReactor
@@ -21,7 +19,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private case object ConnectHome
   private case class ConnectHomeDelay(delaySeconds: Int = 5)
-  private case class Analyse(block: Long)
+  private case class Analyse(blockHeight: Long, lastAnalysis: Analysis)
   private case class CheckForAnalysis(block: Long)
 
 
@@ -61,31 +59,37 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
     case StateMachineInitialised =>
       startNetwork
       self ! ConnectHomeDelay()
-      self ! CheckForAnalysis(bc.lastBlockHeader.height)
+      context.system.scheduler.scheduleOnce(
+        FiniteDuration(config.getInt("analysis.delay"), MINUTES),
+        self, CheckForAnalysis(bc.lastBlockHeader.height))
 
-    case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) && blockHeight > 1 =>
+
+    case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) =>
       self ! CheckForAnalysis(blockHeight - 1)
 
     case CheckForAnalysis(blockHeight) =>
       val lastCheckPoint = Analysis(blockHeight, None)
+      assert(Analysis.isCheckpoint(blockHeight), s"This height ${blockHeight} must be a checkpoint")
       status.send(s => s.copy(lastAnalysis = lastCheckPoint))
-      self ! Analyse(blockHeight + 1)
+      self ! Analyse(blockHeight + 1, lastCheckPoint)
 
-
-    case a @ Analyse(blockHeight) if(bc.lastBlockHeader.height < blockHeight) =>
+    case a @ Analyse(blockHeight, prev) if(bc.lastBlockHeader.height < blockHeight) =>
+        status.alter(s => s.copy(chainHeight = bc.lastBlockHeader.height, numIds = identityService.list().size))
         context.system.scheduler.scheduleOnce(
-          FiniteDuration(5, MINUTES),
+          FiniteDuration(1, MINUTES),
           self, a)
 
-    case a @ Analyse(blockHeight) =>
-      val block = new Block(blockHeight)
-      val start = new Date().getTime
-      val analysis = Analysis.analyse(block, status.get().lastAnalysis)
-      val took = new Date().getTime - start
-      log.info(s"Block $blockHeight took $took")
-      self ! Analyse(blockHeight + 1)
-      status.send(s => s.copy(lastAnalysis = analysis))
-      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis)
+    case a @ Analyse(blockHeight, prev) =>
+      val block = bc.block(blockHeight)
+      val blockTime = bc.blockHeader(blockHeight).time
+      val chainHeight = bc.lastBlockHeader.height
+      log.info("In analysis thread")
+      val analysis = Analysis.analyse(block, prev, chainHeight, new LocalDateTime(blockTime.getTime))
+      analysis.balance
+      self ! Analyse(blockHeight + 1, analysis)
+      status.send(s => s.copy(lastAnalysis = analysis, chainHeight = chainHeight, numIds = identityService.list().size))
+      UIReactor.eventBroadcastActorRef ! NewBlockAnalysed(analysis, chainHeight)
+      log.info("Finish analysis thread")
 
   }
 

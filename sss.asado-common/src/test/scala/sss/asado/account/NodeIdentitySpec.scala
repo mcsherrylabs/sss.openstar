@@ -1,6 +1,7 @@
 package sss.asado.account
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.DummySeedBytes
 import sss.asado.util.ByteArrayComparisonOps
 
 /**
@@ -9,23 +10,24 @@ import sss.asado.util.ByteArrayComparisonOps
 class NodeIdentitySpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
+  val nodeIdentityManager = new NodeIdentityManager(DummySeedBytes)
   val newId = "Totallyrandomw"
   val newTag = "tag1"
   val passPhrase = "not_password"
-  NodeIdentity.deleteKey(newId, newTag)
+  nodeIdentityManager.deleteKey(newId, newTag)
 
 
   "An node identity " should " generate a new public and private key " in {
 
 
-    val nodeIdentity = NodeIdentity(newId, newTag, passPhrase)
+    val nodeIdentity = nodeIdentityManager(newId, newTag, passPhrase)
     assert(nodeIdentity.id == newId)
     assert(nodeIdentity.tag == newTag)
 
   }
 
   it should " be retrievable " in {
-    val nodeIdentity = NodeIdentity(newId, newTag, passPhrase)
+    val nodeIdentity = nodeIdentityManager(newId, newTag, passPhrase)
     assert(nodeIdentity.id == newId)
     assert(nodeIdentity.tag == newTag)
   }

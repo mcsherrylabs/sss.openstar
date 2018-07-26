@@ -2,7 +2,7 @@ package sss.asado.util
 
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.crypto.SeedBytes
+import sss.asado.DummySeedBytes
 import sss.asado.util.Serialize.{ByteArraySerializer, _}
 /**
   * Created by alan on 2/11/16.
@@ -85,8 +85,8 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   val longVal: Long = Long.MaxValue
   val intVal : Int = Int.MaxValue
   val someString = "Hello cruel world"
-  val byteArray = SeedBytes(45)
-  val byteArrayNoHeader = SeedBytes(440)
+  val byteArray = DummySeedBytes.randomSeed(45)
+  val byteArrayNoHeader = DummySeedBytes.randomSeed(440)
   val test = TestSeriliazer(bHeader, Seq(), longVal, someString, intVal, byteArray, true, byteArrayNoHeader)
   val test2 = TestSeriliazer(bHeader2, Seq(test), longVal, someString, intVal, byteArray, false, byteArrayNoHeader)
   val test3 = TestSeriliazer(bHeader3, Seq(test, test2), longVal, someString, intVal, byteArray, true, byteArrayNoHeader)

@@ -8,10 +8,11 @@ import akka.agent.Agent
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
-import sss.asado.account.{NodeIdentity, PublicKeyAccount}
+import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.contract.CoinbaseValidator
+import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
@@ -20,8 +21,9 @@ import sss.asado.network._
 import sss.asado.state._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
+import sss.db.datasource.DataSource
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
@@ -30,29 +32,21 @@ import scala.language.postfixOps
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-trait ConfigNameBuilder {
-  val configName : String
-}
 
 trait PhraseBuilder {
   val phrase : Option[String]
 }
 
-trait ConfigBuilder extends Configure {
-  self : ConfigNameBuilder =>
+trait ConfigBuilder extends Configure  {
+  val configName : String
   lazy val conf: Config = config(configName)
 }
 
-trait BindControllerSettingsBuilder {
-  self : ConfigBuilder =>
-  lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
-}
-
 trait NodeConfigBuilder {
-  self : ConfigNameBuilder with
-    ConfigBuilder with
-    ConfigNameBuilder with
-    BindControllerSettingsBuilder =>
+
+  self: ConfigBuilder =>
+
+  lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
 
   lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
 
@@ -60,7 +54,6 @@ trait NodeConfigBuilder {
      val conf: Config
      val settings: BindControllerSettings
      val uPnp: Option[UPnP]
-     val dbConfig: Config
      val blockChainSettings: BlockChainSettings
      val production: Boolean
      val peersList: Set[NodeId]
@@ -73,10 +66,9 @@ trait NodeConfigBuilder {
 
     lazy val settings: BindControllerSettings = bindSettings
     lazy val uPnp = DynConfig.opt[UPnPSettings](s"${configName}.upnp") map (new UPnP(_))
-    lazy val dbConfig = conf.getConfig("database")
     lazy val blockChainSettings: BlockChainSettings = DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
     lazy val production: Boolean = conf.getBoolean("production")
-    lazy val peersList: Set[NodeId] = conf.getStringList("peers").toSet.map(NetworkController.toNodeId)
+    lazy val peersList: Set[NodeId] = conf.getStringList("peers").asScala.toSet.map(NetworkController.toNodeId)
     lazy val quorum = NetworkController.quorum(peersList.size)
   }
 }
@@ -94,12 +86,15 @@ trait HomeDomainBuilder {
       override val httpPort: Int = conf.httpPort
     }
   }
+
 }
+
 
 trait DbBuilder {
 
-  self : NodeConfigBuilder =>
-    lazy implicit val db = Db(nodeConfig.dbConfig)
+  self: ConfigBuilder =>
+
+  lazy implicit val db = Db(conf.getConfig("database"))(DataSource(conf.getConfig("database.datasource")))
 
 }
 
@@ -109,7 +104,10 @@ trait ActorSystemBuilder {
 
 trait LedgersBuilder {
 
-  self : BlockChainBuilder with NodeConfigBuilder with IdentityServiceBuilder with BalanceLedgerBuilder with DbBuilder =>
+  self : BlockChainBuilder with
+    IdentityServiceBuilder with
+    BalanceLedgerBuilder with
+    DbBuilder =>
 
   lazy val ledgers : Ledgers = {
 
@@ -127,19 +125,30 @@ trait MessageRouterActorBuilder {
   lazy val messageRouterActor: ActorRef = actorSystem.actorOf(Props(classOf[MessageRouter]))
 }
 
+trait SeedBytesBuilder {
+  lazy val seedBytes = new SeedBytes {}
+}
+
 trait NodeIdentityBuilder {
 
-  self : NodeConfigBuilder with PhraseBuilder =>
+  self : ConfigBuilder with
+    PhraseBuilder with
+    SeedBytesBuilder =>
+
+  lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
   lazy val nodeIdentity: NodeIdentity = {
     phrase match {
-      case None => NodeIdentity.unlockNodeIdentityFromConsole(nodeConfig.conf)
-      case Some(secret) => NodeIdentity(nodeConfig.conf, secret)
+      case None => nodeIdentityManager.unlockNodeIdentityFromConsole(conf)
+      case Some(secret) => nodeIdentityManager(conf, secret)
     }
   }
 }
 
 trait BalanceLedgerBuilder {
-  self : NodeConfigBuilder with DbBuilder with BlockChainBuilder with IdentityServiceBuilder  =>
+  self : NodeConfigBuilder with
+    DbBuilder with
+    BlockChainBuilder with
+    IdentityServiceBuilder  =>
 
   def publicKeyOfFirstSigner(height: Long): Option[PublicKey] = bc.signatures(height, 1).map(_.publicKey).headOption
 
@@ -151,7 +160,7 @@ trait BalanceLedgerBuilder {
 
 
 trait IdentityServiceBuilder {
-  self : NodeConfigBuilder with DbBuilder =>
+  self : DbBuilder =>
 
   lazy val identityService: IdentityService = IdentityService()
 }
@@ -166,15 +175,16 @@ case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
 
 trait BootstrapIdentitiesBuilder {
 
-  self : NodeConfigBuilder =>
+  self : ConfigBuilder =>
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] = buildBootstrapIdentities
+
   def buildBootstrapIdentities: List[BootstrapIdentity] = {
-    nodeConfig.conf.getStringList("bootstrap").toList.map { str =>
-          val strAry = str.split(":::")
-          BootstrapIdentity(strAry.head, strAry.tail.head)
-        }
-      }
+    conf.getStringList("bootstrap").asScala.toList.map { str =>
+      val strAry = str.split(":::")
+      BootstrapIdentity(strAry.head, strAry.tail.head)
+    }
+  }
 }
 
 trait LeaderActorBuilder {
@@ -353,13 +363,12 @@ trait NetworkControllerBuilder {
 
 
 trait MinimumNode extends Logging with
-    ConfigNameBuilder with
     ConfigBuilder with
-    BindControllerSettingsBuilder with
     ActorSystemBuilder with
     DbBuilder with
     NodeConfigBuilder with
     PhraseBuilder with
+    SeedBytesBuilder with
     NodeIdentityBuilder with
     IdentityServiceBuilder with
     BootstrapIdentitiesBuilder with
@@ -410,9 +419,3 @@ trait ClientNode extends MinimumNode with
   def connectHome = ncRef ! ConnectTo(homeDomain.nodeId)
 
 }
-
-
-
-
-
-
