@@ -1,15 +1,15 @@
 package sss.analysis
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.analysis.AnalysisMessages.Message
 import sss.db.Db
+import sss.db.datasource.DataSource
 
 /**
   * Created by alan on 11/11/16.
   */
 class AnalysisMessagesSpec extends FlatSpec with Matchers {
 
-  implicit val db = Db("analysis.database")
+  implicit val db = Db("analysis.database", DataSource("analysis.database.datasource"))
 
 
   "An AnalysisMessages " should " allow write and retrieval" in {

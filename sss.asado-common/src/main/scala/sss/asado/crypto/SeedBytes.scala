@@ -9,6 +9,9 @@ import util.Random
   */
 trait SeedBytes {
 
+  /*
+  https://tersesystems.com/blog/2015/12/17/the-right-way-to-use-securerandom/
+   */
   private lazy val secureRandom = new SecureRandom()
   private lazy val strongSecureRandom = SecureRandom.getInstanceStrong
   private lazy val random = new Random()

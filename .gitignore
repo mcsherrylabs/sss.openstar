@@ -77,12 +77,6 @@ testKey.tag
 test-rigs/dumptags/
 keys/
 sss.asado-nobu/keys/
-sss.asado-node/alice.defaultTag
-sss.asado-node/bob.defaultTag
-sss.asado-node/c5b1058d.defaultTag
-sss.asado-node/d39162d6.defaultTag
-sss.asado-node/eve.defaultTag
-sss.asado-node/fred.defaultTag
-sss.asado-node/lenny.defaultTag
 sss.asado-node/*.testTag
-sss.asado-node/clientKey.testtag
+sss.asado-node/*.testtag
+*.defaultTag

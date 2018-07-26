@@ -94,7 +94,7 @@ trait DbBuilder {
 
   self: ConfigBuilder =>
 
-  lazy implicit val db = Db(config("database"))(DataSource(config("database.datasource")))
+  lazy implicit val db = Db(conf.getConfig("database"))(DataSource(conf.getConfig("database.datasource")))
 
 }
 

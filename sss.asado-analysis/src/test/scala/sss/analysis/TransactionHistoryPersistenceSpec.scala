@@ -6,13 +6,14 @@ import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
 import sss.asado.DummySeedBytes
 import sss.asado.ledger.TxId
 import sss.db.Db
+import sss.db.datasource.DataSource
 
 /**
   * Created by alan on 11/11/16.
   */
 class TransactionHistoryPersistenceSpec extends FlatSpec with Matchers {
 
-  implicit val db = Db("analysis.database")
+  implicit val db = Db("analysis.database", DataSource("analysis.database.datasource"))
   val txPeristence = new TransactionHistoryPersistence()
 
   val txIds: Seq[TxId] = (0 to 2).map(_ => DummySeedBytes(32))

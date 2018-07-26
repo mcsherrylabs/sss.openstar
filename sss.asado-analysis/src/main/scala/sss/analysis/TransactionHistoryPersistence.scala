@@ -96,11 +96,17 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
   }
 
   override def filter(identity: String): Seq[ExpandedTx] = {
-    val rowsInvolvingIdentity  = txTable.filter(Where(s"$whoCol = ? ORDER BY $blockTimeCol DESC", identity))
+    val rowsInvolvingIdentity  = txTable.filter(
+      where(whoCol -> identity)
+        .orderBy(OrderDesc(blockTimeCol)))
+
     val allTxs = rowsInvolvingIdentity.map(_.apply[String](txIdCol))
     if(allTxs.nonEmpty) {
       val replaceableParams = (0 until allTxs.size).map(_ => "?").mkString(",")
-      val rows = txTable.filter(where(s"$txIdCol IN ($replaceableParams) ORDER BY $blockTimeCol DESC", allTxs: _*))
+      val rows = txTable.filter(
+        where(s"$txIdCol IN ($replaceableParams)", allTxs: _*)
+          orderBy OrderDesc(blockTimeCol))
+
       toExpandedTxs(rows)
     } else Seq()
   }
@@ -108,7 +114,7 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
   override def list: Seq[ExpandedTx] = {
     val rows = txTable.filter(
       where(s"$idCol > ?", 0)
-        .orderBy(OrderDesc(blockTimeCol)))
+        orderBy OrderDesc(blockTimeCol))
 
     toExpandedTxs(rows)
   }
