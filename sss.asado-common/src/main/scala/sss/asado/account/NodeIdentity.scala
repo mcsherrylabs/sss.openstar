@@ -27,8 +27,7 @@ class NodeIdentityManager(seedBytes: SeedBytes) {
   val tagKey = "tag"
 
   implicit val keyGenerator: () => (Array[Byte], Array[Byte]) = () => {
-    val acc = PrivateKeyAccount(seedBytes)
-    (acc.privateKey, acc.publicKey)
+    PrivateKeyAccount(seedBytes).tuple
   }
 
   def keyExists(identity: String, tag: String): Boolean = {

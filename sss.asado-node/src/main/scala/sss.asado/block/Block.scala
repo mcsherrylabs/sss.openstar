@@ -93,7 +93,10 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
-  def get(id: TxId): Option[BlockTx] = blockTxTable.find(Where(s"$txid = ?", id.toBase64Str)).map(toBlockTx)
+  def get(id: TxId): Option[BlockTx] =
+    blockTxTable.find(
+      where(txid -> id.toBase64Str))
+      .map(toBlockTx)
 
   def journal(index: Long, le: LedgerItem): Long = {
     val bs = le.toBytes
@@ -102,7 +105,10 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
     row(id)
   }
 
-  def getUnCommitted: Seq[BlockTx] = blockTxTable.filter(Where(s"$committed IS FALSE ORDER BY $id ASC")) map (toBlockTx)
+  def getUnCommitted: Seq[BlockTx] = blockTxTable.filter(
+    where(s"$committed IS FALSE")
+      .orderBy(OrderAsc(id)))
+       .map (toBlockTx)
 
   def commit(index: Long): Unit = {
     blockTxTable.update(Map(id -> index, committed -> true))
@@ -116,7 +122,9 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
   }
 
   def getUnconfirmed(requiredConfirms: Int): Seq[(Int, BlockTx)] = {
-    blockTxTable.filter(where(ps"confirm < $requiredConfirms")) map (row => (row[Int]("confirm"), toBlockTx(row)))
+    blockTxTable map ({ row =>
+      (row[Int]("confirm"), toBlockTx(row))
+    }, where(ps"confirm < $requiredConfirms"))
   }
 
   def confirm(blockTxId: BlockTxId): Try[Int] = {

@@ -52,7 +52,7 @@ private object KeyPersister extends Logging {
         require(PasswordStorage.verifyPassword(phrase, hashedPhrase), "Incorrect password")
 
         val decryptedKey = decrypt(phrase, encryptedPrivateKey )
-        (pubKStr.toByteArray, decryptedKey.toByteArray)
+        (decryptedKey.toByteArray, pubKStr.toByteArray)
     }
 
     for {

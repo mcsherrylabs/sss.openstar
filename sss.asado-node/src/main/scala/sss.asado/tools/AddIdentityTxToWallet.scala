@@ -11,7 +11,10 @@ import sss.asado.wallet.WalletPersistence.Lodgement
   */
 object AddIdentityTxToWallet {
 
-  class LoadDb(val configName: String) extends DbBuilder with NodeConfigBuilder with ConfigBuilder with ConfigNameBuilder with BindControllerSettingsBuilder
+  class LoadDb(val configName: String) extends
+    DbBuilder with
+    NodeConfigBuilder with
+    ConfigBuilder
 
   def main(args: Array[String]) {
 

@@ -32,29 +32,21 @@ import scala.language.postfixOps
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-trait ConfigNameBuilder {
-  val configName : String
-}
 
 trait PhraseBuilder {
   val phrase : Option[String]
 }
 
-trait ConfigBuilder extends Configure {
-  self : ConfigNameBuilder =>
+trait ConfigBuilder extends Configure  {
+  val configName : String
   lazy val conf: Config = config(configName)
 }
 
-trait BindControllerSettingsBuilder {
-  self : ConfigBuilder =>
-  lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
-}
-
 trait NodeConfigBuilder {
-  self : ConfigNameBuilder with
-    ConfigBuilder with
-    ConfigNameBuilder with
-    BindControllerSettingsBuilder =>
+
+  self: ConfigBuilder =>
+
+  lazy val bindSettings: BindControllerSettings = DynConfig[BindControllerSettings](conf.getConfig("bind"))
 
   lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
 
@@ -62,7 +54,6 @@ trait NodeConfigBuilder {
      val conf: Config
      val settings: BindControllerSettings
      val uPnp: Option[UPnP]
-     val dbConfig: Config
      val blockChainSettings: BlockChainSettings
      val production: Boolean
      val peersList: Set[NodeId]
@@ -75,7 +66,6 @@ trait NodeConfigBuilder {
 
     lazy val settings: BindControllerSettings = bindSettings
     lazy val uPnp = DynConfig.opt[UPnPSettings](s"${configName}.upnp") map (new UPnP(_))
-    lazy val dbConfig = conf.getConfig("database")
     lazy val blockChainSettings: BlockChainSettings = DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
     lazy val production: Boolean = conf.getBoolean("production")
     lazy val peersList: Set[NodeId] = conf.getStringList("peers").asScala.toSet.map(NetworkController.toNodeId)
@@ -96,13 +86,15 @@ trait HomeDomainBuilder {
       override val httpPort: Int = conf.httpPort
     }
   }
+
 }
 
 
 trait DbBuilder {
 
-  self : NodeConfigBuilder =>
-    lazy implicit val db = Db(nodeConfig.dbConfig)(DataSource(nodeConfig.dbConfig.getConfig("datasource")))
+  self: ConfigBuilder =>
+
+  lazy implicit val db = Db(config("database"))(DataSource(config("database.datasource")))
 
 }
 
@@ -112,7 +104,10 @@ trait ActorSystemBuilder {
 
 trait LedgersBuilder {
 
-  self : BlockChainBuilder with NodeConfigBuilder with IdentityServiceBuilder with BalanceLedgerBuilder with DbBuilder =>
+  self : BlockChainBuilder with
+    IdentityServiceBuilder with
+    BalanceLedgerBuilder with
+    DbBuilder =>
 
   lazy val ledgers : Ledgers = {
 
@@ -150,7 +145,10 @@ trait NodeIdentityBuilder {
 }
 
 trait BalanceLedgerBuilder {
-  self : NodeConfigBuilder with DbBuilder with BlockChainBuilder with IdentityServiceBuilder  =>
+  self : NodeConfigBuilder with
+    DbBuilder with
+    BlockChainBuilder with
+    IdentityServiceBuilder  =>
 
   def publicKeyOfFirstSigner(height: Long): Option[PublicKey] = bc.signatures(height, 1).map(_.publicKey).headOption
 
@@ -162,7 +160,7 @@ trait BalanceLedgerBuilder {
 
 
 trait IdentityServiceBuilder {
-  self : NodeConfigBuilder with DbBuilder =>
+  self : DbBuilder =>
 
   lazy val identityService: IdentityService = IdentityService()
 }
@@ -177,15 +175,16 @@ case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
 
 trait BootstrapIdentitiesBuilder {
 
-  self : NodeConfigBuilder =>
+  self : ConfigBuilder =>
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] = buildBootstrapIdentities
+
   def buildBootstrapIdentities: List[BootstrapIdentity] = {
-    nodeConfig.conf.getStringList("bootstrap").asScala.toList.map { str =>
-          val strAry = str.split(":::")
-          BootstrapIdentity(strAry.head, strAry.tail.head)
-        }
-      }
+    conf.getStringList("bootstrap").asScala.toList.map { str =>
+      val strAry = str.split(":::")
+      BootstrapIdentity(strAry.head, strAry.tail.head)
+    }
+  }
 }
 
 trait LeaderActorBuilder {
@@ -364,9 +363,7 @@ trait NetworkControllerBuilder {
 
 
 trait MinimumNode extends Logging with
-    ConfigNameBuilder with
     ConfigBuilder with
-    BindControllerSettingsBuilder with
     ActorSystemBuilder with
     DbBuilder with
     NodeConfigBuilder with
@@ -422,9 +419,3 @@ trait ClientNode extends MinimumNode with
   def connectHome = ncRef ! ConnectTo(homeDomain.nodeId)
 
 }
-
-
-
-
-
-

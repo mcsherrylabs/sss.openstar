@@ -2,7 +2,7 @@ package sss.asado.block.merkle
 
 import sss.ancillary.Logging
 import sss.asado.util.hash.FastCryptographicHash
-import sss.db.{Db, Where}
+import sss.db._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -23,7 +23,7 @@ object MerklePersist {
 
     val t = db.table(tag)
 
-    t.find(Where("hash = ?", leaf)) map { r =>
+    t.find(where("hash" -> leaf)) map { r =>
 
       @tailrec
       def getParentHash(acc: Seq[Array[Byte]], parentIdOpt: Option[Int]): Seq[Array[Byte]] = parentIdOpt match {

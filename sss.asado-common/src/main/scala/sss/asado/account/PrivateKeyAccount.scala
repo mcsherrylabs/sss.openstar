@@ -14,6 +14,7 @@ case class PrivateKeyAccount(privateKey: Array[Byte],
                              override val publicKey: Array[Byte])
   extends PublicKeyAccount(publicKey) {
   override val address = Account.fromPubkey(publicKey)
+  def tuple: (Array[Byte], Array[Byte]) = (privateKey, publicKey)
   def sign(msg : MessageToSign): Signature = Curve25519.sign(privateKey, msg)
   def getSharedSecret(othersPublicKey: Array[Byte]) = Curve25519.createSharedSecret(privateKey, othersPublicKey)
 }

@@ -10,7 +10,7 @@ import sss.asado.block.merkle.MerklePersist._
 import sss.asado.block.merkle.{MerklePersist, MerkleTree}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.db.{Db, Where}
+import sss.db._
 
 import scala.collection.mutable
 
@@ -53,8 +53,8 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
 
   private lazy val blockHeaderTable = db.table(tableName)
 
-  private def lookupBlockHeader(sql: String): Option[BlockHeader] = {
-    blockHeaderTable.find(Where(sql)) map (BlockHeader(_))
+  private def lookupBlockHeader(sql: Where): Option[BlockHeader] = {
+    blockHeaderTable.find((sql)) map (BlockHeader(_))
   }
 
   def confirm(blockChainTxId: BlockChainTxId): Unit = Block(blockChainTxId.height).confirm(blockChainTxId.blockTxId)
@@ -71,11 +71,17 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
   def block(blockHeight: Long): Block = Block(blockHeight)
 
   // use id > 0 to satisfy the where clause. No other reason.
-  def lastBlockHeader: BlockHeader = lookupBlockHeader(" id > 0 ORDER BY height DESC LIMIT 1").getOrElse(genesisBlock())
+  def lastBlockHeader: BlockHeader =
+    lookupBlockHeader(
+      where("id > 0")
+      .orderBy(OrderDesc("height"))
+      .limit(1))
+      .getOrElse(genesisBlock())
 
   def blockHeaderOpt(height: Long): Option[BlockHeader] = {
     blockHeaderCache.get(height) match {
-      case None => lookupBlockHeader(s"height = $height").map(foundHeader => {
+      case None =>
+        lookupBlockHeader(where("height" -> height)).map(foundHeader => {
         blockHeaderCache.put(height, foundHeader)
         foundHeader
       })
@@ -116,7 +122,7 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
       case None => throw new IllegalArgumentException(s"No block exists of height $height")
       case Some(bh) =>
         if(!PublicKeyAccount(signersPublicKey).verify(signature, bh.hash)) {
-          throw new IllegalArgumentException(s"The signature does not match the blockheader (height-$height)")
+          throw new IllegalArgumentException(s"The signature does not match the blockheader (height=$height)")
         }
         BlockSignatures(height).indexOfBlockSignature(nodeId) match {
           case None =>

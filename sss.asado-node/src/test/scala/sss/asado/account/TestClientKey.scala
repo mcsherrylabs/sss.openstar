@@ -13,8 +13,7 @@ object TestClientKey {
             tag: String = "testtag"): PrivateKeyAccount = {
     KeyPersister.deleteKey(clientIdentity, tag)
     PrivateKeyAccount(KeyPersister(clientIdentity, tag, phrase, () => {
-      val pk = PrivateKeyAccount(DummySeedBytes)
-      (pk.privateKey, pk.publicKey)
+      PrivateKeyAccount(DummySeedBytes).tuple
     }))
   }
 }
