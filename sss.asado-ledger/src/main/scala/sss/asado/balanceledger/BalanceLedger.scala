@@ -11,7 +11,6 @@ import sss.asado.identityledger.IdentityService
 import sss.asado.ledger._
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
-import sss.asado.balanceledger._
 
 object BalanceLedger {
   def apply(cbe : CoinbaseValidator,identityService: IdentityService)(implicit db:Db) : BalanceLedger =
