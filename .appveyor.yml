@@ -9,6 +9,7 @@ install:
 build_script:
   - sbt clean compile
 test_script:
+  - sbt test
   - sbt nobu/jdkPackager:packageBin
 cache:
   - C:\sbt\
