@@ -16,5 +16,5 @@ cache:
   - C:\Users\appveyor\.m2
   - C:\Users\appveyor\.ivy2
 artifacts:
-  - path: sss-asado\sss.asado-nobu\target\universal\jdkpackager\bundles\
+  - path: sss.asado-nobu\target\universal\jdkpackager\bundles\
    
