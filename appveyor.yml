@@ -8,7 +8,7 @@ install:
 build_script:
   - sbt clean compile
 test_script:
-  - sbt jdkPackager:packageBin
+  - sbt nobu/jdkPackager:packageBin
 cache:
   - C:\sbt\
   - C:\Users\appveyor\.m2
