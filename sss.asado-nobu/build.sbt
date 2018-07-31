@@ -1,6 +1,6 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
 
-enablePlugins(JavaAppPackaging)
+enablePlugins(JavaAppPackaging, JDKPackagerPlugin)
 
 packageSummary in Linux := "asado-nobu"
 
@@ -14,6 +14,7 @@ resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repo
 
 val vaadinVer = "7.7.13"
 
+coverageEnabled := false
 
 //dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
@@ -45,6 +46,8 @@ libraryDependencies ++= Seq(
 
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
+
+jdkPackagerType := "image"
 
 mappings in Universal ++= directory("WebContent")
 
