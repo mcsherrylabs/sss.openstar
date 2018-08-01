@@ -5,8 +5,8 @@ platform:
   - x64
 install:
   - cmd: choco install sbt -ia "INSTALLDIR=""C:\sbt"""
-  - cmd: choco install wixtoolset
-  - cmd: SET PATH=C:\sbt\bin;%JAVA_HOME%\bin;%PATH%
+  - cmd: choco install wixtoolset "INSTALLDIR=""C:\wix"""
+  - cmd: SET PATH=C:\wix;C:\wix\bin;C:\sbt\bin;%JAVA_HOME%\bin;%PATH%
 build_script:
   - sbt clean compile
 test_script:
@@ -14,6 +14,7 @@ test_script:
   - sbt nobu/jdkPackager:packageBin
 cache:
   - C:\sbt\
+  - C:\wix\
   - C:\Users\appveyor\.m2
   - C:\Users\appveyor\.ivy2
 artifacts:
