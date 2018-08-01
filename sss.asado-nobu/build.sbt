@@ -1,6 +1,6 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
 
-enablePlugins(JavaAppPackaging, JDKPackagerPlugin)
+enablePlugins(JavaAppPackaging, ClasspathJarPlugin, JDKPackagerPlugin)
 
 packageSummary in Linux := "asado-nobu"
 
@@ -35,7 +35,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
 )
 
-version := "0.1.1"
+//version := "0.1.1" only needed for wix installer '-' is illegal char
 
 // Settings for the Vaadin plugin widgetset compilation
 // Widgetset compilation needs memory and to avoid an out of memory error it usually needs more memory:
@@ -52,7 +52,7 @@ jdkPackagerType := "installer"
 
 mappings in Universal ++= directory("WebContent")
 
-scriptClasspath := Seq("*")
+//scriptClasspath := Seq("*")
 
 mainClass in (Compile, run) := Some("sss.ui.nobu.Main")
 
@@ -63,7 +63,7 @@ lazy val iconGlob = sys.props("os.name").toLowerCase match {
 }
 
 maintainer := "Stepping Stone Software Ltd."
-packageSummary := "nobu"
-packageDescription := "Nobu Openstar Full Install"
+packageSummary := "openstar nobu"
+packageDescription := "Nobu Openstar Install"
 
-jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
+jdkAppIcon :=  (baseDirectory.value ** iconGlob).getPaths.headOption.map(file)
