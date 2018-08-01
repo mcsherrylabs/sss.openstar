@@ -35,7 +35,6 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
 )
 
-version := "0.1.1" //only needed for wix installer '-' is illegal char
 
 // Settings for the Vaadin plugin widgetset compilation
 // Widgetset compilation needs memory and to avoid an out of memory error it usually needs more memory:
@@ -65,5 +64,15 @@ lazy val iconGlob = sys.props("os.name").toLowerCase match {
 maintainer := "Stepping Stone Software Ltd."
 packageSummary := "openstar nobu"
 packageDescription := "Nobu Openstar Install"
+
+jdkPackagerProperties := Map("app.name" -> "OpenstarNobu", "app.version" -> version.value.replaceAll("-SNAPSHOT", ""))
+ 
+val sep = java.io.File.separator
+
+jdkPackagerJVMArgs := Seq(
+  "-Dconfig.file=." + sep + "conf" + sep + "application.conf",
+  "-Dlogback.configurationFile=." + sep + "conf" + sep + "logback.xml",
+  "-Xss10M"
+)
 
 jdkAppIcon :=  (baseDirectory.value ** iconGlob).getPaths.headOption.map(file)
