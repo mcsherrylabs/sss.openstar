@@ -35,6 +35,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
 )
 
+version := "0.1.1"
 
 // Settings for the Vaadin plugin widgetset compilation
 // Widgetset compilation needs memory and to avoid an out of memory error it usually needs more memory:
@@ -60,5 +61,9 @@ lazy val iconGlob = sys.props("os.name").toLowerCase match {
   case os if os.contains("win") ⇒ "*.ico"
   case _ ⇒ "*.png"
 }
+
+maintainer := "Stepping Stone Software Ltd."
+packageSummary := "nobu"
+packageDescription := "Nobu Openstar Full Install"
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
