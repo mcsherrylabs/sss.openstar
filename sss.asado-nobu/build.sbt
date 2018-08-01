@@ -61,4 +61,4 @@ lazy val iconGlob = sys.props("os.name").toLowerCase match {
   case _ ⇒ "*.png"
 }
 
-jdkAppIcon :=  (resourceDirectory.value ** iconGlob).getPaths.headOption.map(file)
+jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
