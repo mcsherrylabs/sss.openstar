@@ -66,8 +66,6 @@ maintainer := "Stepping Stone Software Ltd."
 packageSummary := "openstar nobu"
 packageDescription := "Nobu Openstar Install"
 
-
- 
 val sep = java.io.File.separator
 
 jdkPackagerJVMArgs := Seq(
