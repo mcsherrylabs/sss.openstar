@@ -75,4 +75,4 @@ jdkPackagerJVMArgs := Seq(
   "-Xss10M"
 )
 
-jdkAppIcon :=  (baseDirectory.value ** iconGlob).getPaths.headOption.map(file)
+jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
