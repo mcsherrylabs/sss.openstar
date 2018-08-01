@@ -35,7 +35,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
 )
 
-//version := "0.1.1" only needed for wix installer '-' is illegal char
+version := "0.1.1" //only needed for wix installer '-' is illegal char
 
 // Settings for the Vaadin plugin widgetset compilation
 // Widgetset compilation needs memory and to avoid an out of memory error it usually needs more memory:
