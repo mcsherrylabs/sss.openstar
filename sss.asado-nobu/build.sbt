@@ -51,7 +51,8 @@ jdkPackagerType := "installer"
 
 mappings in Universal ++= directory("WebContent")
 
-//scriptClasspath := Seq("*")
+// Cannot figure out another way to make the windows installer valid.
+(version in JDKPackager):= version.value.replaceAll("-SNAPSHOT", "")
 
 mainClass in (Compile, run) := Some("sss.ui.nobu.Main")
 
@@ -65,7 +66,7 @@ maintainer := "Stepping Stone Software Ltd."
 packageSummary := "openstar nobu"
 packageDescription := "Nobu Openstar Install"
 
-jdkPackagerProperties := Map("app.name" -> "OpenstarNobu", "app.version" -> version.value.replaceAll("-SNAPSHOT", ""))
+
  
 val sep = java.io.File.separator
 
