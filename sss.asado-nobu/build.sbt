@@ -47,10 +47,18 @@ libraryDependencies ++= Seq(
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
 
-jdkPackagerType := "image"
+jdkPackagerType := "installer"
 
 mappings in Universal ++= directory("WebContent")
 
 scriptClasspath := Seq("*")
 
 mainClass in (Compile, run) := Some("sss.ui.nobu.Main")
+
+lazy val iconGlob = sys.props("os.name").toLowerCase match {
+  case os if os.contains("mac") ⇒ "*.icns"
+  case os if os.contains("win") ⇒ "*.ico"
+  case _ ⇒ "*.png"
+}
+
+jdkAppIcon :=  (resourceDirectory.value ** iconGlob).getPaths.headOption.map(file)
