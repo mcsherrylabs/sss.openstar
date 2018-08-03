@@ -66,6 +66,10 @@ maintainer := "Stepping Stone Software Ltd."
 packageSummary := "openstar nobu"
 packageDescription := "Nobu Openstar Install"
 
+// wix build information
+wixProductId := "dd41efe9-b0e8-426f-8ce3-5270e631032f"
+wixProductUpgradeId := "4e7cec34-0c58-4b2d-8392-8b69aaccd743"
+
 val sep = java.io.File.separator
 
 
