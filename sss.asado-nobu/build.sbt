@@ -1,4 +1,5 @@
-import NativePackagerHelper._
+import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
+import com.typesafe.sbt.packager.windows.{ComponentFile, WindowsFeature, WixHelper}
 
 enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
@@ -81,4 +82,22 @@ jdkPackagerJVMArgs := Seq(
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
 
-mappings in Windows :=  directory(baseDirectory.value / "WebContent" / "target" / "jdkpackager" / "bundles" / "nobu")
+mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "nobu" ).map(fs => (fs._1, fs._2.replaceFirst("nobu/", ""))).filterNot(fs => fs._2.isEmpty)
+
+wixFeatures := {
+  val files =
+    for {
+      (file, name) <- (mappings in Windows).value
+      if !file.isDirectory
+    } yield ComponentFile(name, editable = name startsWith "conf")
+  val corePackage =
+    WindowsFeature(
+      id = WixHelper.cleanStringForId(name + "_core").takeRight(38), // Must be no longer
+      title = (packageName in Windows).value,
+      desc = "All core files.",
+      absent = "disallow",
+      components = files
+    )
+  // TODO - Add feature for shortcuts to binary scripts.
+  Seq(corePackage)
+}
