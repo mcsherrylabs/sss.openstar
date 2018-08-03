@@ -1,6 +1,6 @@
-import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
+import NativePackagerHelper._
 
-enablePlugins(JavaAppPackaging, ClasspathJarPlugin, JDKPackagerPlugin)
+enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
 packageSummary in Linux := "asado-nobu"
 
@@ -47,9 +47,9 @@ libraryDependencies ++= Seq(
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
 
-jdkPackagerType := "installer"
+jdkPackagerType := "image"
 
-mappings in Universal ++= directory("WebContent")
+mappings in Universal ++= directory(baseDirectory.value / "WebContent")
 
 // Cannot figure out another way to make the windows installer valid.
 (version in JDKPackager):= version.value.replaceAll("-SNAPSHOT", "")
@@ -68,6 +68,7 @@ packageDescription := "Nobu Openstar Install"
 
 val sep = java.io.File.separator
 
+
 jdkPackagerJVMArgs := Seq(
   "-Dconfig.file=." + sep + "conf" + sep + "application.conf",
   "-Dlogback.configurationFile=." + sep + "conf" + sep + "logback.xml",
@@ -75,3 +76,5 @@ jdkPackagerJVMArgs := Seq(
 )
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
+
+mappings in Windows :=  directory(baseDirectory.value / "WebContent" / "target" / "jdkpackager" / "bundles" / "nobu")
