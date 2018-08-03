@@ -74,9 +74,9 @@ packageDescription := "Nobu Openstar Install"
 // wix build information
 wixProductId := "dd41efe9-b0e8-426f-8ce3-5270e631032f"
 wixProductUpgradeId := "4e7cec34-0c58-4b2d-8392-8b69aaccd743"
+wixProductLicense := Option(baseDirectory.value / "License.rtf")
 
 val sep = java.io.File.separator
-
 
 jdkPackagerJVMArgs := Seq(
   "-Dconfig.file=." + sep + "conf" + sep + "application.conf",
@@ -103,7 +103,6 @@ wixPackageInfo := WindowsProductInfo(
   upgradeId = wixProductUpgradeId.value,
   comments = "Nobu Openstar service install (openstar.io)")
 
-wixProductLicense := Some(baseDirectory.value / "License.txt")
 
 wixFeatures := {
   val files =
