@@ -4,6 +4,7 @@ lazy val commonSettings = Seq(
   version := "0.4.0-SNAPSHOT",
   scalaVersion := "2.12.6",
   scalacOptions += "-target:jvm-1.8",
+  updateOptions := updateOptions.value.withGigahorse(false),
   resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/repository/releases",
   resolvers += "stepsoft-snapshots" at "http://nexus.mcsherrylabs.com/repository/snapshots",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % Test,

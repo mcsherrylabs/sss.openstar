@@ -1,9 +1,10 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
-import com.typesafe.sbt.packager.windows.{ComponentFile, WindowsFeature, WixHelper}
+import com.typesafe.sbt.packager.Keys.{maintainer, packageDescription, packageSummary}
+import com.typesafe.sbt.packager.windows.{ComponentFile, WindowsFeature, WindowsProductInfo, WixHelper}
 
 enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
-packageSummary in Linux := "asado-nobu"
+packageSummary in Linux := "nobu-openstar"
 
 resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
 
@@ -52,6 +53,8 @@ jdkPackagerType := "image"
 
 mappings in Universal ++= directory(baseDirectory.value / "WebContent")
 
+(name in JDKPackager) := "openstar"
+
 // Cannot figure out another way to make the windows installer valid.
 (version in JDKPackager):= version.value.replaceAll("-SNAPSHOT", "")
 (version in Windows):= version.value.replaceAll("-SNAPSHOT", "")
@@ -65,7 +68,7 @@ lazy val iconGlob = sys.props("os.name").toLowerCase match {
 }
 
 maintainer := "Stepping Stone Software Ltd."
-packageSummary := "openstar nobu"
+packageSummary := "nobu openstar"
 packageDescription := "Nobu Openstar Install"
 
 // wix build information
@@ -83,19 +86,29 @@ jdkPackagerJVMArgs := Seq(
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
 
-mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "nobu" )
-  .map(fs => (fs._1, fs._2.replaceFirst("nobu/", "")))
-  .filterNot(fs => fs._2.isEmpty)
+mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "openstar" )
+  .map(fs => (fs._1, fs._2.replaceFirst("openstar" + java.util.regex.Pattern.quote(sep), "")))
+  .filterNot(fs => fs._2.isEmpty || fs._2 == "openstar")
 
-def isInstalledFileEditable: Boolean = true
+lazy val editableFileExtensions = Seq(".xml", ".conf", ".cfg", ".ini", ".scss")
 
+def isInstalledFileEditable(name: String): Boolean = editableFileExtensions.exists(name.endsWith(_))
+
+wixPackageInfo := WindowsProductInfo(
+  id = wixProductId.value,
+  title = (packageSummary in Windows).value,
+  version = (version in Windows).value,
+  maintainer = (maintainer in Windows).value,
+  description = (packageDescription in Windows).value,
+  upgradeId = wixProductUpgradeId.value,
+  comments = "Nobu Openstar service install (openstar.io)")
 
 wixFeatures := {
   val files =
     for {
       (file, name) <- (mappings in Windows).value
       if !file.isDirectory
-    } yield ComponentFile(name, editable = isInstalledFileEditable)
+    } yield ComponentFile(name, isInstalledFileEditable(name), name.endsWith("openstar.exe"))
   val corePackage =
     WindowsFeature(
       id = WixHelper.cleanStringForId(name + "_core").takeRight(38), // Must be no longer
