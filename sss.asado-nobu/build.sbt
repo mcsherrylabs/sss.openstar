@@ -54,6 +54,7 @@ mappings in Universal ++= directory(baseDirectory.value / "WebContent")
 
 // Cannot figure out another way to make the windows installer valid.
 (version in JDKPackager):= version.value.replaceAll("-SNAPSHOT", "")
+(version in Windows):= version.value.replaceAll("-SNAPSHOT", "")
 
 mainClass in (Compile, run) := Some("sss.ui.nobu.Main")
 
@@ -82,14 +83,19 @@ jdkPackagerJVMArgs := Seq(
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
 
-mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "nobu" ).map(fs => (fs._1, fs._2.replaceFirst("nobu/", ""))).filterNot(fs => fs._2.isEmpty)
+mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "nobu" )
+  .map(fs => (fs._1, fs._2.replaceFirst("nobu/", "")))
+  .filterNot(fs => fs._2.isEmpty)
+
+def isInstalledFileEditable: Boolean = true
+
 
 wixFeatures := {
   val files =
     for {
       (file, name) <- (mappings in Windows).value
       if !file.isDirectory
-    } yield ComponentFile(name, editable = name startsWith "conf")
+    } yield ComponentFile(name, editable = isInstalledFileEditable)
   val corePackage =
     WindowsFeature(
       id = WixHelper.cleanStringForId(name + "_core").takeRight(38), // Must be no longer
