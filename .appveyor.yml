@@ -12,6 +12,7 @@ build_script:
 test_script:
   - sbt test
   - sbt nobu/jdkPackager:packageBin
+  - sbt nobu/windows:packageBin
 cache:
   - C:\sbt\
   - C:\Users\appveyor\.ivy2
