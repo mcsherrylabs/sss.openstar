@@ -1,6 +1,7 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
 import com.typesafe.sbt.packager.Keys.{maintainer, packageDescription, packageSummary}
 import com.typesafe.sbt.packager.windows.{AddShortCuts, ComponentFile, WindowsFeature, WindowsProductInfo, WixHelper}
+import java.util.regex.Pattern
 
 enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
@@ -87,10 +88,11 @@ jdkPackagerJVMArgs := Seq(
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
 
 mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "openstar" )
-  .map(fs => (fs._1, fs._2.replaceFirst("openstar" + java.util.regex.Pattern.quote(sep), "")))
+  .map(fs => (fs._1, fs._2.replaceFirst("openstar" + Pattern.quote(sep), "")))
   .filterNot(fs => fs._2.isEmpty || fs._2 == "openstar")
 
 lazy val editableFileExtensions = Seq(".xml", ".conf", ".cfg", ".ini", ".scss")
+lazy val confFolderPrefix = "app" +  Pattern.quote(sep) + "conf" + Pattern.quote(sep)
 
 def isInstalledFileEditable(name: String): Boolean = editableFileExtensions.exists(name.endsWith(_))
 
@@ -121,7 +123,7 @@ wixFeatures := {
   val configLinks = for {
     (file, name) <- (mappings in Windows).value
     if !file.isDirectory
-    if (name endsWith ".exe") || (name startsWith "conf/")
+    if (name endsWith ".exe") || (name startsWith confFolderPrefix)
   } yield name.replaceAll("//", "/").stripSuffix("/").stripSuffix("/")
   val menuLinks =
     WindowsFeature(
