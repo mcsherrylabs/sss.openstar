@@ -17,4 +17,5 @@ cache:
   - C:\Users\appveyor\.ivy2
 artifacts:
   - path: sss.asado-nobu\target\universal\jdkpackager\bundles\
+  - path: sss.asado-nobu\target\windows\nobu.msi
    
