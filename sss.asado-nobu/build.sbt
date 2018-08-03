@@ -1,6 +1,6 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
 import com.typesafe.sbt.packager.Keys.{maintainer, packageDescription, packageSummary}
-import com.typesafe.sbt.packager.windows.{ComponentFile, WindowsFeature, WindowsProductInfo, WixHelper}
+import com.typesafe.sbt.packager.windows.{AddShortCuts, ComponentFile, WindowsFeature, WindowsProductInfo, WixHelper}
 
 enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
@@ -118,6 +118,19 @@ wixFeatures := {
       absent = "disallow",
       components = files
     )
-  // TODO - Add feature for shortcuts to binary scripts.
-  Seq(corePackage)
+  val configLinks = for {
+    (file, name) <- (mappings in Windows).value
+    if !file.isDirectory
+    if name endsWith ".exe"
+    if name startsWith "conf/"
+  } yield name.replaceAll("//", "/").stripSuffix("/").stripSuffix("/")
+  val menuLinks =
+    WindowsFeature(
+      id = "AddConfigLinks",
+      title = "Configuration start menu links",
+      desc = "Adds start menu shortcuts to edit configuration files.",
+      components = Seq(AddShortCuts(configLinks))
+    )
+
+  Seq(corePackage, menuLinks)
 }
