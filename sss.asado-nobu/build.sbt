@@ -122,8 +122,7 @@ wixFeatures := {
     )
   val configLinks = for {
     (file, name) <- (mappings in Windows).value
-    if !file.isDirectory
-    if (name endsWith ".exe") || (name startsWith confFolderPrefix)
+    if (name endsWith ".exe") || (name endsWith confFolderPrefix)
   } yield name.replaceAll("//", "/").stripSuffix("/").stripSuffix("/")
   val menuLinks =
     WindowsFeature(
