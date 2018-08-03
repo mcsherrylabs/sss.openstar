@@ -103,12 +103,14 @@ wixPackageInfo := WindowsProductInfo(
   upgradeId = wixProductUpgradeId.value,
   comments = "Nobu Openstar service install (openstar.io)")
 
+wixProductLicense := Some(baseDirectory.value / "License.txt")
+
 wixFeatures := {
   val files =
     for {
       (file, name) <- (mappings in Windows).value
       if !file.isDirectory
-    } yield ComponentFile(name, isInstalledFileEditable(name), name.endsWith("openstar.exe"))
+    } yield ComponentFile(name, isInstalledFileEditable(name), false)
   val corePackage =
     WindowsFeature(
       id = WixHelper.cleanStringForId(name + "_core").takeRight(38), // Must be no longer
