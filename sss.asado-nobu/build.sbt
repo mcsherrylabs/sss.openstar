@@ -75,10 +75,11 @@ packageDescription := "Nobu Openstar Install"
 // wix build information
 wixProductId := "dd41efe9-b0e8-426f-8ce3-5270e631032f"
 wixProductUpgradeId := "4e7cec34-0c58-4b2d-8392-8b69aaccd743"
-wixProductLicense := Option(baseDirectory.value / "License.rtf")
+wixProductLicense := Option(sourceDirectory.value / "windows" / "License.rtf")
 
 val sep = java.io.File.separator
 
+//The jdk packager target needs these to link to the conf correctly via the .cfg file
 jdkPackagerJVMArgs := Seq(
   "-Dconfig.file=." + sep + "conf" + sep + "application.conf",
   "-Dlogback.configurationFile=." + sep + "conf" + sep + "logback.xml",
@@ -87,10 +88,14 @@ jdkPackagerJVMArgs := Seq(
 
 jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
 
+// Use the output of the jdkpackager image as input to the windows packager to get a
+// build which doesn't need a jdk AND installs 'nicely' via an .msi
 mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "openstar" )
   .map(fs => (fs._1, fs._2.replaceFirst("openstar" + Pattern.quote(sep), "")))
   .filterNot(fs => fs._2.isEmpty || fs._2 == "openstar")
 
+// will make windows shortcuts
+lazy val shortCutWorthyExtensions = Seq(".exe", ".xml", ".conf")
 lazy val editableFileExtensions = Seq(".xml", ".conf", ".cfg", ".ini", ".scss")
 lazy val confFolderPrefix = "app" +  Pattern.quote(sep) + "conf" + Pattern.quote(sep)
 
@@ -122,7 +127,7 @@ wixFeatures := {
     )
   val configLinks = for {
     (file, name) <- (mappings in Windows).value
-    if (".exe" +: editableFileExtensions).exists(name.endsWith(_))
+    if (shortCutWorthyExtensions).exists(name.endsWith(_))
   } yield name.replaceAll("//", "/").stripSuffix("/").stripSuffix("/")
   val menuLinks =
     WindowsFeature(
