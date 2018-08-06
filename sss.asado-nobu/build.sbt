@@ -1,8 +1,11 @@
 import com.typesafe.sbt.SbtNativePackager.autoImport.NativePackagerHelper._
+import com.typesafe.sbt.packager.Keys.{maintainer, packageDescription, packageSummary}
+import com.typesafe.sbt.packager.windows.{AddShortCuts, ComponentFile, WindowsFeature, WindowsProductInfo, WixHelper}
+import java.util.regex.Pattern
 
-enablePlugins(JavaAppPackaging)
+enablePlugins(JDKPackagerPlugin, WindowsPlugin)
 
-packageSummary in Linux := "asado-nobu"
+packageSummary in Linux := "nobu-openstar"
 
 resolvers += "vaadin-addons" at "http://maven.vaadin.com/vaadin-addons"
 
@@ -14,6 +17,7 @@ resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repo
 
 val vaadinVer = "7.7.13"
 
+coverageEnabled := false
 
 //dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
@@ -46,8 +50,92 @@ libraryDependencies ++= Seq(
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
 
-mappings in Universal ++= directory("WebContent")
+jdkPackagerType := "image"
 
-scriptClasspath := Seq("*")
+mappings in Universal ++= directory(baseDirectory.value / "WebContent")
+
+(name in JDKPackager) := "openstar"
+
+// Cannot figure out another way to make the windows installer valid.
+(version in JDKPackager):= version.value.replaceAll("-SNAPSHOT", "")
+(version in Windows):= version.value.replaceAll("-SNAPSHOT", "")
 
 mainClass in (Compile, run) := Some("sss.ui.nobu.Main")
+
+lazy val iconGlob = sys.props("os.name").toLowerCase match {
+  case os if os.contains("mac") ⇒ "*.icns"
+  case os if os.contains("win") ⇒ "*.ico"
+  case _ ⇒ "*.png"
+}
+
+maintainer := "Stepping Stone Software Ltd."
+packageSummary := "nobu openstar"
+packageDescription := "Nobu Openstar Install"
+
+// wix build information
+wixProductId := "dd41efe9-b0e8-426f-8ce3-5270e631032f"
+wixProductUpgradeId := "4e7cec34-0c58-4b2d-8392-8b69aaccd743"
+wixProductLicense := Option(sourceDirectory.value / "windows" / "License.rtf")
+
+val sep = java.io.File.separator
+
+//The jdk packager target needs these to link to the conf correctly via the .cfg file
+jdkPackagerJVMArgs := Seq(
+  "-Dconfig.file=." + sep + "conf" + sep + "application.conf",
+  "-Dlogback.configurationFile=." + sep + "conf" + sep + "logback.xml",
+  "-Xss10M"
+)
+
+jdkAppIcon :=  ((resourceDirectory in Compile).value ** iconGlob).getPaths.headOption.map(file)
+
+// Use the output of the jdkpackager image as input to the windows packager to get a
+// build which doesn't need a jdk AND installs 'nicely' via an .msi
+mappings in Windows :=  directory(target.value / "universal" / "jdkpackager" / "bundles" / "openstar" )
+  .map(fs => (fs._1, fs._2.replaceFirst("openstar" + Pattern.quote(sep), "")))
+  .filterNot(fs => fs._2.isEmpty || fs._2 == "openstar")
+
+// will make windows shortcuts
+lazy val shortCutWorthyExtensions = Seq(".exe", ".xml", ".conf")
+lazy val editableFileExtensions = Seq(".xml", ".conf", ".cfg", ".ini", ".scss")
+lazy val confFolderPrefix = "app" +  Pattern.quote(sep) + "conf" + Pattern.quote(sep)
+
+def isInstalledFileEditable(name: String): Boolean = editableFileExtensions.exists(name.endsWith(_))
+
+wixPackageInfo := WindowsProductInfo(
+  id = wixProductId.value,
+  title = (packageSummary in Windows).value,
+  version = (version in Windows).value,
+  maintainer = (maintainer in Windows).value,
+  description = (packageDescription in Windows).value,
+  upgradeId = wixProductUpgradeId.value,
+  comments = "Nobu Openstar service install (openstar.io)")
+
+
+wixFeatures := {
+  val files =
+    for {
+      (file, name) <- (mappings in Windows).value
+      if !file.isDirectory
+    } yield ComponentFile(name, isInstalledFileEditable(name), false)
+  val corePackage =
+    WindowsFeature(
+      id = WixHelper.cleanStringForId(name + "_core").takeRight(38), // Must be no longer
+      title = (packageName in Windows).value,
+      desc = "All core files.",
+      absent = "disallow",
+      components = files
+    )
+  val configLinks = for {
+    (file, name) <- (mappings in Windows).value
+    if (shortCutWorthyExtensions).exists(name.endsWith(_))
+  } yield name.replaceAll("//", "/").stripSuffix("/").stripSuffix("/")
+  val menuLinks =
+    WindowsFeature(
+      id = "AddConfigLinks",
+      title = "Configuration start menu links",
+      desc = "Adds start menu shortcuts to edit configuration files.",
+      components = Seq(AddShortCuts(configLinks))
+    )
+
+  Seq(corePackage, menuLinks)
+}

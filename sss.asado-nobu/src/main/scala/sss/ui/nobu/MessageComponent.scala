@@ -31,8 +31,6 @@ import scala.util.{Failure, Success, Try}
 object MessageComponent extends Logging {
  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
-  private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
-
   def toDetails(savedMsg: SavedAddressedMessage)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 

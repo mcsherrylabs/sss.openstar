@@ -80,3 +80,4 @@ sss.asado-nobu/keys/
 sss.asado-node/*.testTag
 sss.asado-node/*.testtag
 *.defaultTag
+sss.asado-nobu/WebContent/VAADIN/themes/template/styles.scss.cache
