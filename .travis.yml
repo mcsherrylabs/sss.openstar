@@ -18,10 +18,11 @@ branches:
 
 before_install:
   - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
+  - if [ $TRAVIS_OS_NAME = osx   ]; then sudo spctl --master-disable; fi
 
-script: "sbt clean coverage test"
+script: "sbt clean coverage test coverageReport coverageAggregate coveralls"
 
-after_success: "sbt coverageReport coverageAggregate coveralls jdkPackager:packageBin"
+after_success: "sbt clean test jdkPackager:packageBin"
 
 before_deploy:
   # Set up git user name and tag this commit
