@@ -50,7 +50,9 @@ libraryDependencies ++= Seq(
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
 
-jdkPackagerType := "image"
+jdkPackagerType := "installer"
+
+(jdkPackagerType in Windows) := "image"
 
 mappings in Universal ++= directory(baseDirectory.value / "WebContent")
 
