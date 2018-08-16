@@ -14,6 +14,9 @@ branches:
   only:
     - master
 
+before_install:
+  - sudo apt-get install -y fakeroot
+
 script: "sbt clean coverage test jdkPackager:packageBin"
 
 after_success: "sbt coverageReport coverageAggregate coveralls"
