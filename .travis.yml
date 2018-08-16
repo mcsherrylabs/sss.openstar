@@ -7,6 +7,8 @@ os:
 jdk:
   - oraclejdk8
 
+osx_image: xcode9.4
+ 
 scala:
    - 2.12.6
 
@@ -17,7 +19,18 @@ branches:
 before_install:
   - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
 
-script: "sbt clean coverage test jdkPackager:packageBin"
+script: "sbt clean coverage test"
 
-after_success: "sbt coverageReport coverageAggregate coveralls"
+after_success: "sbt coverageReport coverageAggregate coveralls jdkPackager:packageBin"
 
+before_deploy:
+  # Set up git user name and tag this commit
+  - git config --local user.name "mcsherrylabs"
+  - git config --local user.email "alan@mcsherrylabs.com"
+  - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
+
+deploy:
+  provider: releases
+  api_key: ${git_api_key}
+  file: "/home/travis/build/mcsherrylabs/sss.asado/sss.asado-nobu/target/universal/jdkpackager/bundles/openstar-0.4.0.deb"
+  skip_cleanup: true
