@@ -19,4 +19,17 @@ cache:
 artifacts:
   - path: sss.asado-nobu\target\universal\jdkpackager\bundles\
   - path: sss.asado-nobu\target\windows\nobu.msi
-   
+
+## secure: 9XNg3ghtOsTqeMeG1X4FyNE8jMjhtv5IeJrn/gLsWOtCkInRaIZZvdi22cC3GIcc
+deploy:
+  release: openstar-v$(appveyor_build_version)
+  description: 'Auto generated pipeline release'
+  provider: GitHub
+  auth_token:
+    secure: 9XNg3ghtOsTqeMeG1X4FyNE8jMjhtv5IeJrn/gLsWOtCkInRaIZZvdi22cC3GIcc
+  artifact: /.*\.msi/            # upload all NuGet packages to release assets
+  draft: true
+  prerelease: true
+  on:
+    branch: master                 # release from master branch only
+    appveyor_repo_tag: true     
