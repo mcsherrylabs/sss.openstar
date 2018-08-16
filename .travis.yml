@@ -15,7 +15,7 @@ branches:
     - master
 
 before_install:
-  - sudo apt-get install -y fakeroot
+  - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
 
 script: "sbt clean coverage test jdkPackager:packageBin"
 
