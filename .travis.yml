@@ -1,5 +1,9 @@
 language: scala
 
+os:
+  - linux
+  - osx
+
 jdk:
   - oraclejdk8
 
@@ -10,7 +14,7 @@ branches:
   only:
     - master
 
-script: "sbt clean coverage test"
+script: "sbt clean coverage test jdkPackager:packageBin"
 
 after_success: "sbt coverageReport coverageAggregate coveralls"
 
