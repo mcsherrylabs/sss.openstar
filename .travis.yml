@@ -7,7 +7,7 @@ os:
 jdk:
   - oraclejdk8
 
-osx_image: xcode9.4
+osx_image: xcode8.3
  
 scala:
    - 2.12.6
