@@ -33,5 +33,6 @@ before_deploy:
 deploy:
   provider: releases
   api_key: ${git_api_key}
-  file: "/home/travis/build/mcsherrylabs/sss.asado/sss.asado-nobu/target/universal/jdkpackager/bundles/openstar-0.4.0.deb"
+  file_glob: true
+  file: "target/universal/jdkpackager/bundles/*"
   skip_cleanup: true
