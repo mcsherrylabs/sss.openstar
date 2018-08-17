@@ -12,9 +12,9 @@ osx_image: xcode8.3
 scala:
    - 2.12.6
 
-branches:
-  only:
-    - master
+#branches:
+#  only:
+#    - master
 
 before_install:
   - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
@@ -24,15 +24,14 @@ script: "sbt clean coverage test coverageReport coverageAggregate coveralls"
 
 after_success: "sbt clean test jdkPackager:packageBin"
 
-before_deploy:
-  # Set up git user name and tag this commit
-  - git config --local user.name "mcsherrylabs"
-  - git config --local user.email "alan@mcsherrylabs.com"
-  - git tag "$(date +'%Y%m%d%H%M%S')-$(git log --format=%h -1)"
-
 deploy:
+  on:
+    tags: true
+    all_branches: true
+  prerelease: true
+  draft: true
   provider: releases
   api_key: ${git_api_key}
   file_glob: true
-  file: "target/universal/jdkpackager/bundles/*"
+  file: "sss.asado-nobu/target/universal/jdkpackager/bundles/**"
   skip_cleanup: true

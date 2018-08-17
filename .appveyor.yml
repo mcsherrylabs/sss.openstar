@@ -31,5 +31,5 @@ deploy:
   draft: true
   prerelease: true
   on:
-    branch: master                 # release from master branch only
+    #branch: master                 # release from master branch only, if you remove this it should write msi to draft release
     appveyor_repo_tag: true     

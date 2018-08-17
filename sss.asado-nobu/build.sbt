@@ -50,9 +50,12 @@ libraryDependencies ++= Seq(
 // Compile widgetsets into the source directory (by default themes are compiled into the target directory)
 //target in compileVaadinWidgetsets := (baseDirectory).value / "WebContent" / "VAADIN" / "widgetsets"
 
-jdkPackagerType := "installer"
-
-(jdkPackagerType in Windows) := "image"
+lazy val packagerType = sys.props("os.name").toLowerCase match {
+  case os if os.contains("win") ⇒ "image"
+  case _ ⇒ "installer"
+}
+ 
+jdkPackagerType := packagerType
 
 mappings in Universal ++= directory(baseDirectory.value / "WebContent")
 
