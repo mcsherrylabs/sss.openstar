@@ -12,8 +12,13 @@ object MsgQuerySerializer extends Serializer[MessageQuery]{
       IntSerializer(o.pageSize)).toBytes
 
   def fromBytes(bs: Array[Byte]): MessageQuery = {
-    val extracted = bs.extract(LongDeSerialize, IntDeSerialize)
-    MessageQuery(extracted(0)[Long], extracted(1)[Int])
+
+    MessageQuery.tupled(
+      bs.extract(
+        LongDeSerialize,
+        IntDeSerialize
+      )
+    )
   }
 
 }

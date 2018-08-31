@@ -17,18 +17,15 @@ object MsgSerializer extends Serializer[Message] {
       LongSerializer(o.createdAt.toDate.getTime)).toBytes
 
   def fromBytes(bs: Array[Byte]): Message = {
-    val extracted = bs.extract(
-      StringDeSerialize,
-      ByteArrayDeSerialize,
-      ByteArrayDeSerialize ,
-      LongDeSerialize,
-      LongDeSerialize)
+    Message.tupled(
+      bs.extract(StringDeSerialize,
+        ByteArrayDeSerialize(_.toMessagePayload),
+        ByteArrayDeSerialize,
+        LongDeSerialize,
+        LongDeSerialize(l => new LocalDateTime(l))
+      )
+    )
 
-    Message(extracted(0)[String],
-      extracted(1)[Array[Byte]].toMessagePayload,
-      extracted(2)[Array[Byte]],
-      extracted(3)[Long],
-      new LocalDateTime(extracted(4)[Long]))
   }
 
 }

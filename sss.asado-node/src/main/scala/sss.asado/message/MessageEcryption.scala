@@ -14,13 +14,20 @@ import scala.util.Random
 object MessageEcryption {
 
   def encryptedMessage(b: Array[Byte]): EncryptedMessage = {
-    val extracted = b.extract(ByteArrayDeSerialize, StringDeSerialize)
-    EncryptedMessage(extracted(0)[Array[Byte]], CBCEncryption.initVector(extracted(1)[String]))
+    EncryptedMessage.tupled(
+      b.extract(ByteArrayDeSerialize,
+        StringDeSerialize(CBCEncryption.initVector)
+      )
+    )
   }
 
   private def textWithSecret(b: Array[Byte]): TextWithSecret = {
-    val extracted = b.extract(StringDeSerialize, ByteArrayDeSerialize)
-    TextWithSecret(extracted(0)[String], extracted(1)[Array[Byte]])
+
+    TextWithSecret.tupled(
+      b.extract(StringDeSerialize,
+        ByteArrayDeSerialize
+      )
+    )
   }
 
   case class EncryptedMessage(encrypted:Array[Byte], iv: InitVector) extends TypedMessagePayload {

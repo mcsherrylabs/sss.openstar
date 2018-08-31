@@ -5,7 +5,7 @@ import akka.agent.Agent
 import sss.asado.InitWithActorRefs
 import sss.asado.block._
 import sss.asado.message.CheckForMessages
-import sss.asado.network.Connection
+import sss.asado.network.{Connection, NetworkRef}
 import sss.asado.state.AsadoStateProtocol._
 import sss.db.Db
 
@@ -16,10 +16,8 @@ import scala.language.postfixOps
   * Created by alan on 4/1/16.
   */
 class AsadoClientStateMachineActor(thisNodeId: String,
-                                   connectedPeers: Agent[Set[Connection]],
                                    blockChainSettings: BlockChainSettings,
                                    bc: BlockChain,
-                                   quorum: Int,
                                    db: Db) extends AsadoClientStateMachine {
 
 

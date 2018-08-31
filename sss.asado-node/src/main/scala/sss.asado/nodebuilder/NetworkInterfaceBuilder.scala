@@ -5,6 +5,7 @@ import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.identityledger.IdentityService
 import sss.asado.network.{IdentityVerification, NetworkInterface}
+import sss.asado.util.Results._
 
 trait NetworkInterfaceBuilder {
 
@@ -18,9 +19,10 @@ trait NetworkInterfaceBuilder {
 
   lazy val networkInterface : NetworkInterface = buildNetworkInterface
   def buildNetworkInterface =
-    new NetworkInterface(createIdVerifier(nodeIdentity,
-      identityService, bootstrapIdentities), nodeConfig.settings, nodeConfig.uPnp)
+    new NetworkInterface(nodeConfig.settings, nodeConfig.uPnp)
 
+  lazy val idVerifier = createIdVerifier(nodeIdentity,
+    identityService, bootstrapIdentities)
 
   protected def createIdVerifier(nodeIdentity: NodeIdentity,
                                  identityService: IdentityService,
@@ -30,23 +32,32 @@ trait NetworkInterfaceBuilder {
     import sss.asado.util.ByteArrayEncodedStrOps._
 
     new IdentityVerification {
-      override def verify(sig: Array[Byte], msg: Array[Byte], nodeId: String, tag: String): Boolean = {
+
+      override def verify(sig: Array[Byte],
+                          msg: Array[Byte],
+                          nodeId: String,
+                          tag: String): OkResult = {
+
         val ac = identityService.accountOpt(nodeId, tag)
         val pk = ac.map(_.publicKey.toBase64Str)
         val sigStr = sig.toBase64Str
         val msgStr = Longs.fromByteArray(msg)
-        log.info(s"Attempting to verify $nodeId, $tag ")
-        log.info(s"msg $msgStr pk $pk")
-        log.info(s"sig $sigStr ")
+        log.info(s"Verifing $nodeId, $tag ")
+        log.debug(s"msg $msgStr pk $pk")
+        log.debug(s"sig $sigStr ")
 
-        if(ac.exists(_.verify(sig, msg))) {
-          log.info(s"$nodeId, $tag verified using identity ledger")
-          true
-        }else {
+        lazy val nodeTagStr = s"$nodeId, $tag"
+        ac orErrMsg(s"Could not find $nodeTagStr in identity ledger") andThen {
+          ac.exists(_.verify(sig, msg)) orErrMsg s"Could not verify signature of $nodeTagStr"
+        } ifNotOk {
           //try the bootstrap
-          val res = bootstrapIdentities.exists(_.verify(sig, msg))
-          log.info(s"Using bootstrap identities for $nodeId - result is $res")
-          res
+          log.info(s"$nodeId, $tag not in Identity ledger, trying bootstrap...")
+          bootstrapIdentities.find(_.nodeId == nodeId)
+            .orErrMsg(s"NodeId $nodeId not in bootstrap identities")
+            .ifOk { bi =>
+              bi.verify(sig, msg)
+                .orErrMsg(s"Could not verify sig $sig from NodeId $nodeId")
+            }
         }
       }
 

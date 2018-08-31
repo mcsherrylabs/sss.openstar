@@ -13,7 +13,7 @@ trait HttpServerBuilder {
           BlockChainBuilder with
           DbBuilder with
           ActorSystemBuilder with
-          MessageRouterActorBuilder with
+          MessageEventBusBuilder with
           IdentityServiceBuilder with
           WalletBuilder with
           NetworkControllerBuilder =>
@@ -28,7 +28,7 @@ trait HttpServerBuilder {
   }
 
   def buildConsoleServlet: Option[ConsoleServlet] = {
-    Option(new ConsoleServlet(nodeConfig.connectedPeers, ncRef, identityService, wallet, db))
+    Option(new ConsoleServlet(ncRef, identityService, wallet, db))
   }
 
 
@@ -41,7 +41,7 @@ trait HttpServerBuilder {
 trait ClaimServletBuilder {
 
   self: NodeConfigBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     ActorSystemBuilder with
     IntegratedWalletBuilder with
     StateMachineActorBuilder with
@@ -50,7 +50,7 @@ trait ClaimServletBuilder {
 
 
   def buildClaimServlet: Option[ClaimServlet] = {
-    Option(new ClaimServlet(actorSystem, stateMachineActor, messageRouterActor, balanceLedger,integratedWallet))
+    Option(new ClaimServlet(actorSystem, stateMachineActor, messageEventBus, balanceLedger,integratedWallet))
   }
 
   def addClaimServlet = {
