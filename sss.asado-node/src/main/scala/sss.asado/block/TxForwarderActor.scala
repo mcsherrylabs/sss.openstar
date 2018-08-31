@@ -6,8 +6,7 @@ import sss.asado.MessageKeys
 import sss.asado.MessageKeys.decode
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.ledger._
-import sss.asado.network.MessageRouter.{Register, UnRegister}
-import sss.asado.network.{Connection, NetworkMessage}
+import sss.asado.network._
 import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.SeqSerializer
@@ -18,7 +17,8 @@ import sss.asado.util.SeqSerializer
 case class Forward(who: Connection)
 
 
-class TxForwarderActor(messageRouter: ActorRef,
+class TxForwarderActor(messageRouter: MessageEventBus,
+                       ncRef: NetworkRef,
                        clientRefCacheSize: Int)
   extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
@@ -33,38 +33,43 @@ class TxForwarderActor(messageRouter: ActorRef,
     case RemoteLeaderEvent(con) => self ! Forward(con)
 
     case Forward(who) =>
-      messageRouter ! Register(MessageKeys.SignedTx)
-      messageRouter ! Register(MessageKeys.SeqSignedTx)
-      messageRouter ! Register(MessageKeys.SignedTxAck)
-      messageRouter ! Register(MessageKeys.SignedTxNack)
-      messageRouter ! Register(MessageKeys.AckConfirmTx)
-      messageRouter ! Register(MessageKeys.TempNack)
+      messageRouter.subscribe(MessageKeys.SignedTx)
+      messageRouter.subscribe(MessageKeys.SeqSignedTx)
+      messageRouter.subscribe(MessageKeys.SignedTxAck)
+      messageRouter.subscribe(MessageKeys.SignedTxNack)
+      messageRouter.subscribe(MessageKeys.AckConfirmTx)
+      messageRouter.subscribe(MessageKeys.TempNack)
 
-      context watch who.handlerRef
-      context.become(forwardMode(who.handlerRef))
+      messageRouter.subscribe(classOf[ConnectionLost])
+      //context watch who.handlerRef
+
+      context.become(forwardMode(who.nodeId))
 
   }
 
-  private def forwardMode(leaderRef: ActorRef): Receive = {
+  private def forwardMode(leader: NodeId): Receive = {
 
     case NotReadyEvent =>  self ! StopAcceptingTxs
 
-    case Terminated(leaderRef) => self ! StopAcceptingTxs
+    case ConnectionLost(nodeId) if(leader.isSameId(nodeId)) =>
+    // case Terminated(leaderRef) =>
+      self ! StopAcceptingTxs
+
 
     case StopAcceptingTxs =>
-      messageRouter ! UnRegister(MessageKeys.SignedTx)
-      messageRouter ! UnRegister(MessageKeys.SeqSignedTx)
-      messageRouter ! UnRegister(MessageKeys.SignedTxAck)
-      messageRouter ! UnRegister(MessageKeys.SignedTxNack)
-      messageRouter ! UnRegister(MessageKeys.AckConfirmTx)
-      messageRouter ! UnRegister(MessageKeys.TempNack)
+      messageRouter.unsubscribe(MessageKeys.SignedTx)
+      messageRouter.unsubscribe(MessageKeys.SeqSignedTx)
+      messageRouter.unsubscribe(MessageKeys.SignedTxAck)
+      messageRouter.unsubscribe(MessageKeys.SignedTxNack)
+      messageRouter.unsubscribe(MessageKeys.AckConfirmTx)
+      messageRouter.unsubscribe(MessageKeys.TempNack)
       context.become(noForward)
 
 
     case m @ NetworkMessage(MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toLedgerItem) { stx =>
         txs +=  (stx.txId.toBase64Str -> sender())
-        leaderRef ! m
+        ncRef.send(m, leader)
       }
 
     case m @ NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
@@ -73,7 +78,7 @@ class TxForwarderActor(messageRouter: ActorRef,
           val le: LedgerItem = stx.toLedgerItem
           txs += (le.txId.toBase64Str -> sender())
         }
-        leaderRef ! m
+        ncRef.send(m, leader)
       }
 
     case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>

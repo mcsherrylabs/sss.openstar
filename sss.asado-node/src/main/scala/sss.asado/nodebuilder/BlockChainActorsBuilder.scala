@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, Props}
 import akka.routing.RoundRobinPool
 import sss.asado.MessageKeys._
 import sss.asado.block.{BlockChainActor, BlockChainDownloaderActor, BlockChainSynchronizationActor, ClientBlockChainDownloaderActor, SimpleTxPageActor, TxForwarderActor, TxWriter}
-import sss.asado.network.MessageRouter.RegisterRef
+
 
 /**
   * Created by alan on 6/16/16.
@@ -13,7 +13,7 @@ trait BlockChainActorsBuilder {
 
   self : NodeConfigBuilder with
     ActorSystemBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
     BlockChainBuilder with
@@ -29,13 +29,12 @@ trait BlockChainActorsBuilder {
 
   def buildBlockChainSyncActor =
     actorSystem.actorOf(Props(classOf[BlockChainSynchronizationActor],
-      nodeConfig.quorum,
       nodeConfig.blockChainSettings.maxTxPerBlock,
       nodeConfig.blockChainSettings.maxSignatures,
       nodeConfig.peersList,
       stateMachineActor,
       bc,
-      messageRouterActor,
+      messageEventBus,
       db))
 
 
@@ -60,7 +59,7 @@ trait BlockChainActorsBuilder {
 trait BlockChainDownloaderBuilder {
 
   self : ActorSystemBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
@@ -72,7 +71,7 @@ trait BlockChainDownloaderBuilder {
 
   def buildChainDownloader =
     actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, ncRef,
-      messageRouterActor, stateMachineActor, bc, db, ledgers))
+      messageEventBus, stateMachineActor, bc, db, ledgers))
 
 }
 
@@ -80,7 +79,7 @@ trait ClientBlockChainDownloaderBuilder {
 
   self : ActorSystemBuilder with
     NodeConfigBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
@@ -92,7 +91,7 @@ trait ClientBlockChainDownloaderBuilder {
 
   def buildClientChainDownloader =
     actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
-      messageRouterActor, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  nodeConfig.blockChainSettings.maxBlockOpenSecs, bc, db, ledgers))
+      messageEventBus, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  nodeConfig.blockChainSettings.maxBlockOpenSecs, bc, db, ledgers))
 
 }
 
@@ -100,7 +99,7 @@ trait TxForwarderActorBuilder {
 
   self : NodeConfigBuilder with
     ActorSystemBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     StateMachineActorBuilder with
     NetworkControllerBuilder =>
 
@@ -108,7 +107,7 @@ trait TxForwarderActorBuilder {
 
   def buildTxForwarder =
     actorSystem.actorOf(Props(classOf[TxForwarderActor],
-      messageRouterActor,
+      messageEventBus,
       nodeConfig.conf.getInt("clientRefCacheSize")))
 
 }
@@ -117,7 +116,7 @@ trait SimpleTxPageActorBuilder {
 
   self : NodeConfigBuilder with
     ActorSystemBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     BlockChainBuilder with DbBuilder  =>
 
   lazy val simpleTxPageActor: ActorRef = buildSimpleTxPageActor
@@ -127,5 +126,5 @@ trait SimpleTxPageActorBuilder {
       nodeConfig.blockChainSettings.maxSignatures,
       bc, db))
 
-  def initSimplePageTxActor = messageRouterActor ! RegisterRef(SimpleGetPageTx, simpleTxPageActor)
+  def initSimplePageTxActor = messageEventBus.subscribe(SimpleGetPageTx)( simpleTxPageActor)
 }

@@ -16,12 +16,14 @@ object UnLinkRescuerSerializer extends Serializer[UnLinkRescuer] {
   }
 
   override def fromBytes(b: Array[Byte]): UnLinkRescuer = {
-    val extracted = b.extract(ByteDeSerialize, LongDeSerialize,
-      StringDeSerialize, StringDeSerialize)
-    require(extracted(0)[Byte] == UnLinkRescuerCode,
-      s"Wrong leading Byte ${extracted(0)[Byte]} should be $UnLinkRescuerCode")
-    new UnLinkRescuer(extracted(2)[String], extracted(3)[String]) {
-      private[identityledger] override val uniqueMessage: Long = extracted(1)[Long]
+    val extracted = b.extract(ByteDeSerialize,
+                              LongDeSerialize,
+                              StringDeSerialize,
+                              StringDeSerialize)
+    require(extracted._1 == UnLinkRescuerCode,
+            s"Wrong leading Byte ${extracted._1} should be $UnLinkRescuerCode")
+    new UnLinkRescuer(extracted._3, extracted._4) {
+      private[identityledger] override val uniqueMessage: Long = extracted._2
     }
   }
 }

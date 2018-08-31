@@ -1,35 +1,55 @@
 package sss.asado.util
 
-
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
-import sss.asado.util.Serialize.{ByteArraySerializer, _}
+import sss.asado.util.Serialize._
+
 /**
   * Created by alan on 2/11/16.
   */
 class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
+  case class TestSerializerSimple(byteHeader: Byte,
+                                  longVal: Long,
+                                  someString: String) {
+
+    def toBytes: Array[Byte] = {
+      (ByteSerializer(byteHeader) ++
+        LongSerializer(longVal) ++
+        StringSerializer(someString)).toBytes
+
+    }
+
+  }
+
+  def simpleFromBytes(bytes: Array[Byte]): TestSerializerSimple = {
+    TestSerializerSimple.tupled(
+      bytes.extract(ByteDeSerialize, LongDeSerialize, StringDeSerialize))
+  }
 
   def fromBytes(bytes: Array[Byte]): TestSeriliazer = {
     val extracted = bytes.extract(ByteDeSerialize,
-      LongDeSerialize,
-      StringDeSerialize,
-      IntDeSerialize,
-      SequenceDeSerialize,
-      ByteArrayDeSerialize,
-      BooleanDeSerialize,
-      ByteArrayRawDeSerialize)
+                                  LongDeSerialize,
+                                  StringDeSerialize,
+                                  IntDeSerialize,
+                                  SequenceDeSerialize,
+                                  ByteArrayDeSerialize,
+                                  BooleanDeSerialize,
+                                  ByteArrayRawDeSerialize)
 
+    val s = extracted._5
+    val recursiveSeq = s map fromBytes
 
-    val recursiveSeq = extracted(4)[Seq[Array[Byte]]] map fromBytes
-    TestSeriliazer(extracted(0)[Byte],recursiveSeq,
-      extracted(1)[Long],
-      extracted(2)[String],
-      extracted(3)[Int],
-      extracted(5)[Array[Byte]],
-      extracted(6)[Boolean],
-      extracted(7)[Array[Byte]])
+    TestSeriliazer(extracted._1,
+                   recursiveSeq,
+                   extracted._2,
+                   extracted._3,
+                   extracted._4,
+                   extracted._6,
+                   extracted._7,
+                   extracted._8)
   }
+
   case class TestSeriliazer(byteHeader: Byte,
                             tricky: Seq[TestSeriliazer],
                             longVal: Long,
@@ -37,8 +57,8 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
                             intVal: Int,
                             byteArray: Array[Byte],
                             isTrue: Boolean,
-                            byteArrayNoHeader: Array[Byte]
-                          ) extends ByteArrayComparisonOps {
+                            byteArrayNoHeader: Array[Byte])
+      extends ByteArrayComparisonOps {
     def toBytes: Array[Byte] = {
       (ByteSerializer(byteHeader) ++
         LongSerializer(longVal) ++
@@ -64,33 +84,58 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = {
       obj match {
         case that: TestSeriliazer => checkFields(that)
-        case _ => false
+        case _                    => false
       }
     }
 
   }
 
   case class SimpleTestSerilizer(byteHeader: Byte,
-                           longVal: Long,
-                           someString: String,
-                           intVal: Int,
+                                 longVal: Long,
+                                 someString: String,
+                                 intVal: Int,
                                  byteArray: Array[Byte],
-                                 byteArrayNoHeader: Array[Byte]
-                          )
+                                 byteArrayNoHeader: Array[Byte])
 
   val bHeader = 1.toByte
   val bHeader2 = 2.toByte
   val bHeader3 = 3.toByte
   val bHeader4 = 4.toByte
   val longVal: Long = Long.MaxValue
-  val intVal : Int = Int.MaxValue
+  val intVal: Int = Int.MaxValue
   val someString = "Hello cruel world"
   val byteArray = DummySeedBytes.randomSeed(45)
   val byteArrayNoHeader = DummySeedBytes.randomSeed(440)
-  val test = TestSeriliazer(bHeader, Seq(), longVal, someString, intVal, byteArray, true, byteArrayNoHeader)
-  val test2 = TestSeriliazer(bHeader2, Seq(test), longVal, someString, intVal, byteArray, false, byteArrayNoHeader)
-  val test3 = TestSeriliazer(bHeader3, Seq(test, test2), longVal, someString, intVal, byteArray, true, byteArrayNoHeader)
-  val test4 = SimpleTestSerilizer(bHeader4, longVal, someString, intVal, byteArray, byteArrayNoHeader)
+  val test = TestSeriliazer(bHeader,
+                            Seq(),
+                            longVal,
+                            someString,
+                            intVal,
+                            byteArray,
+                            true,
+                            byteArrayNoHeader)
+  val test2 = TestSeriliazer(bHeader2,
+                             Seq(test),
+                             longVal,
+                             someString,
+                             intVal,
+                             byteArray,
+                             false,
+                             byteArrayNoHeader)
+  val test3 = TestSeriliazer(bHeader3,
+                             Seq(test, test2),
+                             longVal,
+                             someString,
+                             intVal,
+                             byteArray,
+                             true,
+                             byteArrayNoHeader)
+  val test4 = SimpleTestSerilizer(bHeader4,
+                                  longVal,
+                                  someString,
+                                  intVal,
+                                  byteArray,
+                                  byteArrayNoHeader)
 
   "The serializer " should " make it easy to serialize common types " in {
 
@@ -101,21 +146,19 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
       ByteArraySerializer(test4.byteArray) ++
       ByteArrayRawSerializer(test4.byteArrayNoHeader)
 
-
     val deserialised = bytes.toBytes.extract(ByteDeSerialize,
-      LongDeSerialize,
-      StringDeSerialize,
-      IntDeSerialize,
-      ByteArrayDeSerialize,
-      ByteArrayRawDeSerialize)
+                                             LongDeSerialize,
+                                             StringDeSerialize,
+                                             IntDeSerialize,
+                                             ByteArrayDeSerialize,
+                                             ByteArrayRawDeSerialize)
 
-    assert(deserialised.size == 6)
-    assert(deserialised(0)[Byte] == bHeader4)
-    assert(deserialised(1)[Long] == longVal)
-    assert(deserialised(2)[String] == someString)
-    assert(deserialised(3)[Int] == intVal)
-    assert(byteArray isSame deserialised(4).payload.asInstanceOf[Array[Byte]])
-    assert(byteArrayNoHeader isSame deserialised(5)().asInstanceOf[Array[Byte]])
+    assert((deserialised._1) == bHeader4)
+    assert((deserialised._2) == longVal)
+    assert((deserialised._3) == someString)
+    assert((deserialised._4) == intVal)
+    assert(byteArray isSame deserialised._5)
+    assert(byteArrayNoHeader isSame deserialised._6)
 
   }
 
@@ -136,16 +179,19 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   }
 
   it should "also handle empty strings" in {
-    case class Striny(test:String)
+    case class Striny(test: String)
     val bytes = (StringSerializer("") ++
       StringSerializer("Not empty") ++
-      StringSerializer("")++
+      StringSerializer("") ++
       StringSerializer("")).toBytes
 
-    val extracted = bytes.extract(StringDeSerialize, StringDeSerialize, StringDeSerialize, StringDeSerialize)
-    assert(extracted(0)[String]== "")
-    assert(extracted(1)[String]== "Not empty")
-    assert(extracted(2)[String]== "")
-    assert(extracted(3)[String]== "")
+    val extracted = bytes.extract(StringDeSerialize,
+                                  StringDeSerialize,
+                                  StringDeSerialize,
+                                  StringDeSerialize)
+    assert(extracted._1 === "")
+    assert(extracted._2 === "Not empty")
+    assert(extracted._3 === "")
+    assert(extracted._4 === "")
   }
 }

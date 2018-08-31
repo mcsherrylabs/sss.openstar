@@ -32,8 +32,8 @@ trait WalletBuilder {
 trait IntegratedWalletBuilder {
   self :
     WalletBuilder with
-    MessageRouterActorBuilder with
+    MessageEventBusBuilder with
     ActorSystemBuilder =>
 
-  lazy val integratedWallet = new IntegratedWallet(wallet, messageRouterActor)
+  lazy val integratedWallet = new IntegratedWallet(wallet, messageEventBus)
 }

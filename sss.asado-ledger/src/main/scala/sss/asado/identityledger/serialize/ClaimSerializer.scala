@@ -1,6 +1,5 @@
 package sss.asado.identityledger.serialize
 
-
 import sss.asado.identityledger._
 import sss.asado.util.Serialize._
 
@@ -16,10 +15,14 @@ object ClaimSerializer extends Serializer[Claim] {
   }
 
   def fromBytes(bytes: Array[Byte]): Claim = {
-    val extracted = bytes.extract(ByteDeSerialize, LongDeSerialize, StringDeSerialize, ByteArrayDeSerialize)
-    require(extracted(0)[Byte] == ClaimCode, s"Wrong leading byte for Claim ${bytes.head} instead of $ClaimCode")
-    new Claim(extracted(2)[String], extracted(3)[Array[Byte]]) {
-      private[identityledger] override val uniqueMessage: Long = extracted(1)[Long]
+    val extracted = bytes.extract(ByteDeSerialize,
+                                  LongDeSerialize,
+                                  StringDeSerialize,
+                                  ByteArrayDeSerialize)
+    require(extracted._1 == ClaimCode,
+            s"Wrong leading byte for Claim ${bytes.head} instead of $ClaimCode")
+    new Claim(extracted._3, extracted._4) {
+      private[identityledger] override val uniqueMessage: Long = extracted._2
     }
   }
 

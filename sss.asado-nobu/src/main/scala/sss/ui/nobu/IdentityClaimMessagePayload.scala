@@ -9,8 +9,14 @@ import sss.asado.util.Serialize._
 object IdentityClaimMessagePayload {
 
   def fromBytes(bytes: Array[Byte]):IdentityClaimMessagePayload = {
-    val extracted = bytes.extract(StringDeSerialize, StringDeSerialize, ByteArrayDeSerialize, StringDeSerialize)
-    IdentityClaimMessagePayload(extracted(0)[String], extracted(1)[String], extracted(2)[Array[Byte]], extracted(3)[String])
+
+    (IdentityClaimMessagePayload.apply _).tupled(
+      bytes.extract(
+        StringDeSerialize,
+        StringDeSerialize,
+        ByteArrayDeSerialize,
+        StringDeSerialize)
+    )
   }
 }
 

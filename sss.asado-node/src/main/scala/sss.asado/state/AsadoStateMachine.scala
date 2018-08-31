@@ -5,8 +5,7 @@ import block.{IsSynced, NotSynced}
 import sss.asado.AsadoEvent
 import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.network.Connection
-import sss.asado.network.NetworkController.{ConnectionLost, PeerConnectionLost, QuorumGained, QuorumLost}
-
+import sss.asado.state.LeaderActor.LeaderFound
 
 /**
   * Created by alan on 4/1/16.
@@ -20,7 +19,6 @@ object AsadoStateProtocol {
   case object NotOrderedEvent extends AsadoEvent
   case object StateMachineInitialised extends AsadoEvent
   case class RemoteLeaderEvent(conn: Connection) extends AsadoEvent
-
 
   private[state] case object BlockChainUp
   private[state] case object BlockChainDown
@@ -40,7 +38,7 @@ object AsadoState {
 }
 
 trait AsadoStateMachine
-  extends Actor
+    extends Actor
     with FSM[AsadoState.State, Option[String]]
     with ActorLogging
     with AsadoEventPublishingActor {
@@ -49,14 +47,15 @@ trait AsadoStateMachine
 
   startWith(ConnectingState, None)
 
-  when(ConnectingState) {
+  /*when(ConnectingState) {
     case Event(QuorumGained, _) => goto(QuorumState)
-  }
+  }*/
 
   onTransition {
     case _ -> QuorumState => publish(QuorumStateEvent)
-    case QuorumState -> OrderedState => self ! SplitRemoteLocalLeader(nextStateData.get)
-    case OrderedState -> QuorumState => publish(NotOrderedEvent)
+    case QuorumState -> OrderedState =>
+      self ! SplitRemoteLocalLeader(nextStateData.get)
+    case OrderedState -> QuorumState     => publish(NotOrderedEvent)
     case OrderedState -> ConnectingState => publish(NotOrderedEvent)
     case OrderedState -> ReadyState =>
       publish(ReadyStateEvent)
@@ -74,11 +73,12 @@ trait AsadoStateMachine
   }
 
   when(QuorumState) {
-    case Event(LeaderFound(leaderId),_) => goto(OrderedState) using Some(leaderId)
+    case Event(LeaderFound(leaderId), _) =>
+      goto(OrderedState) using Some(leaderId)
   }
 
   when(OrderedState) {
-    case Event(IsSynced,_) => goto(ReadyState)
+    case Event(IsSynced, _) => goto(ReadyState)
   }
 
   when(ReadyState) {
@@ -86,12 +86,13 @@ trait AsadoStateMachine
   }
 
   whenUnhandled {
-    case Event(QuorumLost, _) => goto(ConnectingState) using None
-    case Event(ConnectionLost(_,_), _) => stay()
-    case Event(PeerConnectionLost(conn, _), Some(leaderId)) if(conn.nodeId.id == leaderId) => goto(QuorumState) using None
+    /*case Event(QuorumLost, _)           => goto(ConnectingState) using None
+    case Event(ConnectionLost(_, _), _) => stay()
+    case Event(PeerConnectionLost(conn, _), Some(leaderId))
+        if (conn.nodeId.id == leaderId) =>
+      goto(QuorumState) using None*/
     case x => log.warning(x.toString); stay()
   }
 
   initialize()
 }
-

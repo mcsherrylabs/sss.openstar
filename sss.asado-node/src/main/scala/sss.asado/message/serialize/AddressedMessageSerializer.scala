@@ -13,8 +13,13 @@ object AddressedMessageSerializer extends Serializer[AddressedMessage] {
       ).toBytes
 
   def fromBytes(bs: Array[Byte]): AddressedMessage = {
-    val extracted = bs.extract(ByteArrayDeSerialize, ByteArrayDeSerialize)
-    AddressedMessage(extracted(0)[Array[Byte]].toLedgerItem, extracted(1)[Array[Byte]].toMessagePayload)
+    AddressedMessage.tupled(
+      bs.extract(
+        ByteArrayDeSerialize(_.toLedgerItem),
+        ByteArrayDeSerialize(_.toMessagePayload)
+      )
+    )
+
   }
 
 }

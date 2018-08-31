@@ -57,7 +57,7 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def analysis: Receive = {
     case StateMachineInitialised =>
-      startNetwork
+      ncRef
       self ! ConnectHomeDelay()
       context.system.scheduler.scheduleOnce(
         FiniteDuration(config.getInt("analysis.delay"), MINUTES),

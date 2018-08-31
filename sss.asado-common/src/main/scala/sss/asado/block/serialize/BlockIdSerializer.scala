@@ -1,26 +1,21 @@
 package sss.asado.block.serialize
 
-import com.google.common.primitives.Longs
 import sss.asado.block._
-import sss.asado.util.Serialize.Serializer
+import sss.asado.util.Serialize._
 
 /**
-  * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
+  * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
   * mcsherrylabs on 3/3/16.
   */
-object BlockIdSerializer extends Serializer[BlockId]{
+object BlockIdSerializer extends Serializer[BlockId] {
 
   override def toBytes(blockId: BlockId): Array[Byte] = {
-    Longs.toByteArray(blockId.blockHeight) ++
-      Longs.toByteArray(blockId.numTxs)
+    LongSerializer(blockId.blockHeight) ++
+      LongSerializer(blockId.numTxs).toBytes
   }
 
   override def fromBytes(b: Array[Byte]): BlockId = {
-    val (heightBs, numTxsBs) = b.splitAt(8)
-    val height = Longs.fromByteArray(heightBs)
-    val numTxs = Longs.fromByteArray(numTxsBs)
-
-    BlockId(height, numTxs)
+    BlockId.tupled(b.extract(LongDeSerialize, LongDeSerialize))
   }
 
 }

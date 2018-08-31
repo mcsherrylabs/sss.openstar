@@ -38,3 +38,6 @@ lazy val analysis = (project in file("sss.asado-analysis"))
   .settings(commonSettings)
   .dependsOn(common % "compile->compile;test->test", node)
 
+lazy val sandbox = (project in file("sandbox"))
+  .settings(commonSettings)
+  .dependsOn(common % "compile->compile;test->test", network)

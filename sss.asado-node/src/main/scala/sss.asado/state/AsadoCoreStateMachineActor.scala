@@ -1,10 +1,8 @@
 package sss.asado.state
 
 import akka.actor.ActorRef
-import akka.agent.Agent
 import sss.asado.block._
-import sss.asado.network.Connection
-import sss.asado.network.MessageRouter.{RegisterRef, UnRegisterRef}
+import sss.asado.network.{MessageEventBus, NetworkRef}
 import sss.asado.state.AsadoStateProtocol._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
@@ -19,10 +17,10 @@ import scala.language.postfixOps
   */
 
 class AsadoCoreStateMachineActor(thisNodeId: String,
-                                 connectedPeers: Agent[Set[Connection]],
                                  blockChainSettings: BlockChainSettings,
                                  bc: BlockChain,
-                                 quorum: Int,
+                                 messageRouter: MessageEventBus,
+                                 ncRef:NetworkRef,
                                  db: Db
                              ) extends AsadoStateMachine {
 
@@ -34,7 +32,6 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
   private def init: Receive = {
     case InitWithActorRefs(
                               leaderRef,
-                              messageRouter,
                               txRouter,
                               blockChainActor,
                               txForwarder) =>
@@ -49,11 +46,11 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
   }
 
   def stateTransitionTasks(
-                           leaderRef: ActorRef,
-                           messageRouter: ActorRef,
-                           txRouter: ActorRef,
-                           blockChainActor: ActorRef,
-                           txForwarder: ActorRef): Receive = {
+                            leaderRef: ActorRef,
+                            messageRouter: MessageEventBus,
+                            txRouter: ActorRef,
+                            blockChainActor: ActorRef,
+                            txForwarder: ActorRef): Receive = {
 
 
     case  swl @ SplitRemoteLocalLeader(leader) =>
@@ -62,15 +59,15 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
         publish(LocalLeaderEvent)
       } else {
         log.info(s"New leader is $leader, begin syncing ... ")
-        connectedPeers().find(_.nodeId.id == leader) match {
+        ncRef.connections().find(_.nodeId.id == leader) match {
           case None => log.warning(s"Could not find leader $leader in peer connections!")
           case Some(c) => publish(RemoteLeaderEvent(c))
         }
       }
 
     case BlockChainStarted(BlockChainUp) =>
-      messageRouter ! RegisterRef(MessageKeys.SignedTx, txRouter)
-      messageRouter ! RegisterRef(MessageKeys.SeqSignedTx, txRouter)
+      messageRouter.subscribe(MessageKeys.SignedTx)( txRouter)
+      messageRouter.subscribe(MessageKeys.SeqSignedTx)( txRouter)
 
     case BlockChainStopped(BlockChainDown) => log.info("Block chain has stopped.")
 
@@ -83,8 +80,8 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
       } else log.info("Begin Tx forward...")
 
     case StopAcceptingTransactions =>
-      messageRouter ! UnRegisterRef(MessageKeys.SignedTx, txRouter)
-      messageRouter ! UnRegisterRef(MessageKeys.SeqSignedTx, txRouter)
+      messageRouter.unsubscribe(MessageKeys.SignedTx)(txRouter)
+      messageRouter.unsubscribe(MessageKeys.SeqSignedTx)(txRouter)
       blockChainActor ! StopBlockChain(self, BlockChainDown)
       log.info("Stop Tx Accept!!")
 

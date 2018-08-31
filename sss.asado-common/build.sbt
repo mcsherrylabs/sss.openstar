@@ -8,4 +8,3 @@ libraryDependencies += "com.mcsherrylabs" %% "sss-ancillary" % Vers.ancillaryVer
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % Vers.akkaVer
 
 
-

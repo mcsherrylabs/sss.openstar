@@ -7,7 +7,7 @@ import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block._
 import sss.asado.ledger._
-import sss.asado.network.NetworkMessage
+import sss.asado.network.{MessageEventBus, NetworkMessage}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 
@@ -43,7 +43,7 @@ object IntegratedWallet {
 }
 
 class IntegratedWallet(wallet: Wallet,
-                       messageRouterActor: ActorRef)(implicit system: ActorSystem) extends Logging {
+                       messageRouterActor: MessageEventBus)(implicit system: ActorSystem) extends Logging {
 
 
   import IntegratedWallet._
@@ -59,8 +59,11 @@ class IntegratedWallet(wallet: Wallet,
 
       case tt @ TxTracker(stx,_ ,_ , _, _) =>
         paymentsInFlight += stx.txId.toBase64Str -> tt
-        messageRouterActor ! NetworkMessage(MessageKeys.SignedTx,
-          LedgerItem(MessageKeys.BalanceLedger, stx.txId, stx.toBytes).toBytes)
+        //TODO why is this sending this message to the 'message router'?
+        //TODO this is publishing a tx as though it came from the network
+        //TODO meaning the reply will come to this actor.
+        /*messageRouterActor ! NetworkMessage(MessageKeys.SignedTx,
+          LedgerItem(MessageKeys.BalanceLedger, stx.txId, stx.toBytes).toBytes)*/
 
       case NetworkMessage(MessageKeys.SignedTxAck, bytes) => log.info(s"SignedTxAck")
 

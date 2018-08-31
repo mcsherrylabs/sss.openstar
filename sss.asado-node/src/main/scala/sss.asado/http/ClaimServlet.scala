@@ -8,7 +8,7 @@ import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
 import sss.asado.block._
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
-import sss.asado.network.NetworkMessage
+import sss.asado.network.{MessageEventBus, NetworkMessage}
 import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
@@ -25,7 +25,7 @@ import scala.util.{Failure, Success, Try}
   */
 class ClaimServlet(actorSystem:ActorSystem,
                    stateMachine: ActorRef,
-                   messageRouter: ActorRef,
+                   messageRouter: MessageEventBus,
                    balanceLedger: BalanceLedger,
                    integratedWallet: IntegratedWallet) extends ScalatraServlet {
 
