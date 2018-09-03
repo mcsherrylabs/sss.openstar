@@ -53,6 +53,14 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   private var blackList = Map[InetAddress, Long]()
   private var blackListByIdentity = Map[String, Long]()
 
+  context.actorOf(
+    Props(
+      classOf[ConnectionTracker],
+      connectionsRef,
+      messageEventBus
+    )
+  )
+
   IO(Tcp) ! Bind(self, netInf.localAddress)
 
   private def waitForBind: Actor.Receive = {

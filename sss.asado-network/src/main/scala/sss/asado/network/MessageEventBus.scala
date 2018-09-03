@@ -31,9 +31,10 @@ object MessageEventBus {
 
       case DecWatch(newRef) =>
         val currReferenceCount = refs(newRef)
-        if (currReferenceCount > 1)
-          refs += newRef -> (currReferenceCount - 1)
-        else if (currReferenceCount > 0) {
+        val newCount = currReferenceCount - 1
+        if (newCount > 0)
+          refs += newRef -> (newCount)
+        else if (newCount <= 0) {
           context unwatch newRef
           refs -= newRef
           msgBus unsubscribe newRef
