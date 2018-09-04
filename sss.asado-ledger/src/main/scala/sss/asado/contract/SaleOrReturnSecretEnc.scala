@@ -101,7 +101,7 @@ case object SaleSecretDec extends Decumbrance {
                                signer: (Array[Byte]) => Array[Byte],
                                secret: Array[Byte]): Seq[Array[Byte]] = {
 
-    Seq(signer(txId), tag.getBytes, secret)
+    Seq(signer(txId), tag.getBytes(StandardCharsets.UTF_8), secret)
   }
 }
 
@@ -110,6 +110,6 @@ case object ReturnSecretDec extends Decumbrance {
     * Utility method to make generating signature sequences more organised
     */
   def createUnlockingSignature(txId:TxId, tag:String, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
-    Seq(signer(txId), tag.getBytes)
+    Seq(signer(txId), tag.getBytes(StandardCharsets.UTF_8))
   }
 }
