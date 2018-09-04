@@ -1,10 +1,13 @@
 package sss.asado
 
+import java.nio.charset.StandardCharsets
+
 import com.google.common.primitives.Ints
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
 import sss.asado.util.ByteArrayComparisonOps._
 import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
+import sss.asado.util.Serialize._
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
@@ -13,9 +16,11 @@ import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
   */
 package object ledger {
 
+  type LedgerId = Byte
+
   type TxId = Array[Byte]
   val TxIdLen = 32
-  val CoinbaseTxId: TxId = "COINBASECOINBASECOINBASECOINBASE".getBytes
+  val CoinbaseTxId: TxId = "COINBASECOINBASECOINBASECOINBASE".getBytes(StandardCharsets.UTF_8)
 
   implicit class TxIdFromString(txId: String) {
     def asTxId: TxId = {
@@ -27,14 +32,22 @@ package object ledger {
 
   implicit class ToLedgerItem(bytes : Array[Byte]) {
     def toLedgerItem: LedgerItem = {
-      val ledgerId = bytes.head
-      val (ledgerTxId, ledgerBytes) = bytes.tail.splitAt(TxIdLen)
-      LedgerItem(ledgerId, ledgerTxId, ledgerBytes)
+      LedgerItem.tupled(
+        bytes.extract(
+          ByteDeSerialize,
+          ByteArrayDeSerialize,
+          ByteArrayDeSerialize
+        )
+      )
     }
   }
 
-  case class LedgerItem(ledgerId: Byte, txId : TxId, txEntryBytes: Array[Byte]) {
-    def toBytes: Array[Byte] =  ledgerId +: (txId ++ txEntryBytes)
+  case class LedgerItem(ledgerId: LedgerId, txId : TxId, txEntryBytes: Array[Byte]) {
+    def toBytes: Array[Byte] =
+      ByteSerializer(ledgerId) ++
+        ByteArraySerializer(txId) ++
+        ByteArraySerializer(txEntryBytes).toBytes
+
     lazy val txIdHexStr : String = txId.toBase64Str
 
     override def equals(obj: scala.Any): Boolean = obj match {
@@ -86,17 +99,33 @@ package object ledger {
   }
 
   trait Ledger {
+
+    val id: LedgerId
+
     @throws[LedgerException]
     def apply(ledgerItem: LedgerItem, blockheight: Long)
-    def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId, ledgerId: Byte): Option[LedgerItem] = None
+    def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId, ledgerId: LedgerId): Option[LedgerItem] = None
   }
 
-  case class LedgerException(ledgerId: Byte, msg: String) extends Exception(msg)
+  case class LedgerException(ledgerId: LedgerId, msg: String) extends Exception(msg)
 
-  class Ledgers(ledgers: Map[Byte, Ledger]) {
-    def apply(ledgerItem: LedgerItem, blockHeight: Long) = ledgers(ledgerItem.ledgerId)(ledgerItem, blockHeight)
+  class Ledgers(ledgers: Seq[Ledger]) {
+
+    //Note the order of val initialisation is important.
+    val ordered: Seq[Ledger] = {
+      ledgers.sortWith(_.id < _.id)
+    }
+
+    val byId: Map[LedgerId, Ledger] = {
+      (ordered map(l => l.id -> l))
+        .toMap
+    }
+
+    assert(byId.size == ordered.size, "Check the ledgers parameter for duplicate ids...")
+
+    def apply(ledgerItem: LedgerItem, blockHeight: Long) = byId(ledgerItem.ledgerId)(ledgerItem, blockHeight)
     def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId): Iterable[LedgerItem] = {
-      val opts = ledgers map {case (k,v) => v.coinbase(nodeIdentity, blockId, k)}
+      val opts = ledgers map {l => l.coinbase(nodeIdentity, blockId, l.id)}
       opts collect { case Some(le) => le}
     }
   }

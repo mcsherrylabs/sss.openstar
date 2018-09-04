@@ -2,6 +2,7 @@ package sss.asado.contract
 
 import java.nio.charset.StandardCharsets
 
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger.TxId
 import sss.asado.util.ByteArrayComparisonOps
@@ -10,7 +11,7 @@ import sss.asado.util.ByteArrayComparisonOps
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 2/16/16.
   */
-case class SingleIdentityEnc(identity: String, minBlockHeight: Long = 0) extends Encumbrance with ByteArrayComparisonOps {
+case class SingleIdentityEnc(identity: Identity, minBlockHeight: Long = 0) extends Encumbrance with ByteArrayComparisonOps {
 
 
   override def toString: String = s"SingleIdentityEnc at min block height $minBlockHeight with identity ${identity}"
@@ -25,7 +26,7 @@ case class SingleIdentityEnc(identity: String, minBlockHeight: Long = 0) extends
       case SingleIdentityDec =>
         val msg = params(0)
         val sig = params(1)
-        val tag = new String(params(2), StandardCharsets.UTF_8)
+        val tag = IdentityTag(new String(params(2), StandardCharsets.UTF_8))
         require(currentBlockHeight >= minBlockHeight, s"$currentBlockHeight < $minBlockHeight, cannot spend this yet.")
         identityService.accountOpt(identity, tag) match {
           case None => throw new IllegalArgumentException(s"Cannot find identity $identity")
@@ -41,7 +42,7 @@ case object SingleIdentityDec extends Decumbrance {
   /**
     * Utility method to make generating signature sequences more organised
     */
-  def createUnlockingSignature(txId:TxId, tag:String, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
-    Seq(signer(txId), tag.getBytes)
+  def createUnlockingSignature(txId:TxId, tag:IdentityTag, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
+    Seq(signer(txId), tag.value.getBytes(StandardCharsets.UTF_8))
   }
 }

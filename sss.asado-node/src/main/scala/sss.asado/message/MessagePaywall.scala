@@ -44,7 +44,7 @@ class MessagePaywall(minNumBlocksInFuture: Int, chargePerMessage: Int,
         require(identityService.accounts(returnIdentity).nonEmpty, s"The return identity must exist (${returnIdentity})")
         require(currentBlockHeight() + minNumBlocksInFuture <= returnBlockHeight,
           s"The return block height must be at least $minNumBlocksInFuture in the future")
-        claimant
+        claimant.value
       case _ => require(s"Only SaleOrReturnSecretEnc is acceptable")
 
     }

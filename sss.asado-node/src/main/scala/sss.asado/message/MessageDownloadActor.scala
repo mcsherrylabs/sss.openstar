@@ -3,9 +3,8 @@ package sss.asado.message
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.MessageKeys
+import sss.asado.{Identity, MessageKeys}
 import sss.asado.MessageKeys._
-
 import sss.asado.network.{MessageEventBus, NetworkMessage, NetworkRef}
 import sss.asado.state.HomeDomain
 import sss.db.Db
@@ -32,7 +31,7 @@ class MessageDownloadActor(who: String,
 
   log.info("MessageDownload actor has started...")
 
-  private val inBox = MessageInBox(who)
+  private val inBox = MessageInBox(Identity(who))
 
   private var isQuiet = true
 

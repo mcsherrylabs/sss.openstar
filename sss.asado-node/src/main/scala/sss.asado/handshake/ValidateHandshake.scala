@@ -1,4 +1,4 @@
-package sss.asado.network
+package sss.asado.handshake
 
 import java.net.InetSocketAddress
 import java.security.SecureRandom
@@ -7,19 +7,21 @@ import java.util.Base64
 import akka.util.ByteString
 import com.google.common.primitives.Longs
 import sss.ancillary.Logging
+import sss.asado.network.ConnectionHandler._
+import sss.asado.network._
 import sss.asado.util.Results._
-import ConnectionHandler._
+import sss.asado.{Identity, IdentityTag}
 
 import scala.util.{Failure, Success}
 
 trait IdentityVerification {
-  val nodeId: String
-  val tag: String
+  val nodeId: Identity
+  val tag: IdentityTag
   def sign(msg: Array[Byte]): Array[Byte]
   def verify(sig: Array[Byte],
              msg: Array[Byte],
-             nodeId: String,
-             tag: String): OkResult
+             nodeId: Identity,
+             tag: IdentityTag): OkResult
 }
 
 object ValidateHandshake {
@@ -71,7 +73,7 @@ class ValidateHandshake(remote: InetSocketAddress,
 
         } else {
           val signedHandshakeBytes = signHisHandshake(shake)
-          hisHandshakeHasBeenSigned = Option(NodeId(shake.nodeId, remote))
+          hisHandshakeHasBeenSigned = Option(NodeId(shake.nodeId.value, remote))
 
           val nextStep =
             if (ourHandshakeHasBeenCorrectlySignedByHim)
@@ -112,7 +114,7 @@ class ValidateHandshake(remote: InetSocketAddress,
     }
   }
 
-  private[network] def isApplicationVersionCompatible(
+  private[handshake] def isApplicationVersionCompatible(
       thatAppVer: ApplicationVersion): OkResult = {
     (thatAppVer.firstDigit == netInf.appVersion.firstDigit)
       .orErrMsg(

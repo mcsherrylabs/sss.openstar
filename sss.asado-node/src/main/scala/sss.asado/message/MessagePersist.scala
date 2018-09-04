@@ -4,6 +4,7 @@ import java.util.Date
 
 import com.twitter.util.SynchronizedLruMap
 import org.joda.time.LocalDateTime
+import sss.asado.Identity
 import sss.db._
 
 /**
@@ -24,8 +25,8 @@ object MessagePersist {
   private val statusRejected = 2
 
   private val messageTableNamePrefix = "message_"
-  private def makeMessageTableName(identity: Identity): Identity = messageTableNamePrefix + identity.toLowerCase
-  private lazy val tableCache = new SynchronizedLruMap[Identity, MessagePersist](500)
+  private def makeMessageTableName(identity: Identity): String = messageTableNamePrefix + identity.value.toLowerCase
+  private lazy val tableCache = new SynchronizedLruMap[String, MessagePersist](500)
 
 
   def apply(identity: Identity)(implicit db:Db): MessagePersist = {
@@ -58,7 +59,7 @@ class MessagePersist(tableName: String)(implicit val db: Db) {
 
 
   private def toMsg(r:Row): Message = Message(
-    r[String](fromCol),
+    Identity(r[String](fromCol)),
      r[Array[Byte]](messageCol).toMessagePayload,
     r[Array[Byte]](txCol),
     r[Long](idCol),

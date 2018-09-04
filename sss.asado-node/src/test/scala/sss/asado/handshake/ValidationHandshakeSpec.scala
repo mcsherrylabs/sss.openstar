@@ -1,20 +1,16 @@
-package sss.asado.network
+package sss.asado.handshake
 
 import akka.util.ByteString
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.NetworkTestFixtures
-import sss.asado.network.ConnectionHandler.{
-  BytesToSend,
-  ConnectionEstablished,
-  WaitForBytes,
-  _
-}
+import sss.asado.network.ConnectionHandler.{BytesToSend, ConnectionEstablished, WaitForBytes}
+import sss.asado.network.{ApplicationVersion, NodeId}
 import sss.asado.util.Results._
 
 class ValidationHandshakeSpec
     extends FlatSpec
     with Matchers
-    with NetworkTestFixtures {
+    with HandshakeFixtures {
 
   "ValidateHandshake " should " get through happy path " in {
 

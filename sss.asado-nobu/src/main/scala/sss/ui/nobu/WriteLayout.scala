@@ -6,6 +6,7 @@ import com.vaadin.server.VaadinSession
 import com.vaadin.ui.Button.ClickEvent
 import com.vaadin.ui.{Button, Notification}
 import sss.ancillary.Logging
+import sss.asado.Identity
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.ui.design.WriteDesign
 import sss.ui.nobu.NobuNodeBridge.{MessageToSend, ShowInBox}
@@ -47,7 +48,7 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
               case Some(to) if to.length == 0 =>
                 Notification.show("'To' cannot be empty", Notification.Type.WARNING_MESSAGE)
               case Some(to) =>
-                Try(identityQuery.account(to)) match {
+                Try(identityQuery.account(Identity(to))) match {
                   case Failure(e) =>
                     log.debug(s"Failed to lookup id $to", e)
                     Notification.show(s"No account exists for $to")
@@ -59,7 +60,7 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                       case Some(text) =>
                         sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
-                        val mts = MessageToSend(to, ac, text, amount)
+                        val mts = MessageToSend(Identity(to), ac, text, amount)
                         mainNobuRef ! mts
                         Option(scheduleCombo.getValue.toString) match {
                           case None | Some(Scheduler.once) =>

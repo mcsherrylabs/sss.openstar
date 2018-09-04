@@ -10,6 +10,7 @@ import com.vaadin.ui.Button.ClickEvent
 import com.vaadin.ui.{Button, Notification, UI}
 import org.joda.time.LocalDateTime
 import sss.ancillary.Logging
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.account.NodeIdentity
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.nodebuilder.ClientNode
@@ -90,8 +91,8 @@ class UnlockClaimView(
 
       case ComponentEvent(`claimBtnVal`, _) =>
 
-        val claim = claimIdentityText.getValue
-        val claimTag = claimTagText.getValue
+        val claim = Identity(claimIdentityText.getValue)
+        val claimTag = IdentityTag(claimTagText.getValue)
 
         if(clientNode.nodeIdentityManager.keyExists(claim, claimTag)) {
           push(Notification.show(s"Identity $claim exists, try loading it instead?"))
@@ -106,11 +107,11 @@ class UnlockClaimView(
                 val nId = clientNode.nodeIdentityManager(claim, claimTag, phrase)
                 val publicKey = nId.publicKey.toBase64Str
                 val message = Message(claim, msgPayload =
-                  IdentityClaimMessagePayload(claim, claimTag, nId.publicKey, claimInfoTextArea.getValue).toMessagePayLoad,
+                  IdentityClaimMessagePayload(claim.value, claimTag.value, nId.publicKey, claimInfoTextArea.getValue).toMessagePayLoad,
                   tx = Array(),
                   index = 0,
                   createdAt = new LocalDateTime)
-                MessageInBox(userDir.administrator).addNew(message)
+                MessageInBox(Identity(userDir.administrator)).addNew(message)
                 push(Notification.show(s"Thank you $claim, your registration CREATE D NEW MESSA"))
               }
             }
@@ -124,8 +125,8 @@ class UnlockClaimView(
       case ComponentEvent(`unlockBtnVal`, _) =>
         Option(identityCombo.getValue) map { idTag =>
           val claimAndTag = IdTagValue(idTag.toString)
-          val tag = claimAndTag.tag
-          val identity = claimAndTag.identity
+          val tag = IdentityTag(claimAndTag.tag)
+          val identity = Identity(claimAndTag.identity)
           val phrase = unLockPhrase.getValue
           Try(clientNode.nodeIdentityManager(identity, tag, phrase)) match {
             case Failure(e) =>
@@ -141,7 +142,7 @@ class UnlockClaimView(
       new Wallet(nId,
         clientNode.balanceLedger,
         clientNode.identityService,
-        new WalletPersistence(nId.id, clientNode.db),
+        new WalletPersistence(nId.id.value, clientNode.db),
         clientNode.currentBlockHeight _)
     }
 

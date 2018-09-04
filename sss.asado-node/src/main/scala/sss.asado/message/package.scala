@@ -5,6 +5,7 @@ import sss.asado.balanceledger._
 import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.message.serialize._
 import sss.asado.util.Serialize.ToBytes
+
 /**
   * Created by alan on 6/6/16.
   */
@@ -41,7 +42,6 @@ package object message {
   case object EndMessagePage
   case object EndMessageQuery
 
-  type Identity = String
 
   case class SavedAddressedMessage(to: Identity, index: Long, savedAt: LocalDateTime, addrMsg: AddressedMessage)
   case class AddressedMessage(ledgerItem: LedgerItem, msgPayload : MessagePayload)

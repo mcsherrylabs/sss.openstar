@@ -11,6 +11,7 @@ import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
+import sss.asado.handshake.ValidateHandshake
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
@@ -119,13 +120,10 @@ trait LedgersBuilder {
   lazy val ledgers: Ledgers = {
 
     val identityLedger =
-      new IdentityLedger(MessageKeys.IdentityLedger, identityService)
+      new IdentityLedger(identityService)
 
-    new Ledgers(
-      Map(
-        MessageKeys.BalanceLedger -> balanceLedger,
-        MessageKeys.IdentityLedger -> identityLedger
-      ))
+    new Ledgers(Seq(balanceLedger, identityLedger))
+
   }
 }
 

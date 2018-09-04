@@ -4,6 +4,7 @@ import java.net.InetSocketAddress
 
 import akka.actor.ActorRef
 import akka.agent.Agent
+import sss.asado.Identity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.Block
 import sss.asado.block.signature.BlockSignatures
@@ -59,8 +60,8 @@ class ConsoleServlet(
       override def help =
         s"addtowallet <identity> <txId> <index> <amount> <blockheight>"
       override def apply(params: Seq[String]): Seq[String] = {
-        val identity = params(0)
-        val walletPersistence = new WalletPersistence(identity, db)
+        val identity = Identity(params(0))
+        val walletPersistence = new WalletPersistence(identity.value, db)
         val txId = params(1).asTxId
         val index = params(2).toInt
         val amount = params(3).toInt
@@ -90,7 +91,7 @@ class ConsoleServlet(
     "claim" -> new Cmd {
       override def help: String = s"Claim an identity with public key "
       override def apply(params: Seq[String]): Seq[String] = {
-        val claim = params(1)
+        val claim = Identity(params(1))
         val pKey = params(2).toByteArray
         identityService.claim(claim, pKey)
         Seq(s"Seems ok ... $claim")
@@ -107,7 +108,7 @@ class ConsoleServlet(
     },
     "id" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = {
-        identityService.accounts(params.head).map(_.toString)
+        identityService.accounts(Identity(params.head)).map(_.toString)
       }
     },
     "blockheader" -> new Cmd {

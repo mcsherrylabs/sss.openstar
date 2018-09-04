@@ -3,7 +3,7 @@ package sss.asado.message
 import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.MessageKeys
+import sss.asado.{Identity, MessageKeys}
 import sss.asado.MessageKeys._
 import sss.asado.balanceledger._
 import sss.asado.block._
@@ -46,7 +46,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
       messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
-        Try(MessagePersist(tracker.to).accept(tracker.index)) match {
+        Try(MessagePersist(Identity(tracker.to)).accept(tracker.index)) match {
           case Failure(e) =>
             tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,
                                           FailureResponse(
@@ -71,7 +71,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
     case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
       messageSenders.get(txMsg.txId.toBase64Str) foreach { tracker =>
-        Try(MessagePersist(tracker.to).reject(tracker.index)) match {
+        Try(MessagePersist(Identity(tracker.to)).reject(tracker.index)) match {
           case Failure(e) =>
             tracker.sndr ! NetworkMessage(
               MessageKeys.MessageResponse,
@@ -87,7 +87,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
     case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
       messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
-        Try(MessagePersist(tracker.to).reject(tracker.index)) match {
+        Try(MessagePersist(Identity(tracker.to)).reject(tracker.index)) match {
           case Failure(e) =>
             tracker.sndr ! NetworkMessage(MessageKeys.MessageResponse,
                                           FailureResponse(
@@ -112,7 +112,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
 
       decode(MessageKeys.MessageQuery, bytes.toMessageQuery) {
         mq: MessageQuery =>
-          val page = MessagePersist(nId.id).page(mq.lastIndex, mq.pageSize)
+          val page = MessagePersist(Identity(nId.id)).page(mq.lastIndex, mq.pageSize)
           val sndr = sender()
           page.foreach(m =>
             sndr ! NetworkMessage(MessageKeys.MessageMsg, m.toBytes))
@@ -140,7 +140,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
             val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
             val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
             val index =
-              MessagePersist(toId).pending(nId.id,
+              MessagePersist(Identity(toId)).pending(nId.id,
                                            addrMsg.msgPayload,
                                            addrMsg.ledgerItem.txEntryBytes)
             val netMsg =

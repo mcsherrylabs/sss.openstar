@@ -200,11 +200,11 @@ object Analysis extends AnalysisDb with Logging {
 
   private def getIdFromEncumbrance(enc: Encumbrance): String = {
     enc match {
-      case SingleIdentityEnc(id, minBlockHeight) => id
+      case SingleIdentityEnc(id, minBlockHeight) => id.value
       case SaleOrReturnSecretEnc(returnIdentity,
       claimant,
       hashOfSecret,
-      returnBlockHeight) => claimant
+      returnBlockHeight) => claimant.value
       case _ => "coinbase"
     }
   }

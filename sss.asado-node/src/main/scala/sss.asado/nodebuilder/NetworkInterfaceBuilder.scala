@@ -2,9 +2,11 @@ package sss.asado.nodebuilder
 
 import com.google.common.primitives.Longs
 import sss.ancillary.Logging
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.account.NodeIdentity
+import sss.asado.handshake.IdentityVerification
 import sss.asado.identityledger.IdentityService
-import sss.asado.network.{IdentityVerification, NetworkInterface}
+import sss.asado.network.NetworkInterface
 import sss.asado.util.Results._
 
 trait NetworkInterfaceBuilder {
@@ -35,8 +37,8 @@ trait NetworkInterfaceBuilder {
 
       override def verify(sig: Array[Byte],
                           msg: Array[Byte],
-                          nodeId: String,
-                          tag: String): OkResult = {
+                          nodeId: Identity,
+                          tag: IdentityTag): OkResult = {
 
         val ac = identityService.accountOpt(nodeId, tag)
         val pk = ac.map(_.publicKey.toBase64Str)
@@ -63,8 +65,8 @@ trait NetworkInterfaceBuilder {
 
       override def sign(msg: Array[Byte]): Array[Byte] = nodeIdentity.sign(msg)
 
-      override val nodeId: String = nodeIdentity.id
-      override val tag: String = nodeIdentity.tag
+      override val nodeId: Identity = nodeIdentity.id
+      override val tag: IdentityTag = nodeIdentity.tag
 
     }
   }

@@ -1,6 +1,7 @@
 package sss.asado.message.serialize
 
 import org.joda.time.LocalDateTime
+import sss.asado.Identity
 import sss.asado.message._
 import sss.asado.util.Serialize._
 
@@ -10,7 +11,7 @@ import sss.asado.util.Serialize._
 object MsgSerializer extends Serializer[Message] {
 
   def toBytes(o: Message): Array[Byte] =
-    (StringSerializer(o.from) ++
+    (StringSerializer(o.from.value) ++
       ByteArraySerializer(o.msgPayload.toBytes) ++
       ByteArraySerializer(o.tx) ++
       LongSerializer(o.index) ++
@@ -18,7 +19,7 @@ object MsgSerializer extends Serializer[Message] {
 
   def fromBytes(bs: Array[Byte]): Message = {
     Message.tupled(
-      bs.extract(StringDeSerialize,
+      bs.extract(StringDeSerialize(Identity),
         ByteArrayDeSerialize(_.toMessagePayload),
         ByteArrayDeSerialize,
         LongDeSerialize,

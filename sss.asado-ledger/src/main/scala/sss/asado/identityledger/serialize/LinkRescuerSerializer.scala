@@ -1,5 +1,6 @@
 package sss.asado.identityledger.serialize
 
+import sss.asado.Identity
 import sss.asado.identityledger._
 import sss.asado.util.Serialize._
 
@@ -11,15 +12,15 @@ object LinkRescuerSerializer extends Serializer[LinkRescuer] {
   def toBytes(linkRescuer: LinkRescuer): Array[Byte] = {
     (ByteSerializer(LinkRescuerCode) ++
       LongSerializer(linkRescuer.uniqueMessage) ++
-      StringSerializer(linkRescuer.rescuer) ++
-      StringSerializer(linkRescuer.identity)).toBytes
+      StringSerializer(linkRescuer.rescuer.value) ++
+      StringSerializer(linkRescuer.identity.value)).toBytes
   }
 
   def fromBytes(bytes: Array[Byte]): LinkRescuer = {
     val extracted = bytes.extract(ByteDeSerialize,
                                   LongDeSerialize,
-                                  StringDeSerialize,
-                                  StringDeSerialize)
+                                  StringDeSerialize(Identity),
+                                  StringDeSerialize(Identity))
     require(
       extracted._1 == LinkRescuerCode,
       s"Wrong leading byte for Link Rescuer ${bytes.head} instead of $LinkRescuerCode")

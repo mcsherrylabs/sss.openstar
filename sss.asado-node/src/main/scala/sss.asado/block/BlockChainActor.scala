@@ -197,7 +197,7 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
           val sig = BlockSignatures(newLastBlock.height).add(
             nodeIdentity.sign(newLastBlock.hash),
               nodeIdentity.publicKey,
-            nodeIdentity.id)
+            nodeIdentity.id.value)
 
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
           blockChainSyncingActor ! DistributeClose(Seq(sig), BlockId(newLastBlock.height, newLastBlock.numTxs))

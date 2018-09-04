@@ -1,18 +1,21 @@
 package sss.asado.identityledger
 
-import java.nio.charset.StandardCharsets
 import java.nio.charset.StandardCharsets.UTF_8
 
 import sss.ancillary.Logging
+import sss.asado.{Identity, IdentityTag, PublishedMessageKeys}
 import sss.asado.ledger._
 
-/**
-  * Created by alan on 5/30/16.
-  */
-class IdentityLedger(ledgerId: Byte, idLedgerStorage: IdentityService) extends  Ledger with Logging {
+
+class IdentityLedger(
+                      idLedgerStorage: IdentityService
+                    ) extends Ledger
+  with Logging {
+
+  val id: LedgerId = PublishedMessageKeys.IdentityLedger
 
   override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
-    require(ledgerItem.ledgerId == ledgerId, s"The ledger id for this (Identity) ledger is $ledgerId but " +
+    require(ledgerItem.ledgerId == id, s"The ledger id for this (Identity) ledger is $id but " +
       s"the ledgerItem passed has an id of ${ledgerItem.ledgerId}")
 
     val ste = ledgerItem.txEntryBytes.toSignedTxEntry
@@ -46,22 +49,22 @@ class IdentityLedger(ledgerId: Byte, idLedgerStorage: IdentityService) extends  
     }
   }
 
-  def verifyRescueRequest(rescuer: String, ste: SignedTxEntry, msg: IdentityLedgerMessage, identity: String) {
+  def verifyRescueRequest(rescuer: Identity, ste: SignedTxEntry, msg: IdentityLedgerMessage, identity: Identity) {
     require(ste.signatures.nonEmpty && ste.signatures.head.size == 2, "A tag/sig pair must be provided to continue.")
 
     val rescuers = idLedgerStorage.rescuers(identity)
     require(rescuers.contains(rescuer), s"This rescuer is not authorized to rescue $identity")
 
-    val tag = new String(ste.signatures.head(0), UTF_8)
+    val tag = IdentityTag(new String(ste.signatures.head(0), UTF_8))
     val sig = ste.signatures.head(1)
     val accOpt = idLedgerStorage.accountOpt(rescuer, tag)
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")
     require(accOpt.get.verify(sig, msg.txId), "The signature does not match the txId")
   }
 
-  def verifyChangeRequest(ste: SignedTxEntry, msg: IdentityLedgerMessage, identity: String) {
+  def verifyChangeRequest(ste: SignedTxEntry, msg: IdentityLedgerMessage, identity: Identity) {
     require(ste.signatures.nonEmpty && ste.signatures.head.size == 2, "A tag/sig pair must be provided to continue.")
-    val tag = new String(ste.signatures.head(0), UTF_8)
+    val tag = IdentityTag(new String(ste.signatures.head(0), UTF_8))
     val sig = ste.signatures.head(1)
     val accOpt = idLedgerStorage.accountOpt(identity, tag)
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")

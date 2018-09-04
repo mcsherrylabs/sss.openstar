@@ -1,6 +1,7 @@
 package sss.asado.wallet
 
 import sss.ancillary.Logging
+import sss.asado.Identity
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
 import sss.asado.contract._
@@ -119,7 +120,7 @@ class Wallet(identity: NodeIdentity,
   }
 
   def encumberToIdentity(atBlockHeight: Long = 0,
-                                         someIdentity: String = identity.id): Encumbrance =
+                                         someIdentity: Identity = identity.id): Encumbrance =
     SingleIdentityEnc(someIdentity, atBlockHeight)
 
 

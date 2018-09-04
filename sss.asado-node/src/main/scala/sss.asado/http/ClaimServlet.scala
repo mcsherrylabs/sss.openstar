@@ -13,7 +13,7 @@ import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
-import sss.asado.{MessageKeys, PublishedMessageKeys}
+import sss.asado.{Identity, MessageKeys, PublishedMessageKeys}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -67,7 +67,7 @@ class ClaimServlet(actorSystem:ActorSystem,
       case Some(claiming) => params.get("pKey") match {
         case None => BadRequest("Param 'pKey' not found")
         case Some(pKeyStr) =>
-            val claim = Claim(claiming, pKeyStr.toByteArray)
+            val claim = Claim(Identity(claiming), pKeyStr.toByteArray)
             val ste = SignedTxEntry(claim.toBytes)
             val le = LedgerItem(MessageKeys.IdentityLedger , claim.txId, ste.toBytes)
             val p = Promise[String]()

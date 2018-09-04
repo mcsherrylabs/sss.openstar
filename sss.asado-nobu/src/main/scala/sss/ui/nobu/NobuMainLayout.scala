@@ -6,7 +6,7 @@ import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.server.FontAwesome
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
-import sss.asado.MessageKeys
+import sss.asado.{Identity, MessageKeys}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
@@ -89,7 +89,7 @@ class NobuMainLayout(uiReactor: UIReactor,
   private lazy val nId = userId.id
   private lazy val inBox = MessageInBox(nId)
 
-  balanceCptnBtn.setCaption(nId)
+  balanceCptnBtn.setCaption(nId.value)
 
   mainNobuRef ! ShowInBox
   mainNobuRef ! ShowBalance
@@ -163,7 +163,7 @@ class NobuMainLayout(uiReactor: UIReactor,
       // Add 4 blocks to min to allow for the local ledger being some blocks behind the
       // up to date ledger.
       Seq(
-        TxOutput(chargePerMessage, SingleIdentityEnc(nobuNode.homeDomain.nodeId.id)),
+        TxOutput(chargePerMessage, SingleIdentityEnc(Identity(nobuNode.homeDomain.nodeId.id))),
         TxOutput(amount, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
           nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim + 4))
       )
@@ -190,7 +190,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case ShowSchedules => push {
         itemPanelVerticalLayout.removeAllComponents()
-        itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id))
+        itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id.value))
       }
 
       case ShowInBox =>
@@ -289,7 +289,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         val signedSTx = signOutputs(tx, secret)
         val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
         val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
-        val bag = Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
+        val bag = Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id.value)
 
         /*val msg = Message(bag.from,
           bag.msg.addrMsg.msgPayload,

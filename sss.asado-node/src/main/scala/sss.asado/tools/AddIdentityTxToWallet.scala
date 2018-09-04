@@ -1,5 +1,6 @@
 package sss.asado.tools
 
+import sss.asado.Identity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.ledger._
@@ -23,8 +24,8 @@ object AddIdentityTxToWallet {
       val dbLoader = new LoadDb(args(0))
       import dbLoader.db
 
-      val identity = args(1)
-      val walletPersistence = new WalletPersistence(identity, db)
+      val identity = Identity(args(1))
+      val walletPersistence = new WalletPersistence(identity.value, db)
       val txId = args(2).asTxId
       val index = args(3).toInt
       val amount = args(4).toInt

@@ -2,6 +2,7 @@ package sss.ui.nobu
 
 
 import akka.actor.ActorRef
+import sss.asado.Identity
 import sss.asado.account.PublicKeyAccount
 import sss.asado.balanceledger.{TxIndex, TxOutput, _}
 import sss.asado.ledger._

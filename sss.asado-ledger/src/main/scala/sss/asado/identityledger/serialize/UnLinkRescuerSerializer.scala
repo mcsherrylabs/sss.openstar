@@ -1,5 +1,6 @@
 package sss.asado.identityledger.serialize
 
+import sss.asado.Identity
 import sss.asado.identityledger._
 import sss.asado.util.Serialize._
 
@@ -11,15 +12,15 @@ object UnLinkRescuerSerializer extends Serializer[UnLinkRescuer] {
   override def toBytes(t: UnLinkRescuer): Array[Byte] = {
     (ByteSerializer(UnLinkRescuerCode) ++
       LongSerializer(t.uniqueMessage) ++
-      StringSerializer(t.rescuer) ++
-      StringSerializer(t.identity)).toBytes
+      StringSerializer(t.rescuer.value) ++
+      StringSerializer(t.identity.value)).toBytes
   }
 
   override def fromBytes(b: Array[Byte]): UnLinkRescuer = {
     val extracted = b.extract(ByteDeSerialize,
                               LongDeSerialize,
-                              StringDeSerialize,
-                              StringDeSerialize)
+                              StringDeSerialize(Identity),
+                              StringDeSerialize(Identity))
     require(extracted._1 == UnLinkRescuerCode,
             s"Wrong leading Byte ${extracted._1} should be $UnLinkRescuerCode")
     new UnLinkRescuer(extracted._3, extracted._4) {

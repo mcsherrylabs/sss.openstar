@@ -1,6 +1,6 @@
 package sss.asado.account
 
-import sss.asado.DummySeedBytes
+import sss.asado.{DummySeedBytes, Identity, IdentityTag}
 
 
 /**
@@ -12,7 +12,7 @@ object TestClientKey {
             phrase: String = "testpassword",
             tag: String = "testtag"): PrivateKeyAccount = {
     KeyPersister.deleteKey(clientIdentity, tag)
-    PrivateKeyAccount(KeyPersister(clientIdentity, tag, phrase, () => {
+    PrivateKeyAccount(KeyPersister(Identity(clientIdentity), IdentityTag(tag), phrase, () => {
       PrivateKeyAccount(DummySeedBytes).tuple
     }))
   }

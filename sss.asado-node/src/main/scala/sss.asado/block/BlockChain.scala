@@ -1,5 +1,6 @@
 package sss.asado.block
 
+import java.nio.charset.StandardCharsets
 import java.util.Date
 
 import com.twitter.util.SynchronizedLruMap
@@ -61,7 +62,7 @@ class BlockChainImpl(implicit db: Db) extends BlockChain
 
   def genesisBlock(prevHash: String = "GENESIS".padTo(32, "8").toString, merkleRoot: String = "GENESIS".padTo(32, "8").toString): BlockHeader = {
     require(blockHeaderTable.count == 0)
-    val genesisHeader = BlockHeader(1, 0, prevHash.substring(0, 32).getBytes, merkleRoot.substring(0, 32).getBytes, new Date())
+    val genesisHeader = BlockHeader(1, 0, prevHash.substring(0, 32).getBytes(StandardCharsets.UTF_8), merkleRoot.substring(0, 32).getBytes(StandardCharsets.UTF_8), new Date())
     BlockHeader(blockHeaderTable.insert(genesisHeader.asMap))
   }
 

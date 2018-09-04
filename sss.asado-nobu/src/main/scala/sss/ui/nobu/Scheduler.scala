@@ -59,7 +59,7 @@ object Scheduler {
   }
 
   def serialiseDetails(from: String, schedule: String, msg: MessageToSend): Seq[String] = {
-    Seq(from, schedule, msg.to, msg.amount.toString, msg.account.publicKey.toBase64Str, msg.text)
+    Seq(from, schedule, msg.to.value, msg.amount.toString, msg.account.publicKey.toBase64Str, msg.text)
   }
 
 }

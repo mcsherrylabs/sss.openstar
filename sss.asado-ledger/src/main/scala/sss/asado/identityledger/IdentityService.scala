@@ -6,6 +6,7 @@ import java.util.Date
 
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.account.PublicKeyAccount
 import sss.db._
 
@@ -16,24 +17,24 @@ import scala.util.{Failure, Success, Try}
   */
 
 trait IdentityServiceQuery {
-  val defaultTag = IdentityService.defaultTag
-  def matches(identity: String, publicKey: PublicKey): Boolean
+  val defaultTag = IdentityTag(IdentityService.defaultTag)
+  def matches(identity: Identity, publicKey: PublicKey): Boolean
   def identify(publicKey: PublicKey): Option[TaggedIdentity]
-  def account(identity: String, tag: String = defaultTag): PublicKeyAccount
-  def accounts(identity: String): Seq[TaggedPublicKeyAccount]
-  def accountOpt(identity: String, tag: String = defaultTag): Option[PublicKeyAccount]
-  def rescuers(identity: String): Seq[String]
-  def list(startIndex: Long = 0, pageSize: Int = Int.MaxValue): Seq[String]
+  def account(identity: Identity, tag: IdentityTag = defaultTag): PublicKeyAccount
+  def accounts(identity: Identity): Seq[TaggedPublicKeyAccount]
+  def accountOpt(identity: Identity, tag: IdentityTag = defaultTag): Option[PublicKeyAccount]
+  def rescuers(identity: Identity): Seq[Identity]
+  def list(startIndex: Long = 0, pageSize: Int = Int.MaxValue): Seq[Identity]
 
 }
 
 trait IdentityService extends IdentityServiceQuery {
-  def claim(identity: String, publicKey: PublicKey, tag: String = defaultTag)
-  def link(identity: String, publicKey: PublicKey, tag: String)
-  def unlink(identity: String, publicKey: PublicKey): Boolean
-  def unlink(identity: String, tag: String): Boolean
-  def linkRescuer(identity: String, rescuer: String)
-  def unLinkRescuer(identity: String, rescuer: String)
+  def claim(identity: Identity, publicKey: PublicKey, tag: IdentityTag = defaultTag)
+  def link(identity: Identity, publicKey: PublicKey, tag: IdentityTag)
+  def unlink(identity: Identity, publicKey: PublicKey): Boolean
+  def unlink(identity: Identity, tag: IdentityTag): Boolean
+  def linkRescuer(identity: Identity, rescuer: Identity)
+  def unLinkRescuer(identity: Identity, rescuer: Identity)
 }
 
 object IdentityService {
@@ -93,11 +94,11 @@ object IdentityService {
     private lazy val keyTable = db.table(keyTableName)
     private lazy val recoveryTable = db.table(recoveryIdentitiesTableName)
 
-    private def toIdOpt(identity: String): Option[Long] = identityTable.toLongIdOpt(s"$identityCol" -> identity)
+    private def toIdOpt(identity: Identity): Option[Long] = identityTable.toLongIdOpt(s"$identityCol" -> identity)
 
-    private def toId(identity: String): Long = toIdOpt(identity).get
+    private def toId(identity: Identity): Long = toIdOpt(identity).get
 
-    private def usingIdentity[T](identity: String)(f: Long => T): T = {
+    private def usingIdentity[T](identity: Identity)(f: Long => T): T = {
       toIdOpt(identity) match {
         case None => throw new IllegalArgumentException(s"No such identity $identity")
         case Some(rowId) => f(rowId)
@@ -105,11 +106,11 @@ object IdentityService {
     }
 
 
-    override def list(startIndex: Long, pageSize: Int): Seq[String] = {
-      identityTable.page(startIndex, pageSize).map(r => r[String](identityCol))
+    override def list(startIndex: Long, pageSize: Int): Seq[Identity] = {
+      identityTable.page(startIndex, pageSize).map(r => Identity(r[String](identityCol)))
     }
 
-    override def matches(identity: String, publicKey: PublicKey): Boolean = {
+    override def matches(identity: Identity, publicKey: PublicKey): Boolean = {
       toIdOpt(identity) match {
         case None => false
         case Some(rowId) =>
@@ -118,7 +119,7 @@ object IdentityService {
       }
     }
 
-    override def unlink(identity: String, tag: String): Boolean = {
+    override def unlink(identity: Identity, tag: IdentityTag): Boolean = {
       usingIdentity(identity) { id =>
         val result = keyTable.delete(where(s"$identityLnkCol = ? AND $tagCol = ? ", id, tag)) == 1
         freeIdentityIfNoKeysOrRescuers(identity)
@@ -126,12 +127,12 @@ object IdentityService {
       }
     }
 
-    def rescuers(identity: String): Seq[String] = {
+    def rescuers(identity: Identity): Seq[Identity] = {
       val fk = identityTable.toLongId(identityCol -> identity)
-      recoveryTable.filter(identityLnkCol -> fk).map(_[String](identityCol))
+      recoveryTable.filter(identityLnkCol -> fk).map(i => Identity(i[String](identityCol)))
     }
 
-    private def freeIdentityIfNoKeysOrRescuers(identity: String): Unit = {
+    private def freeIdentityIfNoKeysOrRescuers(identity: Identity): Unit = {
       if(accounts(identity).isEmpty &&
         rescuers(identity).isEmpty) {
         identityTable.delete(where(s"$identityCol = ?") using identity)
@@ -143,7 +144,7 @@ object IdentityService {
 
     }
 
-    override def unlink(identity: String, publicKey: PublicKey): Boolean = {
+    override def unlink(identity: Identity, publicKey: PublicKey): Boolean = {
       usingIdentity(identity) { identityId =>
         val asChars = publicKey.toBase64Str
         val result = keyTable.delete(where(s"$identityLnkCol = ? AND $publicKeyCol = ? ", identityId, asChars)) == 1
@@ -152,7 +153,7 @@ object IdentityService {
       }
     }
 
-    override def link(identity: String, publicKey: PublicKey, tag: String): Unit = {
+    override def link(identity: Identity, publicKey: PublicKey, tag: IdentityTag): Unit = {
       require(accounts(identity).size <= maxKeysPerIdentity, s"No more than $maxKeysPerIdentity keys allowed per identity.")
       usingIdentity(identity) { id =>
           val asChars = publicKey.toBase64Str
@@ -163,19 +164,19 @@ object IdentityService {
       }
     }
 
-    override def accountOpt(identity: String, tag: String): Option[PublicKeyAccount] = toIdOpt(identity) flatMap { id =>
+    override def accountOpt(identity: Identity, tag: IdentityTag): Option[PublicKeyAccount] = toIdOpt(identity) flatMap { id =>
       keyTable.find(where(s"$identityLnkCol = ? AND $tagCol = ?") using (id, tag)) map{
         row => PublicKeyAccount(row[String](publicKeyCol).toByteArray)
       }
     }
 
-    override def account(identity: String, tag: String): PublicKeyAccount = accountOpt(identity, tag).get
+    override def account(identity: Identity, tag: IdentityTag): PublicKeyAccount = accountOpt(identity, tag).get
 
-    override def accounts(identity: String): Seq[TaggedPublicKeyAccount] = {
+    override def accounts(identity: Identity): Seq[TaggedPublicKeyAccount] = {
       toIdOpt(identity) match {
         case None => Seq()
         case Some(rowId) => keyTable.filter(where(identityLnkCol -> rowId)) map { r: Row =>
-            TaggedPublicKeyAccount(PublicKeyAccount(r(publicKeyCol).toByteArray), r(tagCol))
+            TaggedPublicKeyAccount(PublicKeyAccount(r(publicKeyCol).toByteArray), IdentityTag(r(tagCol)))
           }
       }
     }
@@ -184,13 +185,13 @@ object IdentityService {
       val pKey = publicKey.toBase64Str
       keyTable.find(where (publicKeyCol -> pKey)) map { r =>
         val linkId = r[Long](identityLnkCol)
-        val id = identityTable(linkId)[String](identityCol)
-        val tag = r[String](tagCol)
+        val id = Identity(identityTable(linkId)[String](identityCol))
+        val tag = IdentityTag(r[String](tagCol))
         TaggedIdentity(id, tag)
       }
     }
 
-    override def claim(identity: String, publicKey: PublicKey, tag: String) = db.tx {
+    override def claim(identity: Identity, publicKey: PublicKey, tag: IdentityTag) = db.tx {
       Try {
         val newRow = identityTable.insert(Map(identityCol -> identity, createdCol -> new Date().getTime))
         keyTable.insert(Map(identityLnkCol -> newRow[Long](id), publicKeyCol -> publicKey.toBase64Str,
@@ -204,7 +205,7 @@ object IdentityService {
       }
     }
 
-    override def linkRescuer(identity: String, rescuer: String): Unit = {
+    override def linkRescuer(identity: Identity, rescuer: Identity): Unit = {
       require(accountOpt(rescuer).isDefined, s"Rescuer $rescuer does not exist!")
       require(rescuers(identity).size <= maxRescuersPerIdentity, s"No more than $maxRescuersPerIdentity rescuers allowed per identity.")
       if(!rescuers(identity).contains(rescuer)) {
@@ -218,7 +219,7 @@ object IdentityService {
       }
     }
 
-    override def unLinkRescuer(identity: String, rescuer: String): Unit = {
+    override def unLinkRescuer(identity: Identity, rescuer: Identity): Unit = {
       require(accountOpt(rescuer).isDefined, s"Rescuer $rescuer does not exist!")
       require(rescuers(identity).contains(rescuer), s"$rescuer is not in the rescue list of $identity")
       toIdOpt(identity) match {

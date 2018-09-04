@@ -3,6 +3,7 @@ package sss.asado.balanceledger
 import java.util
 
 import sss.ancillary.Logging
+import sss.asado.PublishedMessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
 import sss.asado.contract.LedgerContext._
@@ -28,6 +29,9 @@ class BalanceLedger(storage: UTXODBStorage,
                     coinbaseValidator: CoinbaseValidator,
                     identityService: IdentityService
                     ) extends Ledger with BalanceLedgerQuery with Logging {
+
+
+  override val id: LedgerId = PublishedMessageKeys.BalanceLedger
 
   private val contextTemplate: Map[String, Any]  = Map(identityServiceKey -> identityService)
 

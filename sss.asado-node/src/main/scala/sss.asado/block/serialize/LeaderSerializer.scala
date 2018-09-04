@@ -1,5 +1,7 @@
 package sss.asado.block.serialize
 
+import java.nio.charset.StandardCharsets
+
 import block.Leader
 import sss.asado.util.Serialize.Serializer
 
@@ -9,7 +11,7 @@ import sss.asado.util.Serialize.Serializer
   */
 object LeaderSerializer extends Serializer[Leader]{
 
-  override def toBytes(l: Leader): Array[Byte] = l.nodeId.getBytes
-  override def fromBytes(b: Array[Byte]): Leader = Leader(new String(b))
+  override def toBytes(l: Leader): Array[Byte] = l.nodeId.getBytes(StandardCharsets.UTF_8)
+  override def fromBytes(b: Array[Byte]): Leader = Leader(new String(b, StandardCharsets.UTF_8))
 
 }

@@ -1,8 +1,10 @@
-package sss.asado.network
+package sss.asado.handshake
 
 import akka.util.ByteString
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.crypto.SeedBytes
+import sss.asado.network.ApplicationVersion
 
 import scala.util.Success
 
@@ -14,8 +16,8 @@ class HandshakeSpec extends FlatSpec with Matchers {
     val time = System.currentTimeMillis()
     val h = Handshake("appName",
                       ApplicationVersion(2, 3, 4),
-                      "nodeId",
-                      "tag",
+                      Identity("nodeId"),
+                      IdentityTag("tag"),
                       Long.MaxValue,
                       sig,
                       time)

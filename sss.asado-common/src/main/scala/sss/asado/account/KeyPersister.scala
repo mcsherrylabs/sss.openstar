@@ -2,6 +2,7 @@ package sss.asado.account
 
 
 import sss.ancillary.{Logging, Memento}
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.crypto.ECBEncryption._
 import sss.asado.util.ByteArrayEncodedStrOps._
 
@@ -14,8 +15,8 @@ private object KeyPersister extends Logging {
 
   def deleteKey(identity: String, tag: String) = memento(identity, tag).clear
   def keyExists(identity: String, tag: String): Boolean = memento(identity, tag).read.isDefined
-  def apply(identity: String,
-            tag: String,
+  def apply(identity: Identity,
+            tag: IdentityTag,
             phrase: String,
             keyGenerator: () => (Array[Byte], Array[Byte])): (Array[Byte], Array[Byte]) = {
 
@@ -27,19 +28,19 @@ private object KeyPersister extends Logging {
       val hashedPhrase = PasswordStorage.createHash(phrase)
       val created = s"$pubKStr:::$hashedPhrase:::$encrypted"
       log.debug(s"CREATED - ${created}")
-      memento(identity, tag).write(created)
+      memento(identity.value, tag.value).write(created)
       apply(identity, tag, phrase, keyGenerator)
     }
 
   }
 
-  def get(identity: String,
-          tag: String,
+  def get(identity: Identity,
+          tag: IdentityTag,
           phrase: String
          ): Option[(Array[Byte], Array[Byte])] = {
 
     require(phrase.length > 7, "Password must be 8 characters or more." )
-    require(tag.length > 0, "Tag cannot be an empty string" )
+    require(tag.value.length > 0, "Tag cannot be an empty string" )
 
     def toKey(str: String): (Array[Byte], Array[Byte]) = {
         val aryOfSecuredKeys = str.split(":::")
@@ -56,12 +57,12 @@ private object KeyPersister extends Logging {
     }
 
     for {
-      contents <- memento(identity, tag).read
+      contents <- memento(identity.value, tag.value).read
     } yield toKey(contents)
 
   }
 
-  def memento(identity: String, tag: String): Memento = Memento(s"$identity.$tag")
+  private def memento(identity: String, tag: String): Memento = Memento(s"$identity.$tag")
 
 }
 

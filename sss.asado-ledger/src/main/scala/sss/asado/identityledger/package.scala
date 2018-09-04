@@ -28,7 +28,7 @@ package object identityledger {
   private[identityledger] val LinkRescuerCode = 6.toByte
   private[identityledger] val UnLinkRescuerCode = 7.toByte
 
-  case class Claim(identity: String, pKey: PublicKey) extends IdentityLedgerMessage(identity) {
+  case class Claim(identity: Identity, pKey: PublicKey) extends IdentityLedgerMessage(identity.value) {
     override def equals(obj: scala.Any): Boolean = {
       obj match {
         case that: Claim =>
@@ -42,7 +42,11 @@ package object identityledger {
     override def hashCode(): Int = uniqueMessage.hashCode
   }
 
-  case class Link(identity: String, pKey: PublicKey, tag: String) extends IdentityLedgerMessage(identity) {
+  case class Link(identity: Identity,
+                  pKey: PublicKey,
+                  tag: IdentityTag
+                 ) extends IdentityLedgerMessage(identity.value) {
+
     override def equals(obj: scala.Any): Boolean = {
       obj match {
         case that: Link =>
@@ -57,8 +61,8 @@ package object identityledger {
     override def hashCode(): Int = uniqueMessage.hashCode
   }
 
-  case class Rescue(rescuer: String, identity: String, pKey: PublicKey, tag: String)
-    extends IdentityLedgerMessage(identity, rescuer) {
+  case class Rescue(rescuer: Identity, identity: Identity, pKey: PublicKey, tag: IdentityTag)
+    extends IdentityLedgerMessage(identity.value, rescuer.value) {
 
     override def equals(obj: scala.Any): Boolean = {
       obj match {
@@ -75,10 +79,10 @@ package object identityledger {
     override def hashCode(): Int = uniqueMessage.hashCode
   }
 
-  case class LinkRescuer(rescuer: String, identity: String) extends IdentityLedgerMessage(rescuer, identity)
-  case class UnLinkRescuer(rescuer: String, identity: String) extends IdentityLedgerMessage(rescuer, identity)
+  case class LinkRescuer(rescuer: Identity, identity: Identity) extends IdentityLedgerMessage(rescuer.value, identity.value)
+  case class UnLinkRescuer(rescuer: Identity, identity: Identity) extends IdentityLedgerMessage(rescuer.value, identity.value)
 
-  case class UnLinkByKey(identity: String, pKey: PublicKey) extends IdentityLedgerMessage(identity) {
+  case class UnLinkByKey(identity: Identity, pKey: PublicKey) extends IdentityLedgerMessage(identity.value) {
     override def equals(obj: scala.Any): Boolean = {
       obj match {
         case that: UnLinkByKey =>
@@ -91,10 +95,10 @@ package object identityledger {
 
     override def hashCode(): Int = uniqueMessage.hashCode
   }
-  case class UnLink(identity: String, tag: String) extends IdentityLedgerMessage(identity, tag)
+  case class UnLink(identity: Identity, tag: IdentityTag) extends IdentityLedgerMessage(identity.value, tag.value)
 
-  case class TaggedIdentity(identity: String , tag:String)
-  case class TaggedPublicKeyAccount(account: PublicKeyAccount, tag:String)
+  case class TaggedIdentity(identity: Identity , tag:IdentityTag)
+  case class TaggedPublicKeyAccount(account: PublicKeyAccount, tag:IdentityTag)
 
   implicit class IdentityLedgerMessageFromBytes(bytes: Array[Byte]) {
     def toIdentityLedgerMessage: IdentityLedgerMessage = bytes.head match {

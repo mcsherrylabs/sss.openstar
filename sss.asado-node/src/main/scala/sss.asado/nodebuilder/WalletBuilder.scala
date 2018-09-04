@@ -9,7 +9,7 @@ import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
 trait WalletPersistenceBuilder {
 
   self: NodeIdentityBuilder with DbBuilder =>
-  lazy val walletPersistence = new WalletPersistence(nodeIdentity.id, db)
+  lazy val walletPersistence = new WalletPersistence(nodeIdentity.id.value, db)
 }
 
 trait WalletBuilder {

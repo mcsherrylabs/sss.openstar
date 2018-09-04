@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.agent.Agent
 import com.vaadin.ui._
+import sss.asado.Identity
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.ui.DashBoard._
@@ -34,7 +35,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
 
     val idLbl = new Label("Identity")
 
-    val allAcs = clientNode.identityService.accounts(id)
+    val allAcs = clientNode.identityService.accounts(Identity(id))
     val idBtn = new Button(id)
     idBtn.setWidth("150px")
     idBtn.setEnabled(false)
@@ -46,7 +47,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
       val hl = new HorizontalLayout()
       hl.setSpacing(true)
       val pKlbl = new Label(ac.account.publicKey.toBase64Str)
-      val tagLbl = new Label(ac.tag)
+      val tagLbl = new Label(ac.tag.value)
       hl.addComponents(pKlbl, tagLbl)
       detailLayout.addComponent(hl)
     }
@@ -66,7 +67,7 @@ class IdentitiesTab(clientNode: ClientNode, status: Agent[Status]) extends Verti
   def update(push: ( => Unit) => Unit) {
 
     val allIds = clientNode.identityService.list()
-    val comps = allIds map (createRow(_))
+    val comps = allIds map (id => createRow(id.value))
 
     push {
       layout.removeAllComponents()

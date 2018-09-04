@@ -12,7 +12,7 @@ object UserSession {
 
 
   def note(nodeId: NodeIdentity, userWallet: Wallet) = synchronized {
-    allSessions = allSessions + (nodeId.id -> UserSession(nodeId, userWallet))
+    allSessions = allSessions + (nodeId.id.value -> UserSession(nodeId, userWallet))
   }
 
   case class UserSession(nodeId: NodeIdentity, userWallet: Wallet)

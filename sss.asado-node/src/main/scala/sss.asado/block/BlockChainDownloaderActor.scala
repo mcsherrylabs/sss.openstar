@@ -131,13 +131,13 @@ class BlockChainDownloaderActor(
               log.info(
                 s"Synching - committed block height ${blockHeader.height}, num txs  ${blockHeader.numTxs}")
               if (BlockSignatures(blockHeader.height)
-                    .indexOfBlockSignature(nodeIdentity.id)
+                    .indexOfBlockSignature(nodeIdentity.id.value)
                     .isEmpty) {
                 val sig = nodeIdentity.sign(blockHeader.hash)
                 val newSig = BlockSignature(0,
                                             new DateTime(),
                                             blockHeader.height,
-                                            nodeIdentity.id,
+                                            nodeIdentity.id.value,
                                             nodeIdentity.publicKey,
                                             sig)
 

@@ -3,6 +3,7 @@ package sss.asado.message
 import java.util.Date
 
 import org.joda.time.LocalDateTime
+import sss.asado.Identity
 import sss.asado.ledger._
 import sss.db._
 
@@ -28,7 +29,7 @@ object MessageInBox {
 
 
   private def toMsg(r:Row): Message = Message(
-    r[String](fromCol),
+    Identity(r[String](fromCol)),
     r[Array[Byte]](messageCol).toMessagePayload,
     r[Array[Byte]](txCol),
     r[Long](idCol),
@@ -76,7 +77,7 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
     r[Array[Byte]](messageCol).toMessagePayload)
 
   private def toSavedAddressedMsg(r:Row): SavedAddressedMessage = SavedAddressedMessage(
-    r[String](toCol),
+    Identity(r[String](toCol)),
     r[Long](idCol),
     new LocalDateTime(r[Long](createdAtCol)),
     toAddressedMsg(r))

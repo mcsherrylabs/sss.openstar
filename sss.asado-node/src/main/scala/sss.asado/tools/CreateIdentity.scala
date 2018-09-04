@@ -1,5 +1,6 @@
 package sss.asado.tools
 
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.account.NodeIdentityManager
 import sss.asado.identityledger.IdentityService.defaultTag
 import sss.asado.nodebuilder._
@@ -16,20 +17,20 @@ object CreateIdentity {
 
     if(args.length == 2) {
       val ledgerUrl = args(0)
-      val identity = args(1)
+      val identity = Identity(args(1))
 
       //require(identity.forall(c => c.isDigit || c.isLower),
        // s"Identity ($identity) must be lower case and a simple alpha numeric")
       object SeedBytes extends SeedBytesBuilder {
         val nodeIdentityManager = new NodeIdentityManager(seedBytes)
-        if (nodeIdentityManager.keyExists(identity, defaultTag)) {
+        if (nodeIdentityManager.keyExists(identity, IdentityTag(defaultTag))) {
           println(s"Key exists for identity $identity - unlocking with phrase")
         } else {
           println(s"Creating key for identity $identity - please provide phrase")
           println("(You will need this phrase again to unlock the key)")
         }
 
-        val ni = nodeIdentityManager.unlockNodeIdentityFromConsole(identity, defaultTag)
+        val ni = nodeIdentityManager.unlockNodeIdentityFromConsole(identity, IdentityTag(defaultTag))
         println("...unlocked.")
         val pkey = ni.publicKey.toBase64Str
         val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")

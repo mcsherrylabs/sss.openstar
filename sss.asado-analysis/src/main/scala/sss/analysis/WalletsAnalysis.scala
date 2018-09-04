@@ -13,8 +13,8 @@ class WalletsAnalysis(inOuts: Seq[InOut]) {
     def discriminator(inOut: InOut): String = {
       inOut.txOut.encumbrance match {
         case enc: SinglePrivateKey => "privateKey"
-        case enc: SingleIdentityEnc => enc.identity
-        case enc: SaleOrReturnSecretEnc => enc.claimant
+        case enc: SingleIdentityEnc => enc.identity.value
+        case enc: SaleOrReturnSecretEnc => enc.claimant.value
       }
     }
     inOuts.groupBy(discriminator)

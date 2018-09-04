@@ -1,7 +1,7 @@
 package sss.asado.account
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.DummySeedBytes
+import sss.asado.{DummySeedBytes, Identity, IdentityTag}
 import sss.asado.util.ByteArrayComparisonOps
 
 /**
@@ -11,8 +11,8 @@ class NodeIdentitySpec extends FlatSpec with Matchers with ByteArrayComparisonOp
 
 
   val nodeIdentityManager = new NodeIdentityManager(DummySeedBytes)
-  val newId = "Totallyrandomw"
-  val newTag = "tag1"
+  val newId = Identity("Totallyrandomw")
+  val newTag = IdentityTag("tag1")
   val passPhrase = "not_password"
   nodeIdentityManager.deleteKey(newId, newTag)
 

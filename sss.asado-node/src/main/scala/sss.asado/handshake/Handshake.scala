@@ -1,15 +1,17 @@
-package sss.asado.network
+package sss.asado.handshake
 
 import akka.util.ByteString
 import sss.ancillary.Logging
+import sss.asado.network.ApplicationVersion
 import sss.asado.util.Serialize._
+import sss.asado.{Identity, IdentityTag}
 
 import scala.util.Try
 
 case class Handshake(applicationName: String,
                      applicationVersion: ApplicationVersion,
-                     nodeId: String,
-                     tag: String,
+                     nodeId: Identity,
+                     tag: IdentityTag,
                      fromNonce: Long,
                      sig: ByteString,
                      time: Long) {
@@ -19,8 +21,8 @@ case class Handshake(applicationName: String,
   lazy val bytes: Array[Byte] = {
     StringSerializer(applicationName) ++
       ByteArraySerializer(applicationVersion.bytes) ++
-      StringSerializer(nodeId) ++
-      StringSerializer(tag) ++
+      StringSerializer(nodeId.value) ++
+      StringSerializer(tag.value) ++
       LongSerializer(fromNonce) ++
       ByteStringSerializer(sig) ++
       LongSerializer(time).toBytes
@@ -33,8 +35,8 @@ object Handshake extends Logging {
       val extracted = bytes.extract(
         StringDeSerialize,
         ByteArrayDeSerialize,
-        StringDeSerialize,
-        StringDeSerialize,
+        StringDeSerialize(Identity),
+        StringDeSerialize(IdentityTag),
         LongDeSerialize,
         ByteStringDeSerialize,
         LongDeSerialize

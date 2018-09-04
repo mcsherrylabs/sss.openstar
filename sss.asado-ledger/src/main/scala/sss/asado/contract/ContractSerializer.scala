@@ -1,5 +1,6 @@
 package sss.asado.contract
 
+import sss.asado.Identity
 import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.util.Serialize._
 
@@ -70,13 +71,13 @@ object ContractSerializer {
   object SingleIdentityEncToFromBytes extends Serializer[SingleIdentityEnc] {
     override def toBytes(t: SingleIdentityEnc): Array[Byte] = {
       (ByteSerializer(SingleIdentityEncCode) ++
-        StringSerializer(t.identity) ++
+        StringSerializer(t.identity.value) ++
         LongSerializer(t.minBlockHeight)).toBytes
     }
 
     override def fromBytes(b: Array[Byte]): SingleIdentityEnc = {
       val extracted =
-        b.extract(ByteDeSerialize, StringDeSerialize, LongDeSerialize)
+        b.extract(ByteDeSerialize, StringDeSerialize(Identity), LongDeSerialize)
       val headerByte = extracted._1
       require(
         headerByte == SingleIdentityEncCode,
@@ -125,16 +126,16 @@ object ContractSerializer {
 
     override def toBytes(t: SaleOrReturnSecretEnc): Array[Byte] = {
       (ByteSerializer(SaleOrReturnSecretEncCode) ++
-        StringSerializer(t.returnIdentity) ++
-        StringSerializer(t.claimant) ++
+        StringSerializer(t.returnIdentity.value) ++
+        StringSerializer(t.claimant.value) ++
         ByteArraySerializer(t.hashOfSecret.bytes) ++
         LongSerializer(t.returnBlockHeight)).toBytes
     }
 
     override def fromBytes(b: Array[Byte]): SaleOrReturnSecretEnc = {
       val extracted = b.extract(ByteDeSerialize,
-                                StringDeSerialize,
-                                StringDeSerialize,
+                                StringDeSerialize(Identity),
+                                StringDeSerialize(Identity),
                                 ByteArrayDeSerialize,
                                 LongDeSerialize)
 

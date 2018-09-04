@@ -4,16 +4,15 @@ package sss.ui.nobu
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-
-import sss.asado.MessageKeys
-import sss.asado.account.{NodeIdentity}
+import sss.asado.{Identity, MessageKeys}
+import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.TxOutput
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
-import sss.asado.ledger.{LedgerItem}
-import sss.asado.message.{Identity, MessageEcryption, MessageInBox, SavedAddressedMessage}
+import sss.asado.ledger.LedgerItem
+import sss.asado.message.{MessageEcryption, MessageInBox, SavedAddressedMessage}
 import sss.asado.nodebuilder.ClientNode
 import sss.asado.wallet.Wallet
-import sss.ui.nobu.NobuNodeBridge.{WalletUpdate}
+import sss.ui.nobu.NobuNodeBridge.WalletUpdate
 import sss.ui.nobu.ScheduledTransfersActor.DetailedMessageToSend
 
 import scala.concurrent.duration.{FiniteDuration, HOURS, MINUTES}
@@ -53,7 +52,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
     // Add 4 blocks to min to allow for the local ledger being some blocks behind the
     // up to date ledger.
     Seq(
-      TxOutput(chargePerMessage, SingleIdentityEnc(nobuNode.homeDomain.nodeId.id)),
+      TxOutput(chargePerMessage, SingleIdentityEnc(Identity(nobuNode.homeDomain.nodeId.id))),
       TxOutput(amount, SaleOrReturnSecretEnc(from, to, secret,
         nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim + 4))
     )
@@ -78,7 +77,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
       val m: SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
       // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
       log.info("MessageToSend finished, sending bag")
-      clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), senderIdentity.id)
+      clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), senderIdentity.id.value)
 
     } match {
       case Failure(e) => log.error(e.toString)
@@ -97,7 +96,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) e
                 self ! DetailedMessageToSend(
                 senderIdentity = us.nodeId,
                 userWallet = us.userWallet,
-                s.to,
+                Identity(s.to),
                 s.account,
                 s.text,
                 s.amount)

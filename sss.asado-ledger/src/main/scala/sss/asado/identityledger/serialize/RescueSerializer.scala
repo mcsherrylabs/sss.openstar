@@ -1,5 +1,6 @@
 package sss.asado.identityledger.serialize
 
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.identityledger._
 import sss.asado.util.Serialize._
 
@@ -10,19 +11,19 @@ object RescueSerializer extends Serializer[Rescue] {
   def toBytes(rescuer: Rescue): Array[Byte] = {
     (ByteSerializer(RescueCode) ++
       LongSerializer(rescuer.uniqueMessage) ++
-      StringSerializer(rescuer.rescuer) ++
-      StringSerializer(rescuer.identity) ++
+      StringSerializer(rescuer.rescuer.value) ++
+      StringSerializer(rescuer.identity.value) ++
       ByteArraySerializer(rescuer.pKey) ++
-      StringSerializer(rescuer.tag)).toBytes
+      StringSerializer(rescuer.tag.value)).toBytes
   }
 
   def fromBytes(bytes: Array[Byte]): Rescue = {
     val extracted = bytes.extract(ByteDeSerialize,
                                   LongDeSerialize,
-                                  StringDeSerialize,
-                                  StringDeSerialize,
+                                  StringDeSerialize(Identity),
+                                  StringDeSerialize(Identity),
                                   ByteArrayDeSerialize,
-                                  StringDeSerialize)
+                                  StringDeSerialize(IdentityTag))
 
     require(
       extracted._1 == RescueCode,

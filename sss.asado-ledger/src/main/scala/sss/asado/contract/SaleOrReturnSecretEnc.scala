@@ -2,6 +2,7 @@ package sss.asado.contract
 
 import java.nio.charset.StandardCharsets
 
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.contract.SaleOrReturnSecretEnc.HashedSecret
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger.TxId
@@ -20,14 +21,14 @@ object SaleOrReturnSecretEnc {
   def hashSecret(secret: String): HashedSecret = HashedSecret(SecureCryptographicHash.hash(secret))
   def hashSecret(secret: Array[Byte]): HashedSecret = HashedSecret(SecureCryptographicHash.hash(secret))
 
-  def apply(returnIdentity: String,
-            claimant: String,
+  def apply(returnIdentity: Identity,
+            claimant: Identity,
             secret: String,
             returnBlockHeight: Long): SaleOrReturnSecretEnc =
     new SaleOrReturnSecretEnc(returnIdentity,claimant, hashSecret(secret), returnBlockHeight)
 
-  def apply(returnIdentity: String,
-            claimant: String,
+  def apply(returnIdentity: Identity,
+            claimant: Identity,
             secret: Array[Byte],
             returnBlockHeight: Long): SaleOrReturnSecretEnc =
     new SaleOrReturnSecretEnc(returnIdentity,claimant, hashSecret(secret), returnBlockHeight)
@@ -35,8 +36,8 @@ object SaleOrReturnSecretEnc {
 }
 
 case class SaleOrReturnSecretEnc(
-                                  returnIdentity: String,
-                                  claimant: String,
+                                  returnIdentity: Identity,
+                                  claimant: Identity,
                                   hashOfSecret: HashedSecret,
                                   returnBlockHeight: Long
                                 ) extends Encumbrance with ByteArrayComparisonOps {
@@ -53,7 +54,7 @@ case class SaleOrReturnSecretEnc(
       case ReturnSecretDec =>
         val msg = params(0)
         val sig = params(1)
-        val tag = new String(params(2), StandardCharsets.UTF_8)
+        val tag = IdentityTag(new String(params(2), StandardCharsets.UTF_8))
         require(currentBlockHeight >= returnBlockHeight, s"$currentBlockHeight < $returnBlockHeight, cannot reclaim this yet.")
         identityService.accountOpt(returnIdentity, tag) match {
           case None => throw new IllegalArgumentException(s"Cannot find identity $returnIdentity")
@@ -63,7 +64,7 @@ case class SaleOrReturnSecretEnc(
       case SaleSecretDec =>
         val msg = params(0)
         val sig = params(1)
-        val tag = new String(params(2), StandardCharsets.UTF_8)
+        val tag = IdentityTag(new String(params(2), StandardCharsets.UTF_8))
         val secret = params(3)
         identityService.accountOpt(claimant, tag) match {
           case None => throw new IllegalArgumentException(s"Cannot find identity $returnIdentity")
@@ -97,11 +98,11 @@ case object SaleSecretDec extends Decumbrance {
   /**
     * Utility method to make generating signature sequences more organised
     */
-  def createUnlockingSignature(txId:TxId, tag:String,
+  def createUnlockingSignature(txId:TxId, tag:IdentityTag,
                                signer: (Array[Byte]) => Array[Byte],
                                secret: Array[Byte]): Seq[Array[Byte]] = {
 
-    Seq(signer(txId), tag.getBytes, secret)
+    Seq(signer(txId), tag.value.getBytes(StandardCharsets.UTF_8), secret)
   }
 }
 
@@ -109,7 +110,7 @@ case object ReturnSecretDec extends Decumbrance {
   /**
     * Utility method to make generating signature sequences more organised
     */
-  def createUnlockingSignature(txId:TxId, tag:String, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
-    Seq(signer(txId), tag.getBytes)
+  def createUnlockingSignature(txId:TxId, tag:IdentityTag, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
+    Seq(signer(txId), tag.value.getBytes(StandardCharsets.UTF_8))
   }
 }

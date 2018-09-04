@@ -1,22 +1,15 @@
 package sss.ui.nobu
 
 import akka.actor.Actor
-
-import sss.asado.MessageKeys
+import sss.asado.{Identity, MessageKeys}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block._
-
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.NetworkMessage
 import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{
-  NotOrderedEvent,
-  RemoteLeaderEvent,
-  StateMachineInitialised
-}
+import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
-
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.reactor.UIReactor
 
@@ -116,7 +109,7 @@ class ClientEventActor(clientNode: ClientNode)
       watchingMsgSpends.get(txId.toBase64Str).map { bag =>
         watchingMsgSpends -= txId.toBase64Str
         val walletUpdate = bag.walletUpdate
-        val msg = Message(bag.from,
+        val msg = Message(Identity(bag.from),
                           bag.msg.addrMsg.msgPayload,
                           bag.sTx.toBytes,
                           0,

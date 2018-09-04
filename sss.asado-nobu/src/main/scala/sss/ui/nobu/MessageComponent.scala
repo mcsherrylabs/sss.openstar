@@ -7,6 +7,7 @@ import com.vaadin.ui.{Button, Layout, Notification}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
+import sss.asado.Identity
 import sss.asado.account.NodeIdentity
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.balanceledger._
@@ -44,7 +45,7 @@ object MessageComponent extends Logging {
             new MsgDetails {
               override val secret: Array[Byte] = msgText.secret
               override val text: String = msgText.text
-              override val fromTo: String = savedMsg.to
+              override val fromTo: String = savedMsg.to.value
               override val bounty: Int = bount
               override val createdAt: LocalDateTime = savedMsg.savedAt
               override val canClaim: Boolean = false
@@ -76,7 +77,7 @@ object MessageComponent extends Logging {
             new MsgDetails {
               override val secret: Array[Byte] = msgText.secret
               override val text: String = msgText.text
-              override val fromTo: String = msg.from
+              override val fromTo: String = msg.from.value
               override val bounty: Int = bount
               override val createdAt: LocalDateTime = msg.createdAt
               override val canClaim: Boolean = true
@@ -158,7 +159,8 @@ class IdentityClaimComponent(parentLayout: Layout,
             case msgStr if msgStr.startsWith("ok:") =>
               val asAry = msgStr.substring(3).split(":")
               val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
-              val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(identityClaimMessagePayload.claimedIdentity, 0))
+              val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(Identity(
+                identityClaimMessagePayload.claimedIdentity), 0))
               val inBlock = asAry(3).toLong
               val walletPersistence = new WalletPersistence(identityClaimMessagePayload.claimedIdentity, db)
               walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))

@@ -1,5 +1,7 @@
 package sss.asado.block
 
+import java.nio.charset.StandardCharsets
+
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block.DistributeTx
 import sss.asado.util.ByteArrayEncodedStrOps._
@@ -48,7 +50,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   def errorBadMessage: Unit = {
     val msg = "Cannot deserialise that message, wrong code for the bytes?"
     log.error(msg)
-    sender() ! NetworkMessage(MessageKeys.MalformedMessage, msg.getBytes)
+    sender() ! NetworkMessage(MessageKeys.MalformedMessage, msg.getBytes(StandardCharsets.UTF_8))
   }
 
   private def working(blockLedgerOpt: Option[BlockChainLedger]): Receive = {

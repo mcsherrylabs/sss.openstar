@@ -4,8 +4,9 @@ import java.net.InetSocketAddress
 
 import akka.util.ByteString
 import sss.ancillary.Logging
+import sss.asado.{Identity, IdentityTag}
 import sss.asado.network.ConnectionHandler._
-import sss.asado.network.{Handshake, NetworkInterface, NodeId}
+import sss.asado.network.{NetworkInterface, NodeId}
 
 import scala.util.{Failure, Random, Success}
 
@@ -51,7 +52,7 @@ class SimpleTestHandshake(netInf: NetworkInterface,
 
         } else {
 
-          hisHandshakeHasBeenSigned = Option(NodeId(shake.nodeId, remote))
+          hisHandshakeHasBeenSigned = Option(NodeId(shake.nodeId.value, remote))
 
           val nextStep =
             if (ourHandshakeHasBeenCorrectlySignedByHim) {
@@ -82,8 +83,8 @@ class SimpleTestHandshake(netInf: NetworkInterface,
     Handshake(
       netInf.appName,
       netInf.appVersion,
-      nodeId,
-      "testTag",
+      Identity(nodeId),
+      IdentityTag("testTag"),
       0,
       ByteString(),
       0 // it's a template, no point in using real time.
