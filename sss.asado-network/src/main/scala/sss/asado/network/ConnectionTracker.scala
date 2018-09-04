@@ -20,8 +20,8 @@ class ConnectionTracker(
       connections += c
       atomicReference.set(connections)
 
-    case ConnectionLost(n) =>
-      connections = connections.filterNot(_.nodeId.isSameId(n))
+    case l @ ConnectionLost(n) =>
+      connections = connections.filterNot(_.nodeId == n)
       atomicReference.set(connections)
   }
 }

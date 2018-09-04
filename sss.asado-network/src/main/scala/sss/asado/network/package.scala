@@ -13,48 +13,25 @@ package object network {
 
   final case class NodeId(id: String, private[network] val inetSocketAddress: InetSocketAddress) {
 
+    assert(Option(inetSocketAddress.getAddress).isDefined, "Cannot provide an InetSocketAddress without an IP address")
+    assert(inetSocketAddress.getPort > 0, "Cannot provide an InetSocketAddress without a port")
+
     def isSameId(nodeId: NodeId) = id == nodeId.id
 
-    def isSameNotNullAddress(inetSocketAddress: InetSocketAddress) = {
-      (for {
-        addr1 <- Option(inetSocketAddress.getAddress)
-        addr2 <- address
-      } yield (addr1 == addr2))
-        .getOrElse(false)
-    }
-
-    def isSameNotNullAddress(nId: NodeId) =
-      (for {
-        addr1 <- nId.address
-        addr2 <- address
-      } yield (addr1 == addr2)).getOrElse(false)
+    def isSameAddress(inetSocketAddress: InetSocketAddress) =
+      inetSocketAddress.getAddress == address
 
 
-    def isSameNotNullAddress(inetAddress: InetAddress) = address.map (_ == inetAddress).getOrElse(false)
+    def isSameAddress(nId: NodeId) =
+      nId.address == address
 
-    val address = Option(inetSocketAddress.getAddress)
+    def isSameAddress(inetAddress: InetAddress) =
+      address == inetAddress
 
-    private lazy val port = Option(inetSocketAddress.getPort)
+    val address = inetSocketAddress.getAddress
 
     override def toString: String = {
-      s"NodeId id:$id, address: $address (!=port:$port)"
-    }
-
-    override def equals(that: scala.Any): Boolean = {
-      that match {
-        case that: NodeId => {
-          this.id == that.id &&
-            this.address == that.address
-        }
-        case _ => false
-      }
-    }
-
-    override def hashCode: Int = {
-        id.hashCode +
-          Option(inetSocketAddress.getAddress)
-            .map(_.hashCode())
-            .getOrElse(0)
+      s"NodeId id:$id, address: $address (!=port:${inetSocketAddress.getPort})"
     }
 
   }
@@ -62,20 +39,21 @@ package object network {
   type InitialHandshakeStepGenerator =
     InetSocketAddress => HandshakeStep
 
-  final case class ConnectionLost(nodeId: NodeId) extends AsadoEvent
+  type UniqueNodeIdentifier = String
 
-  final case class Connection(nodeId: NodeId) extends AsadoEvent
+  final case class ConnectionLost(nodeId: UniqueNodeIdentifier) extends AsadoEvent
 
+  final case class Connection(nodeId: UniqueNodeIdentifier) extends AsadoEvent
 
   final case class ConnectionHandshakeTimeout(remote: InetSocketAddress)
       extends AsadoEvent
+
   final case class ConnectionFailed(remote: InetSocketAddress,
                                     cause: Option[Throwable])
       extends AsadoEvent
 
   final case class IncomingNetworkMessage(
-      //connControllerRef: ActorRef,
-      fromNodeId: NodeId,
+      fromNodeId: UniqueNodeIdentifier,
       msgCode: Byte,
       data: Array[Byte]
   )

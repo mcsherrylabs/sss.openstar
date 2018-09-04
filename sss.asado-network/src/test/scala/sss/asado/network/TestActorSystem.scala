@@ -13,7 +13,7 @@ object TestActorSystem {
   case class MyOtherEvent(i: Int) extends AsadoEvent
 
   case class TestMessage(
-                         nodeId: NodeId,
+                         nodeId: UniqueNodeIdentifier,
                          data: ByteString)
       extends HasNodeId
 
@@ -24,7 +24,7 @@ object TestActorSystem {
     override type T = TestMessage
     override val clazz: Class[T] = classOf[T]
 
-    override def fromBytes(nodeId: NodeId, bytes: Array[Byte]) =
+    override def fromBytes(nodeId: UniqueNodeIdentifier, bytes: Array[Byte]) =
       TestMessage(nodeId, ByteString(bytes))
   }
 

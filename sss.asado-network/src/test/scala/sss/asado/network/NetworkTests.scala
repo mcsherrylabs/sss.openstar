@@ -55,7 +55,7 @@ object NetworkTests {
 
       server.msgBus.subscribe(classOf[ConnectionFailed])(server.startActor)
       nc.connect(
-        NodeId("nosuch", InetSocketAddress.createUnresolved("127.0.0.1", 1111)))
+        NodeId("nosuch", new InetSocketAddress("127.0.0.1", 1111)))
       WaitFor[ConnectionFailed] { failed =>
         server.msgBus.unsubscribe(classOf[ConnectionFailed])(server.startActor)
         End(
@@ -71,7 +71,7 @@ object NetworkTests {
       WaitFor[Connection] { c =>
         WaitFor[ConnectionLost] { lost =>
           WaitFor[Connection] { c =>
-            nc.disconnect(servers._2.nodeId)
+            nc.disconnect(servers._2.nodeId.id)
             server.msgBus.unsubscribe(classOf[ConnectionLost])( server.startActor)
             server.msgBus.unsubscribe(classOf[Connection])(server.startActor)
             End("Connection lost while blacklisted, but regained post blacklist expiry")
@@ -91,7 +91,7 @@ object NetworkTests {
           (server, nc) =>
             nc.connect(servers._1.nodeId)
             WaitFor[Connection] { c =>
-              nc.disconnect(servers._1.nodeId)
+              nc.disconnect(servers._1.nodeId.id)
               server.msgBus.unsubscribe(classOf[Connection])(server.startActor)
               End("Couldn't connect while blacklisted, could on expiry.")
             }

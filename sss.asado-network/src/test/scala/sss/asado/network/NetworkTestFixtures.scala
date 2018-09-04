@@ -13,8 +13,9 @@ trait NetworkTestFixtures {
   val appVer235 = "2.3.5"
   val appVer334 = "3.3.4"
 
+
   val remote: InetSocketAddress =
-    InetSocketAddress.createUnresolved("somehost.com", 9876)
+    new InetSocketAddress("localhost", 9876)
 
   val handshakeVerifier = new IdentityVerification {
     override val nodeId: String = "nodeId"

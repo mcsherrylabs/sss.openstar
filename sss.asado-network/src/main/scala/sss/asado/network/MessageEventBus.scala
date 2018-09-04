@@ -47,7 +47,7 @@ object MessageEventBus {
   }
 
   trait HasNodeId {
-    val nodeId: NodeId
+    val nodeId: UniqueNodeIdentifier
   }
 
 
@@ -55,7 +55,7 @@ object MessageEventBus {
     val msgCode: Byte
     type T <: HasNodeId
     val clazz: Class[T]
-    def fromBytes(nodeId: NodeId, bytes: Array[Byte]): T
+    def fromBytes(nodeId: UniqueNodeIdentifier, bytes: Array[Byte]): T
   }
 
   trait NetworkMessagePublish {
@@ -208,8 +208,7 @@ class MessageEventBus(decoder: Byte => Option[MessageInfo])(
   }
 
   override def publish(networkMessage: NetworkMessage): Unit = {
-    publish(IncomingNetworkMessage(NodeId("dummy",
-      InetSocketAddress.createUnresolved("localhost", 8888)),
+    publish(IncomingNetworkMessage("dummy",
       networkMessage.msgCode,
       networkMessage.data)
     )
