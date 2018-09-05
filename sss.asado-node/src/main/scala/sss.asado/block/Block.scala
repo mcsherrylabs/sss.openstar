@@ -16,10 +16,10 @@ object Block extends Logging {
   private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
   def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
 
-  def drop(height: Long)(implicit db:Db) = {
+  def drop(height: Long)(implicit db:Db): Unit = {
     val tblName = makeTableName(height)
     Try(db.executeSql(s"DROP TABLE $tblName")) match {
-      case Failure(e) => log.debug(s"Exception, table ${tblName} probably doesn't exist.")
+      case Failure(e) => log.debug(s"Exception, table $tblName probably doesn't exist.")
       case Success(_) =>
     }
   }
@@ -30,7 +30,7 @@ object Block extends Logging {
     def hasNext(candis: Seq[Long], count: Long): Long = {
       candis match {
         case Seq() =>  count
-        case head +: rest if(head == count + 1) => hasNext(rest, count + 1)
+        case head +: rest if head == count + 1 => hasNext(rest, count + 1)
         case _ => count
       }
     }
@@ -42,7 +42,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   import Block._
 
-  val tableName = makeTableName(height)
+  val tableName: String = makeTableName(height)
   private val id = "id"
   private val txid = "txid"
   private val entry = "entry"
@@ -58,7 +58,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   private val blockTxTable = db.table(tableName)
 
-  private[block] def truncate: Unit = db.executeSql(s"TRUNCATE TABLE $tableName")
+  private[block] def truncate(): Unit = db.executeSql(s"TRUNCATE TABLE $tableName")
 
   def entries: Seq[BlockTx] = {
     blockTxTable.map (toBlockTx, OrderAsc(id))
@@ -89,7 +89,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   def apply(k: TxId): BlockTx = get(k).get
 
-  def count = blockTxTable.count
+  def count: Long = blockTxTable.count
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 

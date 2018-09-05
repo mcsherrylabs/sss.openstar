@@ -11,6 +11,7 @@ import sss.db._
 object AnalysisMessages {
   case class Message(blockHeight:Long, msg: String, msgType: MessageType, at: DateTime)
 
+  //wouldn't enum be a better fix or you're thinking of extendability later on?
   type MessageType = Int
   val info = 1
   val warn = 2

@@ -43,7 +43,7 @@ object Analysis extends AnalysisDb with Logging {
 
   val blockOneAnalysis = AnalysisFromMemory(1, 0, Seq(), 0, 0, 0, 0)
 
-  def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements(CoinbaseTxId)
+  def isCoinBase(input: TxInput): Boolean = input.txIndex.txId sameElements CoinbaseTxId
 
   def apply(blockHeight: Long, outs: Option[Seq[InOut]])(implicit db:Db): Analysis = {
     require(blockHeight > 0, s"Blockheight starts at 1, not $blockHeight")
@@ -51,7 +51,7 @@ object Analysis extends AnalysisDb with Logging {
       if (blockHeight == 1) blockOneAnalysis
       else {
         outs match {
-          case Some(outs) => AnalysisFromTables(blockHeight, outs, getHeaderTable)
+          case Some(o) => AnalysisFromTables(blockHeight, o, getHeaderTable)
           case None => AnalysisFromTables(blockHeight, db.table(makeTableName(blockHeight)), getHeaderTable)
         }
       }
@@ -125,8 +125,8 @@ object Analysis extends AnalysisDb with Logging {
       val result: Seq[InOut] = allEntries.foldLeft(previousAnalysis.txOuts)((acc, le) => {
 
         val e = le.ledgerItem.txEntryBytes.toSignedTxEntry
-        audit(e.txId sameElements le.ledgerItem.txId, ((s"${le.index} ${le.ledgerItem.ledgerId} " +
-          s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")))
+        audit(e.txId sameElements le.ledgerItem.txId, s"${le.index} ${le.ledgerItem.ledgerId} " +
+          s"${le.ledgerItem.txIdHexStr}=${e.txId.toBase64Str} Tx Entry has different txId to LedgerItem!")
 
 
         le.ledgerItem.ledgerId match {

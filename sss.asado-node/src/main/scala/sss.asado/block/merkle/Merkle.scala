@@ -47,12 +47,10 @@ object MerkleTree {
       else build(reduce(lastRow.grouped(2).toIndexedSeq))
     }
 
-    val trees = seq.grouped(2).map { lst =>
-      lst match {
-        case head +: Seq() => MerkleTree[A](head)
-        case head +: tail +: Seq() => MerkleTree[A](head, tail)
-        case x => throw new Exception(s"What? $x")
-      }
+    val trees = seq.grouped(2).map {
+      case head +: Seq() => MerkleTree[A](head)
+      case head +: tail +: Seq() => MerkleTree[A](head, tail)
+      case x => throw new Exception(s"What? $x")
     }
 
     build(trees.toIndexedSeq)
@@ -61,18 +59,18 @@ object MerkleTree {
 
   def apply[A](a: A)(implicit f: (A, A) => A): MerkleTree[A] = apply(a,a)
 
-  def apply[A](a: A, b: A)(implicit f: (A, A) => A): MerkleTree[A] = new MerkleTreeLeaf(a, b)
+  def apply[A](a: A, b: A)(implicit f: (A, A) => A): MerkleTree[A] = MerkleTreeLeaf(a, b)
 }
 
 
-case class MerkleTreeBranch[A](val left: MerkleTree[A], val right: MerkleTree[A])(implicit f:(A,A)=>A) extends MerkleTree[A] {
+case class MerkleTreeBranch[A](left: MerkleTree[A], right: MerkleTree[A])(implicit f:(A,A)=>A) extends MerkleTree[A] {
 
-  override def hash = implicitly
+  override def hash: (A, A) => A = implicitly
 
   left.parent = Some(this)
   right.parent = Some(this)
 
-  override val leafs = left.leafs ++ right.leafs
+  override val leafs: Map[A, MerkleTree[A]] = left.leafs ++ right.leafs
 
   def sibling(mt: MerkleTree[A]): Seq[A] = mt match {
     case `left` => right.root +: restPath
@@ -85,9 +83,9 @@ case class MerkleTreeBranch[A](val left: MerkleTree[A], val right: MerkleTree[A]
 }
 
 
-case class MerkleTreeLeaf[A](val left: A, val right: A)(implicit f: (A,A) => A) extends MerkleTree[A] {
+case class MerkleTreeLeaf[A](left: A, right: A)(implicit f: (A,A) => A) extends MerkleTree[A] {
 
-  override def hash = implicitly
+  override def hash: (A, A) => A = implicitly
 
   override val leafs = Map(left -> this, right -> this)
 

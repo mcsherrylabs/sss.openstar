@@ -22,7 +22,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   val id = 20000
   val stx = LedgerItem(1, DummySeedBytes(32), DummySeedBytes(100))
 
-  "A Find Leader " should " be corrrectly serialised and deserialized " in {
+  "A Find Leader " should " be correctly serialised and deserialized " in {
     val c = FindLeader(1234, 99, 4, "Holy Karelia!")
     val asBytes = c.toBytes
     val backAgain = asBytes.toFindLeader
@@ -31,7 +31,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "A Leader " should " be corrrectly serialised and deserialized " in {
+  "A Leader " should " be correctly serialised and deserialized " in {
     val c = Leader("Holy Karelia!")
     val asBytes = c.toBytes
     val backAgain = asBytes.toLeader
@@ -39,7 +39,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "A Vote Leader " should " be corrrectly serialised and deserialized " in {
+  "A Vote Leader " should " be correctly serialised and deserialized " in {
     val c = VoteLeader("Holy Karelia!")
     val asBytes = c.toBytes
     val backAgain = asBytes.toVoteLeader
@@ -47,7 +47,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "A Get Page Tx" should " be corrrectly serialised and deserialized " in {
+  "A Get Page Tx" should " be correctly serialised and deserialized " in {
     val c = GetTxPage(Long.MaxValue, 4, 45)
     val asBytes = c.toBytes
     val backAgain: GetTxPage = asBytes.toGetTxPage
@@ -57,7 +57,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "A block signature " should " be corrrectly serialised and deserialized " in {
+  "A block signature " should " be correctly serialised and deserialized " in {
     val pk = DummySeedBytes(Random.nextInt(200))
     val sig = DummySeedBytes(Random.nextInt(200))
     val sig2 = DummySeedBytes(Random.nextInt(200))
@@ -74,7 +74,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain !== c2)
   }
 
-  "A block signature close block " should " be corrrectly serialised and deserialized " in {
+  "A block signature close block " should " be correctly serialised and deserialized " in {
 
     val sig2 = DummySeedBytes(Random.nextInt(200))
     val allSigs = (0 to 10) map { i =>

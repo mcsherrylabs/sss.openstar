@@ -28,7 +28,7 @@ class TransactionHistoryPersistenceSpec extends FlatSpec with Matchers {
   val multiInOut2 = ExpandedTx(Seq(ExpandedTxElement(txIds(2), "tayna", 34), ExpandedTxElement(txIds(2), "clare", 34)),
     Seq(ExpandedTxElement(txIds(2), "alice", 34), ExpandedTxElement(txIds(2), "clare", 34)), whenDate, 5)
 
-  def someExpandedTxs = {
+  def someExpandedTxs: Stream[ExpandedTx] = {
     Stream(simpleInOut, multiInOut, multiInOut2)
   }
 
@@ -38,15 +38,15 @@ class TransactionHistoryPersistenceSpec extends FlatSpec with Matchers {
     val result = txPeristence.list
     assert(result.size == someExpandedTxs.size)
     someExpandedTxs.foreach { inTx =>
-      assert(result.find(_ == inTx).isDefined, s"$inTx not found!")
+      assert(result.contains(inTx), s"$inTx not found!")
     }
   }
 
   it should " dropping all txs " in {
     val result = txPeristence.list
-    assert(result.size > 0)
+    assert(result.nonEmpty)
     txPeristence.recreateTable
-    assert(txPeristence.list.size == 0)
+    assert(txPeristence.list.isEmpty)
     someExpandedTxs.foreach(txPeristence.write)
     assert(txPeristence.list.size == someExpandedTxs.size)
   }
@@ -60,16 +60,16 @@ class TransactionHistoryPersistenceSpec extends FlatSpec with Matchers {
     val alices = txPeristence.filter("alice")
     val target = Seq(simpleInOut, multiInOut2)
     target.foreach { inTx =>
-      assert(alices.find(_ == inTx).isDefined, s"$inTx not found!")
+      assert(alices.contains(inTx), s"$inTx not found!")
     }
     assert(alices.size == target.size)
   }
 
-  it should " fail to retrieve txs that aren't there " in {
+  it should "fail to retrieve txs that aren't there " in {
     assert(txPeristence.filter("NOONE") == Seq(), "Should get nothing ")
   }
 
-  it should " delete txs related to a given block height " in {
+  it should "delete txs related to a given block height " in {
     assert(txPeristence.list.size == 3, "Wrong assumption")
     txPeristence.delete(4)
     assert(txPeristence.list.size == 1, "Not deleted?")

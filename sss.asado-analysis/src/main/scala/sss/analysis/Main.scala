@@ -5,7 +5,7 @@ import org.joda.time.format.DateTimeFormat
 import sss.ancillary.{DynConfig, _}
 import sss.asado.nodebuilder.ClientNode
 import sss.ui.ExportServlet
-import sss.ui.reactor.ReactorActorSystem
+import sss.ui.reactor.ReactorActorSystem`
 
 /**
   * Created by alan on 6/10/16.
@@ -28,7 +28,7 @@ object Main {
     clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
     clientNode.initStateMachine
 
-
+    // wouldn't pure config lib be a cleaner solution (ie reduce code size)
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")
     server = ServerLauncher(httpConfig,
       ServletContext("/", "WebContent", InitServlet(buildUIServlet, "/*")),

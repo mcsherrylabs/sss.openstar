@@ -12,6 +12,7 @@ import sss.db._
 
 trait TransactionHistoryQuery {
 
+  // futures?
   def filter(identity: String): Seq[ExpandedTx]
   def list: Seq[ExpandedTx]
 }
@@ -47,13 +48,12 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
 
   private val txTable = db.table(tableName)
 
-  def recreateTable = db.executeSqls(Seq(dropTableSql, createTableSql))
+  def recreateTable: Seq[Int] = db.executeSqls(Seq(dropTableSql, createTableSql))
 
-  def delete(blockHeight: Long): Unit = {
+  def delete(blockHeight: Long): Unit =
     txTable.delete(where(s"$blockHeightCol = ?") using blockHeight)
-  }
 
-
+  // no transaction required?
   def write(expanded: ExpandedTx): Unit = {
     db.tx {
 
@@ -102,7 +102,7 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
 
     val allTxs = rowsInvolvingIdentity.map(_.apply[String](txIdCol))
     if(allTxs.nonEmpty) {
-      val replaceableParams = (0 until allTxs.size).map(_ => "?").mkString(",")
+      val replaceableParams = allTxs.indices.map(_ => "?").mkString(",")
       val rows = txTable.filter(
         where(s"$txIdCol IN ($replaceableParams)", allTxs: _*)
           orderBy OrderDesc(blockTimeCol))

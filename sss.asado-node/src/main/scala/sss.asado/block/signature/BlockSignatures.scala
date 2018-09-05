@@ -93,11 +93,6 @@ object BlockSignatures {
       db.table(tableName)
     }
 
-    /**
-      *
-      * @param blkSig
-      * @return
-      */
     override def write(blkSig: BlockSignature): BlockSignature = {
       require(height == blkSig.height, "Trying to save a signature into the wrong block.")
       Try(table.insert(blkSig.asMap)) match {
@@ -108,10 +103,10 @@ object BlockSignatures {
     }
 
     override def write(blkSigs: Seq[BlockSignature]): Seq[BlockSignature] = {
-      table.tx(blkSigs.map(write(_)))
+      table.tx(blkSigs.map(write))
     }
 
-    override def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {
+    override def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String): BlockSignature = {
       apply(table.insert(Map(nodeId_str -> nodeId,
         created_dt_str -> DateTime.now.getMillis,
         signature_str -> signature,
@@ -124,7 +119,7 @@ object BlockSignatures {
     }
 
     override def signatures(maxToReturn: Int): Seq[BlockSignature] = {
-      table.page(0, maxToReturn, Seq(OrderAsc(id))) map (apply)
+      table.page(0, maxToReturn, Seq(OrderAsc(id))) map apply
     }
 
     def apply(row: Row): BlockSignature =

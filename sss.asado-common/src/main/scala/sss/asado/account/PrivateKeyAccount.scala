@@ -10,6 +10,7 @@ import sss.asado.crypto.SeedBytes
   * @param privateKey
   * @param publicKey
   */
+// can we check somehow are they real couple?  in order to enforce it here so we don't run into issues later on
 case class PrivateKeyAccount(privateKey: Array[Byte],
                              override val publicKey: Array[Byte])
   extends PublicKeyAccount(publicKey) {
