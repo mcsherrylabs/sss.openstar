@@ -131,7 +131,7 @@ object Analysis extends AnalysisDb with Logging {
 
         le.ledgerItem.ledgerId match {
           case MessageKeys.IdentityLedger =>
-            val msg = e.txEntryBytes.toIdentityLedgerMessage
+            val msg = e.txEntryBytes.toIdentityLedgerTx
             audit(msg.txId sameElements le.ledgerItem.txId, "Id ledger txId mismatch")
             msg match {
               case Claim(id, pKey) =>

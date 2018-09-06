@@ -3,15 +3,31 @@ package sss.asado.peers
 import akka.actor.{Actor, ActorSystem, Props}
 import sss.asado.AsadoEvent
 import sss.asado.chains.GlobalChainIdMask
-import sss.asado.network.{Connection, ConnectionLost, MessageEventBus}
+import sss.asado.network.MessageEventBus.HasNodeId
+import sss.asado.network._
 import sss.asado.peers.PeerManager.Query
 
 
 object PeerManager {
+
+  case class PeerConnection(c: Capabilities) extends AsadoEvent
+  case class UnQuery(q: Query)
+
   trait Query
   case class ChainQuery(chainId: GlobalChainIdMask) extends Query
   case class IdQuery(ids: Set[String]) extends Query
 
+  case class Capabilities(supportedChains: GlobalChainIdMask,
+                          nodeId: UniqueNodeIdentifier)
+    extends HasNodeId
+
+  case class QueryCapabilities(supportedChains: GlobalChainIdMask,
+                          nodeId: UniqueNodeIdentifier)
+    extends HasNodeId
+
+  implicit class CapabilitiesOps(val caps: Capabilities) extends AnyVal {
+    def toNetworkMessage: NetworkMessage = ???
+  }
 }
 
 class PeerManager(messageEventBus: MessageEventBus)

@@ -47,9 +47,9 @@ trait AsadoStateMachine
 
   startWith(ConnectingState, None)
 
-  /*when(ConnectingState) {
+  when(ConnectingState) {
     case Event(QuorumGained, _) => goto(QuorumState)
-  }*/
+  }
 
   onTransition {
     case _ -> QuorumState => publish(QuorumStateEvent)

@@ -1,4 +1,4 @@
-package sss.asado.block
+package sss.asado.chains
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import block._
@@ -7,19 +7,21 @@ import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
+import sss.asado.block._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.ledger.Ledgers
-import sss.asado.network.{Connection, MessageEventBus, NetworkMessage, NetworkRef}
-import sss.asado.state.AsadoStateProtocol.{LocalLeaderEvent, RemoteLeaderEvent}
+import sss.asado.network.{ConnectionLost, MessageEventBus, NetworkMessage, NetworkRef}
+import sss.asado.peers.PeerManager.{Capabilities, PeerConnection}
+import sss.asado.util.IntBitSet
 import sss.db.Db
 
+import scala.collection.immutable.Nil
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
-case class SynchroniseWith(who: Connection)
 
 /**
   * This actor's job is to bring the local blockchain up to date with
@@ -42,11 +44,11 @@ case class SynchroniseWith(who: Connection)
   * @param db
   * @param ledgers
   */
-class BlockChainDownloaderActor(
+class ChainDownloaderActor(
                                  nodeIdentity: NodeIdentity,
                                  nc: NetworkRef,
                                  messageRouter: MessageEventBus,
-                                 stateMachine: ActorRef,
+                                 chainId: GlobalChainIdMask,
                                  bc: BlockChain with BlockChainSignatures)(implicit db: Db, ledgers: Ledgers)
     extends Actor
     with ActorLogging
@@ -57,6 +59,8 @@ class BlockChainDownloaderActor(
                                  blockId: BlockId,
                                  retryCount: Int = 0)
 
+  messageRouter.subscribe(classOf[PeerConnection])
+  messageRouter.subscribe(classOf[ConnectionLost])
   messageRouter.subscribe(Synced)
   messageRouter.subscribe(PagedTx)
   messageRouter.subscribe(EndPageTx)
@@ -68,22 +72,40 @@ class BlockChainDownloaderActor(
   override def postStop = log.warning("BlockChainDownloaderActor is down!");
   super.postStop
 
-  override def receive: Receive = syncLedgerWithLeader
+  override def receive: Receive = syncLedger
 
+  private var peerInUse: Option[PeerConnection] = None
+  private var peers: List[PeerConnection] = List()
   private var synced = false
 
-  private def syncLedgerWithLeader: Receive = {
+  private case class UseThisPeer(p: PeerConnection)
 
-    case LocalLeaderEvent =>
-      messageRouter.unsubscribe(ConfirmTx)
+  private def syncLedger: Receive = {
 
-    case RemoteLeaderEvent(conn) =>
-      messageRouter.subscribe(ConfirmTx)
+    case ConnectionLost(nodeId) =>
+      peers = peers filterNot (_.c.nodeId == nodeId)
 
-      context.system.scheduler
-        .scheduleOnce(1 seconds, self, SynchroniseWith(conn))
+      def useAnotherPeer(peers:List[PeerConnection]) = {
+        peers match {
+          case Nil => log.warning("Lost connection {}, no more connections, waiting...", nodeId)
+          case p :: _ => self ! UseThisPeer(p)
+        }
 
-    case SynchroniseWith(who) =>
+      }
+
+      peerInUse match {
+
+        case Some(peer) if peer.c.nodeId == nodeId => useAnotherPeer(peers)
+        case None => useAnotherPeer(peers)
+        case _ => //some other peer
+      }
+
+
+    case UseThisPeer(peer@PeerConnection(Capabilities(mask, nodeId))) =>
+
+      peerInUse = Option(peer)
+
+      //context.setReceiveTimeout()
       val getTxs = {
         val lb = bc.lastBlockHeader
         val blockStorage = Block(lb.height + 1)
@@ -91,8 +113,16 @@ class BlockChainDownloaderActor(
         val startAtNextIndex = indexOfLastRow + 1
         GetTxPage(lb.height + 1, startAtNextIndex, 50)
       }
+      nc.send(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), nodeId)
 
-      nc.send(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), who.nodeId)
+
+    case peer @ PeerConnection(Capabilities(mask, nodeId)) if (IntBitSet(mask).intersects(chainId))=>
+
+      peers = peer +: peers
+
+      if(peerInUse.isEmpty) self ! UseThisPeer(peer)
+
+
 
     case NetworkMessage(MessageKeys.PagedTx, bytes) =>
       decode(PagedTx, bytes.toBlockChainTx) { blockChainTx =>
@@ -172,27 +202,9 @@ class BlockChainDownloaderActor(
     case NetworkMessage(Synced, bytes) =>
       synced = true
       val getTxPage = bytes.toGetTxPage
-      stateMachine ! IsSynced
+      messageRouter.publish()
       log.info(s"Downloader is synced to tx page $getTxPage")
 
-    case NetworkMessage(ConfirmTx, bytes) =>
-      decode(ConfirmTx, bytes.toBlockChainTx) { blockChainTx =>
-        Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
-          case Failure(e) =>
-            sender() ! NetworkMessage(MessageKeys.NackConfirmTx,
-                                      blockChainTx.toId.toBytes)
-            log.error(
-              e,
-              s"Ledger cannot journal ${blockChainTx.blockTx}, game over.")
-          case Success(resultBlockChainTx) =>
-            if (resultBlockChainTx.toId != blockChainTx.toId) {
-              log.warning(s"Local  is  ${resultBlockChainTx.toId}")
-              log.warning(s"Remote is  ${blockChainTx.toId}")
-            }
-            sender() ! NetworkMessage(MessageKeys.AckConfirmTx,
-                                      resultBlockChainTx.toId.toBytes)
-        }
-      }
   }
 
 }

@@ -1,18 +1,22 @@
 package sss.asado.chains
 
+import sss.asado.network.UniqueNodeIdentifier
 import sss.asado.peers.PeerManager
+
 import concurrent.ExecutionContext.Implicits.global
 
 class ChainManager(
-                    chains: Chains,
+                    thisNodeId: UniqueNodeIdentifier,
+                    chain: Chain,
                     peerManager: PeerManager
                   ) {
 
-  /*chains() foreach { chain =>
-    peerManager.find(chain.id) map { connection =>
+
+  def start(): Unit = {
+    if(chain.quorum.exists(_ == thisNodeId)) {
 
     }
-  }*/
 
+  }
 
 }

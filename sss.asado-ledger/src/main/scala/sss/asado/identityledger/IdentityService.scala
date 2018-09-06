@@ -134,11 +134,10 @@ object IdentityService {
     private def freeIdentityIfNoKeysOrRescuers(identity: String): Unit = {
       if(accounts(identity).isEmpty &&
         rescuers(identity).isEmpty) {
-        identityTable.delete(where(s"$identityCol = ?") using identity)
+        identityTable delete where(s"$identityCol = ?").using(identity)
         // remove this identity from being a rescuer, otherwise a reclaimed identity
         // could be a valid rescuer for an identity
-        recoveryTable.delete(where(s"$identityCol = ?") using identity)
-
+        recoveryTable delete where(s"$identityCol = ?").using(identity)
       }
 
     }

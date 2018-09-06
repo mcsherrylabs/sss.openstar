@@ -10,6 +10,8 @@ import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
+import scala.util.Try
+
 /**
   * Created by alan on 5/24/16.
   */

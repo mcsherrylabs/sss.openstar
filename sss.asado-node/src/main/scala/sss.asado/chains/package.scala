@@ -1,12 +1,15 @@
 package sss.asado
 
 import sss.asado.ledger.Ledgers
+import sss.asado.network.UniqueNodeIdentifier
 
 package object chains {
 
   type GlobalChainIdMask = Int
 
-  case class Chain(id: GlobalChainIdMask, ledgers: Ledgers)
+  case class Chain(id: GlobalChainIdMask, ledgers: Ledgers) {
+    def quorum: Set[UniqueNodeIdentifier] = Set()
+  }
 
   class Chains(chains: Seq[Chain]) {
 
