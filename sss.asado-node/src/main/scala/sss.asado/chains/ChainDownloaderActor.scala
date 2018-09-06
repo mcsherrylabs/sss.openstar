@@ -202,7 +202,7 @@ class ChainDownloaderActor(
     case NetworkMessage(Synced, bytes) =>
       synced = true
       val getTxPage = bytes.toGetTxPage
-      messageRouter.publish()
+      //messageRouter.publish()
       log.info(s"Downloader is synced to tx page $getTxPage")
 
   }
