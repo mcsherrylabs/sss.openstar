@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, FSM}
 import block.{IsSynced, NotSynced}
 import sss.asado.AsadoEvent
 import sss.asado.actor.AsadoEventPublishingActor
+import sss.asado.chains.QuorumMonitor.Quorum
 import sss.asado.network.Connection
 import sss.asado.state.LeaderActor.LeaderFound
 
@@ -47,9 +48,9 @@ trait AsadoStateMachine
 
   startWith(ConnectingState, None)
 
-  /*when(ConnectingState) {
-    case Event(QuorumGained, _) => goto(QuorumState)
-  }*/
+  when(ConnectingState) {
+    case Event(Quorum(_), _) => goto(QuorumState)
+  }
 
   onTransition {
     case _ -> QuorumState => publish(QuorumStateEvent)

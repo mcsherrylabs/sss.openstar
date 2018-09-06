@@ -7,8 +7,10 @@ package object chains {
 
   type GlobalChainIdMask = Int
 
-  case class Chain(id: GlobalChainIdMask, implicit val ledgers: Ledgers) {
-    def quorum: Set[UniqueNodeIdentifier] = Set()
+  trait Chain {
+    val id: GlobalChainIdMask
+    implicit val ledgers: Ledgers
+    def quorumMembers(): Seq[UniqueNodeIdentifier]
   }
 
   class Chains(chains: Seq[Chain]) {

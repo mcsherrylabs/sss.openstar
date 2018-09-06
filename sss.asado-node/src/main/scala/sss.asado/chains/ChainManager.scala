@@ -13,7 +13,7 @@ class ChainManager(
 
 
   def start(): Unit = {
-    if(chain.quorum.exists(_ == thisNodeId)) {
+    if(chain.quorumMembers.exists(_ == thisNodeId)) {
 
     }
 

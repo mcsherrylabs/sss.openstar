@@ -111,6 +111,14 @@ trait ActorSystemBuilder {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
+trait QuorumMonitorBuilder {
+    self: ChainBuilder with
+      MessageEventBusBuilder =>
+
+    lazy val quorumMonitor: QuorumMonitor = new QuorumMonitor(messageEventBus, chain)
+}
+
+
 trait ChainBuilder {
 
   self: BlockChainBuilder
@@ -118,28 +126,32 @@ trait ChainBuilder {
     with BalanceLedgerBuilder
     with DbBuilder =>
 
-  val chainId: GlobalChainIdMask = 1
-
-  lazy val chain: Chain = Chain(chainId, {
-
-    val identityLedger =
-      new IdentityLedger(MessageKeys.IdentityLedger, identityService)
+  val globalChainId: GlobalChainIdMask = 1
+  val quorumService = new QuorumService(globalChainId.toString)
 
 
-    val quorumService = new QuorumService(chainId.toString)
+  lazy val chain: Chain = new Chain {
+    override val id: GlobalChainIdMask = globalChainId
 
-    val quorumLedger: QuorumLedger = new QuorumLedger(
-      MessageKeys.QuorumLedger,
-      quorumService,
-      identityService.accounts)
+    override implicit val ledgers: Ledgers = new Ledgers({
+      val identityLedger =
+        new IdentityLedger(MessageKeys.IdentityLedger, identityService)
 
-    new Ledgers(
+      val quorumLedger: QuorumLedger = new QuorumLedger(
+        MessageKeys.QuorumLedger,
+        quorumService,
+        identityService.accounts)
+
       Map(
         MessageKeys.BalanceLedger -> balanceLedger,
         MessageKeys.IdentityLedger -> identityLedger,
         MessageKeys.QuorumLedger -> quorumLedger
-      ))
-  })
+      )}
+    )
+    override def quorumMembers: Seq[UniqueNodeIdentifier] = quorumService.members()
+  }
+
+
 }
 
 trait DecoderBuilder {

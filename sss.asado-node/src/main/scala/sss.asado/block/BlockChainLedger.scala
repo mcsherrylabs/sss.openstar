@@ -12,7 +12,11 @@ import sss.db.Db
 
 
 object BlockChainLedger {
-  def apply(height: Long)(implicit db: Db, ledgers: Ledgers): BlockChainLedger = new BlockChainLedger(Block(height), ledgers)
+
+  def apply(height: Long)
+           (implicit db: Db, ledgers: Ledgers): BlockChainLedger =
+    new BlockChainLedger(Block(height), ledgers)
+
 }
 
 class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
