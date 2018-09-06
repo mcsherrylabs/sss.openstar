@@ -30,7 +30,7 @@ class AccountSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     //assert(pkPair.publicKey.length === 32)
   }
 
-  it should " honour equals and hashcode  " in {
+  it should "honour equals and hashcode" in {
     val sut = new Account(pkPair.address)
     assert(sut.address == pkPair.address)
 
@@ -41,10 +41,10 @@ class AccountSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes)
     val sut3 = new Account(pkPair2.address)
     assert(sut != sut3)
-    assert(sut != pkPair.address)
+    assert(sut.address == pkPair.address)
   }
 
-  it should "be able to sign a message and verify the mesage was signed " in {
+  it should "be able to sign a message and verify the message was signed" in {
 
     val msg = "Holy guacamole, it's a message from Zod"
     val wrongMsg = "Hly guacamole, it's a message from Zod"

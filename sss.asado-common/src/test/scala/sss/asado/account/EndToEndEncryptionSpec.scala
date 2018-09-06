@@ -18,7 +18,7 @@ class EndToEndEncryptionSpec extends FlatSpec with Matchers with ByteArrayCompar
   lazy val pkPair2 = PrivateKeyAccount(DummySeedBytes.randomSeed(32))
 
   lazy val message = "There once was a man from Nantucket, and rode her like Billy the Kid"
-
+// where is the fail scenario?
   "End to End encryption " should " successfully encrypt and decrypted with a public/private shared secret " in {
 
     val sharedSecret = Curve25519.createSharedSecret(pkPair1.privateKey, pkPair2.publicKey)

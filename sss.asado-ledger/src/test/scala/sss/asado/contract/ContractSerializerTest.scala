@@ -25,7 +25,7 @@ class ContractSerializerTest extends FlatSpec with Matchers {
 
   }
 
-  it should " be corrrectly serialised and deserialized as an ecumbrance " in {
+  it should " be correctly serialised and deserialized as an ecumbrance " in {
     val pKeyEncumbrance = SinglePrivateKey(pkPair.publicKey)
 
     val bytes = pKeyEncumbrance.toBytes

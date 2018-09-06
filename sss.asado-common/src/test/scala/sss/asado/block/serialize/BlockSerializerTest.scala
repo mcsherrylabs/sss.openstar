@@ -1,6 +1,5 @@
 package sss.asado.block.serialize
 
-import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
@@ -36,7 +35,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(blockChainTxId.blockTxId.txId === c.blockTx.ledgerItem.txId)
   }
 
-  "A Block id " should " be corrrectly serialised and deserialized " in {
+  "A Block id " should " be correctly serialised and deserialized " in {
     val c = BlockId(222, 3433)
     val asBytes = c.toBytes
     val backAgain = asBytes.toBlockId
@@ -47,7 +46,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(backAgain === c)
   }
 
-  "A Block chain Tx id " should " be corrrectly serialised and deserialized " in {
+  "A Block chain Tx id " should " be correctly serialised and deserialized " in {
     val c = BlockChainTxId(height, BlockTxId(stx.txId, 34))
     val asBytes = c.toBytes
     val backAgain = asBytes.toBlockChainIdTx
@@ -66,7 +65,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(c.contains(stx.txId.toBase64Str))
   }
 
-  "An Block Tx id " should " be corrrectly serialised and deserialized " in {
+  "An Block Tx id " should " be correctly serialised and deserialized " in {
     val c = BlockTxId(stx.txId, 34)
     val asBytes = c.toBytes
     val backAgain = asBytes.toBlockIdTx
@@ -85,7 +84,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     assert(c.contains(stx.txId.toBase64Str))
   }
 
-  "A tx message " should " be corrrectly serialised and deserialized " in {
+  "A tx message " should " be correctly serialised and deserialized " in {
     val txId = DummySeedBytes(Random.nextInt(50))
     val msg = TxMessage(3.toByte,
                         txId,

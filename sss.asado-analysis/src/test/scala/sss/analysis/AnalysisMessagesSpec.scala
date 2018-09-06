@@ -18,7 +18,7 @@ class AnalysisMessagesSpec extends FlatSpec with Matchers {
     sut.write("Hellpo world ")
     val ret = sut()
 
-    assert(!ret.isEmpty)
+    assert(ret.nonEmpty)
     assert(ret.head.msg == "Hellpo world ")
     assert(ret.head.msgType == AnalysisMessages.error)
   }
@@ -35,7 +35,7 @@ class AnalysisMessagesSpec extends FlatSpec with Matchers {
     val sut = new AnalysisMessages(35)
     (0 to 4) foreach(_ => sut.write("Hellpo world "))
     val ret = sut()
-    assert(!ret.isEmpty, "Wrote 5, got none?")
+    assert(ret.nonEmpty, "Wrote 5, got none?")
     assert(ret.size == 5, s"Wrote 5 but got back ${ret.size}")
   }
 

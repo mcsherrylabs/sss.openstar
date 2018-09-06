@@ -28,7 +28,7 @@ object Main {
     clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
     clientNode.initStateMachine
 
-
+    // wouldn't pure config lib be a cleaner solution (ie reduce code size)
     val httpConfig = DynConfig[ServerConfig]("httpServerConfig")
     server = ServerLauncher(httpConfig,
       ServletContext("/", "WebContent", InitServlet(buildUIServlet, "/*")),

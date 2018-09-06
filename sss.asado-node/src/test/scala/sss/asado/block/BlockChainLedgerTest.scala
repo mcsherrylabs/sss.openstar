@@ -24,9 +24,9 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
 
   implicit val db: Db = Db()
-  implicit val ledgers = new Ledgers(Map(99.toByte -> TestLedger))
+  implicit val ledgers: Ledgers = new Ledgers(Map(99.toByte -> TestLedger))
 
-  def resetUtxo = db.executeSql("TRUNCATE TABLE utxo")
+  def resetUtxo: Int = db.executeSql("TRUNCATE TABLE utxo")
 
   resetUtxo
 
@@ -43,7 +43,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
 
   def resetUTXOBlockAndCreateTx(height: Long): LedgerItem  = {
     resetUtxo
-    Block(height).truncate
+    Block(height).truncate()
     LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
   }
 
