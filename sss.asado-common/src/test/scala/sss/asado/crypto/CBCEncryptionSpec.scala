@@ -30,7 +30,7 @@ class CBCEncryptionSpec extends PropSpec
 
         intercept[Exception]{
           val badDec = CBCEncryption.decrypt(key + "!", encrypted, iv)
-          assert(new String(badDec) == value, "Value correctly decrypted with wrong key!")
+          assert(new String(badDec, StandardCharsets.UTF_8) == value, "Value correctly decrypted with wrong key!")
         }
       }
     }
@@ -72,7 +72,7 @@ class CBCEncryptionSpec extends PropSpec
         val k: Array[Byte] = key ++ "!".getBytes()
         intercept[Exception]{
           val badDec = CBCEncryption.decrypt(k, encrypted, iv)
-          assert(new String(badDec) == value, "Value correctly decrypted with wrong key!")
+          assert(new String(badDec, StandardCharsets.UTF_8) == value, "Value correctly decrypted with wrong key!")
         }
 
       }

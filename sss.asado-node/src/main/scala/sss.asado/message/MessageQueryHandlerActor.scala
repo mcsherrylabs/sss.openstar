@@ -8,7 +8,7 @@ import sss.asado.MessageKeys._
 import sss.asado.balanceledger._
 import sss.asado.block._
 import sss.asado.ledger._
-import sss.asado.network.{IncomingNetworkMessage, MessageEventBus, NetworkMessage, NodeId}
+import sss.asado.network._
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 
@@ -106,13 +106,13 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
       log.warning(new String(bytes, StandardCharsets.UTF_8))
 
     case IncomingNetworkMessage(
-        nId: NodeId,
+        nId: UniqueNodeIdentifier,
         MessageKeys.MessageQuery,
         bytes) =>
 
       decode(MessageKeys.MessageQuery, bytes.toMessageQuery) {
         mq: MessageQuery =>
-          val page = MessagePersist(nId.id).page(mq.lastIndex, mq.pageSize)
+          val page = MessagePersist(nId).page(mq.lastIndex, mq.pageSize)
           val sndr = sender()
           page.foreach(m =>
             sndr ! NetworkMessage(MessageKeys.MessageMsg, m.toBytes))
@@ -125,7 +125,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
       }
 
     case IncomingNetworkMessage(
-        nId: NodeId,
+        nId: UniqueNodeIdentifier,
         MessageKeys.MessageAddressed,
         bytes) =>
 
@@ -140,7 +140,7 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
             val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
             val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
             val index =
-              MessagePersist(toId).pending(nId.id,
+              MessagePersist(toId).pending(nId,
                                            addrMsg.msgPayload,
                                            addrMsg.ledgerItem.txEntryBytes)
             val netMsg =

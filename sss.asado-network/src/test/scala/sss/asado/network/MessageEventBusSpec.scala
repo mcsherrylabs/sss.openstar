@@ -1,8 +1,6 @@
 package sss.asado.network
 
-import java.net.InetSocketAddress
 
-import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.TestProbe
 import akka.util.ByteString
 
@@ -23,8 +21,8 @@ class MessageEventBusSpec extends FlatSpec with Matchers {
   val observer1 = probe1.ref
   val observer2 = probe2.ref
 
-  val fromNodeId: NodeId =
-    NodeId("test", InetSocketAddress.createUnresolved("somehost.com", 8008))
+  val fromNodeId = "test"
+    //NodeId("test", InetSocketAddress.createUnresolved("somehost.com", 8008))
   val connController = TestProbe().ref
   val incomingNetworkMessage =
     IncomingNetworkMessage(fromNodeId, 1.toByte, Array())

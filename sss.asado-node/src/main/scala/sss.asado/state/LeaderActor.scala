@@ -28,7 +28,7 @@ object LeaderActor {
 }
 
 class LeaderActor(thisNodeId: String,
-                  quorum: Set[NodeId],
+                  quorum: Set[UniqueNodeIdentifier],
                   messageBus: MessageEventBus,
                   ncRef: NetworkRef,
                   stateMachine: ActorRef,
@@ -125,7 +125,7 @@ class LeaderActor(thisNodeId: String,
       val confirms = leaderConfirms + vote.nodeId
       log.info(
         s"$thisNodeId got a vote from ${vote.nodeId}, now have ${confirms.size} of $quorum")
-      if (confirms.size == quorum) {
+      if (confirms.size == quorum.size) {
         // I am the leader.
         context.setReceiveTimeout(Duration.Undefined)
         context.become(handle(thisNodeId))

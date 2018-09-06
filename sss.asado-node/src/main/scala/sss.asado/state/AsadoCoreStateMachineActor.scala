@@ -59,7 +59,7 @@ class AsadoCoreStateMachineActor(thisNodeId: String,
         publish(LocalLeaderEvent)
       } else {
         log.info(s"New leader is $leader, begin syncing ... ")
-        ncRef.connections().find(_.nodeId.id == leader) match {
+        ncRef.connections().find(_.nodeId == leader) match {
           case None => log.warning(s"Could not find leader $leader in peer connections!")
           case Some(c) => publish(RemoteLeaderEvent(c))
         }

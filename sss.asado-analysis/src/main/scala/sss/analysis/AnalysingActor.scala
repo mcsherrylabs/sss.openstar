@@ -29,9 +29,9 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
 
   private def connecting: Receive = {
     case RemoteLeaderEvent(conn) =>
-      context.become(connected(conn.nodeId.id) orElse analysis)
-      status.alter(s => s.copy(whoConnectedTo = conn.nodeId.id))
-      UIReactor.eventBroadcastActorRef ! Connected(conn.nodeId.id)
+      context.become(connected(conn.nodeId) orElse analysis)
+      status.alter(s => s.copy(whoConnectedTo = conn.nodeId))
+      UIReactor.eventBroadcastActorRef ! Connected(conn.nodeId)
 
 
     case ConnectHomeDelay(delay) =>

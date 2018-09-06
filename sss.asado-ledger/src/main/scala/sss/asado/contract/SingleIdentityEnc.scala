@@ -42,6 +42,6 @@ case object SingleIdentityDec extends Decumbrance {
     * Utility method to make generating signature sequences more organised
     */
   def createUnlockingSignature(txId:TxId, tag:String, signer: (Array[Byte]) => Array[Byte]): Seq[Array[Byte]] = {
-    Seq(signer(txId), tag.getBytes)
+    Seq(signer(txId), tag.getBytes(StandardCharsets.UTF_8))
   }
 }

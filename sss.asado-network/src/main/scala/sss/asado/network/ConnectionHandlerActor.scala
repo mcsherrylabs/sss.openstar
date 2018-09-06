@@ -36,8 +36,6 @@ object ConnectionHandler {
   final case class ConnectionEstablished(nodeId: NodeId)
     extends HandshakeStep
 
-
-
   final case class ConnectionRef(nodeId: NodeId, handlerRef: ActorRef)
 
 }
@@ -152,7 +150,7 @@ class ConnectionHandlerActor(
         fromWire(packet.toByteBuffer) match {
           case Success(NetworkMessage(msgCode, data)) =>
             eventBus.publish(
-              IncomingNetworkMessage(/*sender(), */ nId, msgCode, data))
+              IncomingNetworkMessage(nId.id, msgCode, data))
             false
 
           case Failure(e) =>

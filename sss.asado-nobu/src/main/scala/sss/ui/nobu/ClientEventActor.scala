@@ -49,7 +49,7 @@ class ClientEventActor(clientNode: ClientNode)
 
   private def connecting: Receive = {
     case RemoteLeaderEvent(conn) =>
-      context.become(connected(conn.nodeId.id) orElse business)
+      context.become(connected(conn.nodeId) orElse business)
       self ! BroadcastConnected
 
     case ConnectHomeDelay(delay) =>
@@ -92,13 +92,13 @@ class ClientEventActor(clientNode: ClientNode)
         MessageKeys.SignedTx,
         savedAddressedMessage.addrMsg.ledgerItem.toBytes)
       watchingMsgSpends += savedAddressedMessage.addrMsg.ledgerItem.txIdHexStr -> b
-      clientNode.ncRef.send(netMsg, clientNode.homeDomain.nodeId)
+      clientNode.ncRef.send(netMsg, clientNode.homeDomain.nodeId.id)
 
     case b @ BountyTracker(sender, userWallet, txIndex, out, le) =>
       watchingBounties += txIndex.txId.toBase64Str -> b
       clientNode.ncRef.send(
         NetworkMessage(MessageKeys.SignedTx, le.toBytes),
-        clientNode.homeDomain.nodeId)
+        clientNode.homeDomain.nodeId.id)
 
     case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
       val bId = bytes.toBlockChainIdTx
