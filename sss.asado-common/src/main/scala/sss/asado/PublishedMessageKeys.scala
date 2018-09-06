@@ -26,6 +26,7 @@ trait PublishedMessageKeys {
 
   val BalanceLedger: Byte = 70
   val IdentityLedger: Byte = 71
+  val QuorumLedger: Byte = 72
 }
 
 object PublishedMessageKeys extends PublishedMessageKeys

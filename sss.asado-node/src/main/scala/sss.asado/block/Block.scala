@@ -42,7 +42,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
 
   import Block._
 
-  val tableName = makeTableName(height)
+  private val tableName = makeTableName(height)
   private val id = "id"
   private val txid = "txid"
   private val entry = "entry"

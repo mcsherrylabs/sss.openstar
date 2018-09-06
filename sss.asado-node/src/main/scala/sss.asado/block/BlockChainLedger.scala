@@ -4,6 +4,7 @@ package sss.asado.block
 
 
 import sss.ancillary.Logging
+import sss.asado.chains.Chain
 import sss.asado.ledger.{LedgerItem, Ledgers}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db

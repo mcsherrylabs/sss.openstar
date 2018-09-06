@@ -47,7 +47,7 @@ class TransactionHistoryPersistence(implicit db:Db) extends TransactionHistoryQu
 
   private val txTable = db.table(tableName)
 
-  def recreateTable = db.executeSqls(Seq(dropTableSql, createTableSql))
+  private [analysis] def recreateTable = db.executeSqls(Seq(dropTableSql, createTableSql))
 
   def delete(blockHeight: Long): Unit = {
     txTable.delete(where(s"$blockHeightCol = ?") using blockHeight)

@@ -18,7 +18,7 @@ trait BlockChainActorsBuilder {
     NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
-    LedgersBuilder with
+    ChainBuilder with
     WalletBuilder with
     StateMachineActorBuilder =>
 
@@ -47,7 +47,7 @@ trait BlockChainActorsBuilder {
       blockChainSynchronizationActor,
       wallet,
       db,
-      ledgers))
+      chain))
 
   def buildTxRouter: ActorRef =
     actorSystem.actorOf(RoundRobinPool(nodeConfig.blockChainSettings.numTxWriters).props(
@@ -65,13 +65,13 @@ trait BlockChainDownloaderBuilder {
     NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
-    LedgersBuilder =>
+    ChainBuilder =>
 
   lazy val blockChainDownloaderActor: ActorRef = buildChainDownloader
 
   def buildChainDownloader =
     actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, ncRef,
-      messageEventBus, stateMachineActor, bc, db, ledgers))
+      messageEventBus, stateMachineActor, bc, db, chain.ledgers))
 
 }
 
@@ -85,13 +85,20 @@ trait ClientBlockChainDownloaderBuilder {
     NetworkControllerBuilder with
     BlockChainBuilder with
     DbBuilder with
-    LedgersBuilder =>
+    ChainBuilder =>
 
   lazy val blockChainDownloaderActor: ActorRef = buildClientChainDownloader
 
   def buildClientChainDownloader =
     actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
-      messageEventBus, stateMachineActor, nodeConfig.blockChainSettings.numBlocksCached,  nodeConfig.blockChainSettings.maxBlockOpenSecs, bc, db, ledgers))
+      messageEventBus,
+      stateMachineActor,
+      nodeConfig.blockChainSettings.numBlocksCached,
+      nodeConfig.blockChainSettings.maxBlockOpenSecs,
+      bc,
+      db,
+      chain.ledgers
+    ))
 
 }
 

@@ -9,6 +9,7 @@ import sss.ancillary.{DynConfig, _}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
+import sss.asado.chains.{Chain, GlobalChainIdMask}
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
@@ -17,6 +18,7 @@ import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHand
 import sss.asado.network.MessageEventBus.MessageInfo
 import sss.asado.network.NetworkInterface.BindControllerSettings
 import sss.asado.network._
+import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
 import sss.asado.{InitWithActorRefs, MessageKeys}
 import sss.db.Db
@@ -109,24 +111,35 @@ trait ActorSystemBuilder {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
-trait LedgersBuilder {
+trait ChainBuilder {
 
   self: BlockChainBuilder
     with IdentityServiceBuilder
     with BalanceLedgerBuilder
     with DbBuilder =>
 
-  lazy val ledgers: Ledgers = {
+  val chainId: GlobalChainIdMask = 1
+
+  lazy val chain: Chain = Chain(chainId, {
 
     val identityLedger =
       new IdentityLedger(MessageKeys.IdentityLedger, identityService)
 
+
+    val quorumService = new QuorumService(chainId.toString)
+
+    val quorumLedger: QuorumLedger = new QuorumLedger(
+      MessageKeys.QuorumLedger,
+      quorumService,
+      identityService.accounts)
+
     new Ledgers(
       Map(
         MessageKeys.BalanceLedger -> balanceLedger,
-        MessageKeys.IdentityLedger -> identityLedger
+        MessageKeys.IdentityLedger -> identityLedger,
+        MessageKeys.QuorumLedger -> quorumLedger
       ))
-  }
+  })
 }
 
 trait DecoderBuilder {
@@ -181,6 +194,7 @@ trait IdentityServiceBuilder {
   lazy val identityService: IdentityService = IdentityService()
 }
 
+
 import sss.asado.util.ByteArrayEncodedStrOps._
 
 case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
@@ -189,6 +203,7 @@ case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
   def verify(sig: Signature, msg: Array[Byte]): Boolean =
     pKeyAccount.verify(sig, msg)
 }
+
 
 trait BootstrapIdentitiesBuilder {
 
@@ -209,7 +224,7 @@ trait LeaderActorBuilder {
 
   self: ActorSystemBuilder
     with NodeConfigBuilder
-    with LedgersBuilder
+    with ChainBuilder
     with DbBuilder
     with BlockChainBuilder
     with NodeIdentityBuilder
@@ -407,7 +422,7 @@ trait MinimumNode
     with HandshakeGeneratorBuilder
     with NetworkControllerBuilder
     with BalanceLedgerBuilder
-    with LedgersBuilder
+    with ChainBuilder
     with WalletPersistenceBuilder
     with WalletBuilder
     with IntegratedWalletBuilder

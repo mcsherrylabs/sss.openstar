@@ -9,6 +9,7 @@ import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
 import sss.asado.balanceledger._
 import sss.asado.block.signature.BlockSignatures
+import sss.asado.chains.Chain
 import sss.asado.ledger._
 import sss.asado.network.NetworkMessage
 import sss.asado.state.AsadoStateProtocol._
@@ -67,12 +68,13 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
                       writersRouterRef: ActorRef,
                       blockChainSyncingActor: ActorRef,
                       wallet:Wallet
-                      )(implicit db: Db, ledgers: Ledgers)
+                      )(implicit db: Db, chain: Chain)
   extends Actor
     with ActorLogging
     with AsadoEventSubscribedActor
     with AsadoEventPublishingActor {
 
+  import chain.ledgers
   override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
