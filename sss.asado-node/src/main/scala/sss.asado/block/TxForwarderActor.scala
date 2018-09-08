@@ -47,11 +47,11 @@ class TxForwarderActor(messageRouter: MessageEventBus,
 
   }
 
-  private def forwardMode(leader: NodeId): Receive = {
+  private def forwardMode(leader: UniqueNodeIdentifier): Receive = {
 
     case NotReadyEvent =>  self ! StopAcceptingTxs
 
-    case ConnectionLost(nodeId) if(leader.isSameId(nodeId)) =>
+    case ConnectionLost(nodeId) if(leader == nodeId) =>
     // case Terminated(leaderRef) =>
       self ! StopAcceptingTxs
 

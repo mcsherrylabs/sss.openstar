@@ -20,11 +20,11 @@ class NetworkRef private[network] (networkController: ActorRef,
                                    connectionsRef: AtomicReference[Set[Connection]],
                                    stopFuture: Promise[Unit]) {
 
-  def send(msg: NetworkMessage, nIds: Set[NodeId]): Unit = {
+  def send(msg: NetworkMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
     nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
   }
 
-  def send(msg: NetworkMessage, nIds: NodeId*): Unit = {
+  def send(msg: NetworkMessage, nIds: UniqueNodeIdentifier*): Unit = {
     nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
   }
 
@@ -35,7 +35,7 @@ class NetworkRef private[network] (networkController: ActorRef,
     networkController ! ConnectTo(nId: NodeId, reconnectionStrategy)
   }
 
-  def disconnect(nodeId: NodeId): Unit = {
+  def disconnect(nodeId: UniqueNodeIdentifier): Unit = {
     networkController ! Disconnect(nodeId)
   }
 
@@ -47,7 +47,7 @@ class NetworkRef private[network] (networkController: ActorRef,
     networkController ! BlackListAddr(inetAddress, duration)
   }
 
-  def unBlacklist(id: String) = {
+  def unBlacklist(id: UniqueNodeIdentifier) = {
     networkController ! UnBlackList(id)
   }
 

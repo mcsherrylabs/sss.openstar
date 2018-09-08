@@ -1,6 +1,8 @@
 package sss.asado.block.serialize
 
 
+import java.nio.charset.StandardCharsets
+
 import com.google.common.primitives.{Ints, Longs}
 import org.joda.time.DateTime
 import sss.asado.block.signature.BlockSignatures.BlockSignature
@@ -14,7 +16,7 @@ object BlockSignatureSerializer extends Serializer[BlockSignature]{
 
   override def toBytes(blockSig: BlockSignature): Array[Byte] = {
     val heightBytes = Longs.toByteArray(blockSig.height)
-    val nodeIdBytes = blockSig.nodeId.getBytes
+    val nodeIdBytes = blockSig.nodeId.getBytes(StandardCharsets.UTF_8)
     val nodeIdBytesLenBytes = Ints.toByteArray(nodeIdBytes.length)
     val pkLen = blockSig.publicKey.length
     val sigLen = blockSig.signature.length
@@ -35,7 +37,7 @@ object BlockSignatureSerializer extends Serializer[BlockSignature]{
     val (nodeIdLenBs, more) = rest.splitAt(4)
     val nodeIdlen = Ints.fromByteArray(nodeIdLenBs)
     val (nodeIdBs, evenMore) = more.splitAt(nodeIdlen)
-    val nodeId = new String(nodeIdBs)
+    val nodeId = new String(nodeIdBs, StandardCharsets.UTF_8)
 
     val (lenBs, yetMore) = evenMore.splitAt(4)
     val len = Ints.fromByteArray(lenBs)

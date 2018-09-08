@@ -1,5 +1,7 @@
 package sss.asado
 
+import java.nio.charset.StandardCharsets
+
 import com.google.common.primitives.Ints
 import sss.asado.account.NodeIdentity
 import sss.asado.block.BlockId
@@ -8,6 +10,8 @@ import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
+import scala.util.Try
+
 /**
   * Created by alan on 5/24/16.
   */
@@ -15,7 +19,7 @@ package object ledger {
 
   type TxId = Array[Byte]
   val TxIdLen = 32
-  val CoinbaseTxId: TxId = "COINBASECOINBASECOINBASECOINBASE".getBytes
+  val CoinbaseTxId: TxId = "COINBASECOINBASECOINBASECOINBASE".getBytes(StandardCharsets.UTF_8)
 
   implicit class TxIdFromString(txId: String) {
     def asTxId: TxId = {

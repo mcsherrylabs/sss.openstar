@@ -31,9 +31,10 @@ object MessageEventBus {
 
       case DecWatch(newRef) =>
         val currReferenceCount = refs(newRef)
-        if (currReferenceCount > 1)
-          refs += newRef -> (currReferenceCount - 1)
-        else if (currReferenceCount > 0) {
+        val newCount = currReferenceCount - 1
+        if (newCount > 0)
+          refs += newRef -> (newCount)
+        else if (newCount <= 0) {
           context unwatch newRef
           refs -= newRef
           msgBus unsubscribe newRef
@@ -46,7 +47,7 @@ object MessageEventBus {
   }
 
   trait HasNodeId {
-    val nodeId: NodeId
+    val nodeId: UniqueNodeIdentifier
   }
 
 
@@ -54,7 +55,7 @@ object MessageEventBus {
     val msgCode: Byte
     type T <: HasNodeId
     val clazz: Class[T]
-    def fromBytes(nodeId: NodeId, bytes: Array[Byte]): T
+    def fromBytes(nodeId: UniqueNodeIdentifier, bytes: Array[Byte]): T
   }
 
   trait NetworkMessagePublish {
@@ -207,8 +208,7 @@ class MessageEventBus(decoder: Byte => Option[MessageInfo])(
   }
 
   override def publish(networkMessage: NetworkMessage): Unit = {
-    publish(IncomingNetworkMessage(NodeId("dummy",
-      InetSocketAddress.createUnresolved("localhost", 8888)),
+    publish(IncomingNetworkMessage("dummy",
       networkMessage.msgCode,
       networkMessage.data)
     )

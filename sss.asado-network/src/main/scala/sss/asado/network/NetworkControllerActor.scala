@@ -16,19 +16,15 @@ import language.postfixOps
 
 private[network] object NetworkControllerActor {
 
-  /*case class SendToNetwork(
-      msg: NetworkMessage,
-      strategy: Set[Connection] => Set[Connection] = s => s)*/
-
-  case class SendToNodeId(msg: NetworkMessage, nId: NodeId)
+  case class SendToNodeId(msg: NetworkMessage, nId: UniqueNodeIdentifier)
   case class ConnectTo(nodeId: NodeId,
                        reconnectionStrategy: ReconnectionStrategy)
 
   case class UnBlackListAddr(inetAddress: InetAddress)
-  case class UnBlackList(id: String)
-  case class Disconnect(nodeId: NodeId)
+  case class UnBlackList(id: UniqueNodeIdentifier)
+  case class Disconnect(nodeId: UniqueNodeIdentifier)
   case class BlackListAddr(inetAddress: InetAddress, duration: Duration)
-  case class BlackList(id: String, duration: Duration)
+  case class BlackList(id: UniqueNodeIdentifier, duration: Duration)
   case object ShutdownNetwork
 
 }
@@ -48,10 +44,18 @@ private class NetworkControllerActor(netInf: NetworkInterface,
 
   private val stopPromise: Promise[Unit] = Promise()
   private var connections = Set[ConnectionRef]()
-  private var strategies = Map[NodeId, ReconnectionStrategy]()
+  private var strategies = Map[UniqueNodeIdentifier, (InetSocketAddress, ReconnectionStrategy)]()
 
   private var blackList = Map[InetAddress, Long]()
-  private var blackListByIdentity = Map[String, Long]()
+  private var blackListByIdentity = Map[UniqueNodeIdentifier, Long]()
+
+  context.actorOf(
+    Props(
+      classOf[ConnectionTracker],
+      connectionsRef,
+      messageEventBus
+    )
+  )
 
   IO(Tcp) ! Bind(self, netInf.localAddress)
 
@@ -97,7 +101,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
     case Disconnect(nId) =>
       disconnect(nId)
 
-    case SendToNodeId(nm, NodeId(nodeId, _)) =>
+    case SendToNodeId(nm, nodeId) =>
       // TODO this *could* be a promise that is completed
       // TODO with failure if the nodeid is unknown or no such ActorRef.
       connections
@@ -110,7 +114,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
           !isBlackListed(nodeId)) {
 
         if (!reconnnectStrategy.isEmpty) {
-          strategies += n -> reconnnectStrategy
+          strategies += nodeId -> (addr, reconnnectStrategy)
         }
 
         log.debug(s"Attempting to IO connect to $addr}")
@@ -125,7 +129,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       if (!isBlackListed(conn.nodeId.id) &&
           !isBlackListed(conn.nodeId.address)) {
         connections += conn
-        messageEventBus.publish(Connection(conn.nodeId))
+        messageEventBus.publish(Connection(conn.nodeId.id))
       } else {
         conn.handlerRef ! Close
       }
@@ -134,15 +138,15 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       //log.info(s"Connection dead - removing $ref ")
       connections = connections.foldLeft(Set[ConnectionRef]()) { (acc, c) =>
         if (c.handlerRef == ref) {
-          executeReconnectionStrategy(c.nodeId)
-          messageEventBus.publish(ConnectionLost(c.nodeId))
+          executeReconnectionStrategy(c.nodeId.id)
+          messageEventBus.publish(ConnectionLost(c.nodeId.id))
           acc
         } else acc + c
       }
 
     case c @ Connected(remote, local) =>
       log.debug(s"Got a connection to handle from $c")
-      if (!isBlackListed(Option(remote.getAddress))) {
+      if (!isBlackListed(remote.getAddress)) {
 
         val connection = sender()
         val handler =
@@ -164,11 +168,13 @@ private class NetworkControllerActor(netInf: NetworkInterface,
     case cf @ CommandFailed(c: Connect) =>
       messageEventBus.publish(ConnectionFailed(c.remoteAddress, cf.cause))
 
-      if (!isBlackListed(Option(c.remoteAddress.getAddress))) {
+      if (!isBlackListed(c.remoteAddress.getAddress)) {
         strategies
-          .find(_._1.isSameNotNullAddress(c.remoteAddress))
-          .foreach { strategyMapElement =>
-            executeReconnectionStrategy(strategyMapElement._1)
+          .find { case (id, (addr, strategy)) =>
+            addr == c.remoteAddress
+          }
+          .foreach { case (id, (addr, strategy)) =>
+            executeReconnectionStrategy(id)
           }
       }
 
@@ -177,13 +183,9 @@ private class NetworkControllerActor(netInf: NetworkInterface,
 
   }
 
-  private def disconnect(nId: NodeId): Unit = {
-    strategies = strategies.filterNot {
-      case (k,v) => k.id == nId.id ||
-        k.isSameNotNullAddress(nId)
-    }
-    connections.filter (_.nodeId.id == nId.id) foreach (_.handlerRef ! Close)
-
+  private def disconnect(id: UniqueNodeIdentifier): Unit = {
+    strategies -= id
+    connections.filter (_.nodeId.id == id) foreach (_.handlerRef ! Close)
   }
 
   private def isConnected(nId: NodeId): Boolean =
@@ -204,36 +206,31 @@ private class NetworkControllerActor(netInf: NetworkInterface,
     result
   }
 
-  private def isBlackListed(remoteIpOpt: Option[InetAddress]): Boolean = {
+  private def isBlackListed(remoteIp: InetAddress): Boolean = {
 
-    remoteIpOpt match {
-      case Some(remoteIp) =>
-        blackList = blackList.filter(_._2 > System.currentTimeMillis())
+      blackList = blackList.filter(_._2 > System.currentTimeMillis())
 
-        val result = blackList.exists(_._1 == remoteIp.getAddress)
-        if (result) {
-          log.warning("Attempting to connect to blacklisted ip address {}",
-            remoteIp)
-        }
-        result
+      val result = blackList.exists(_._1 == remoteIp.getAddress)
+      if (result) {
+        log.warning("Attempting to connect to blacklisted ip address {}",
+          remoteIp)
+      }
+      result
 
-      case None => false
-    }
   }
 
-  private def executeReconnectionStrategy(nodeId: NodeId) = {
+  private def executeReconnectionStrategy(nodeId: UniqueNodeIdentifier) = {
     // I had used 'partition' here to avoid 2 'loops', it smelled premature.
 
-    strategies.find(_._1.id == nodeId.id) foreach {
-      case (node, strategy) =>
+    strategies.get(nodeId) foreach { case (addr, strategy) =>
         val delayTime = strategy.head
         val timeToRetry = delayTime
         log.info("Reconnect strategy for {} in {} s", nodeId, delayTime)
         system.scheduler.scheduleOnce(timeToRetry seconds,
                                       self,
-                                      ConnectTo(nodeId, strategy.tail))
+                                      ConnectTo(NodeId(nodeId, addr), strategy.tail))
 
-        strategies = strategies filterNot (_._1.id == nodeId.id)
+        strategies -= nodeId
     }
   }
 

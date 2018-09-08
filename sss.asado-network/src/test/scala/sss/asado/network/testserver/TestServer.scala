@@ -67,7 +67,7 @@ class TestServer(id: String, newPort: Int)(
     new NetworkInterface(settings, None)
 
   val nodeId =
-    NodeId(id, InetSocketAddress.createUnresolved("127.0.0.1", settings.port))
+    NodeId(id, new InetSocketAddress("127.0.0.1", settings.port))
 
   def handshakeGenerator = SimpleTestHandshake(networkInterface, nodeId.id, Random.nextLong()) _
 

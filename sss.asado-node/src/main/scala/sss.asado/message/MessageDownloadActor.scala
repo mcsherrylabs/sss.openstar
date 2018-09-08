@@ -50,7 +50,7 @@ class MessageDownloadActor(who: String,
           NetworkMessage(
             MessageKeys.MessageQuery,
             createQuery.toBytes),
-          homeDomain.nodeId)
+          homeDomain.nodeId.id)
 
         isQuiet = false
       }

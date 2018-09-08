@@ -1,5 +1,7 @@
 package sss.asado.crypto
 
+import java.nio.charset.StandardCharsets
+
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.util.ByteArrayComparisonOps
