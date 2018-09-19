@@ -1,10 +1,9 @@
 package sss.asado.block.serialize
 
-import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.ledger.LedgerItem
 
 import scala.util.Random
@@ -42,7 +41,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
     val backAgain = asBytes.toBlockId
     assert(backAgain.blockHeight === c.blockHeight)
 
-    assert(backAgain.numTxs == c.numTxs)
+    assert(backAgain.txIndex == c.txIndex)
     assert(backAgain.hashCode() === c.hashCode())
     assert(backAgain === c)
   }
@@ -50,7 +49,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   "A Block chain Tx id " should " be corrrectly serialised and deserialized " in {
     val c = BlockChainTxId(height, BlockTxId(stx.txId, 34))
     val asBytes = c.toBytes
-    val backAgain = asBytes.toBlockChainIdTx
+    val backAgain = asBytes.toBlockChainTxId
     assert(backAgain.height === c.height)
 
     assert(backAgain.blockTxId.txId === c.blockTxId.txId)

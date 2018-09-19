@@ -1,5 +1,7 @@
 package sss.asado.account
 
+import java.nio.charset.StandardCharsets
+
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions.{MessageToSign, PublicKey, SharedSecret, Signature}
 import sss.asado.crypto.SeedBytes
@@ -13,8 +15,12 @@ import scala.util.{Failure, Success, Try}
   * the same 'id'.
   */
 trait NodeIdentity {
+
   val id: String
+  val idBytes: Array[Byte]
   val tag: String
+  val tagBytes: Array[Byte]
+
   val publicKey: PublicKey
   def sign(msg: MessageToSign): Signature
   def verify(sig: Signature, msg: Array[Byte]): Boolean
@@ -79,6 +85,8 @@ class NodeIdentityManager(seedBytes: SeedBytes) {
       override val publicKey: PublicKey = nodeKey.publicKey
       override val id: String = nodeId
       override val tag: String = tagOfNodeKey
+      override val idBytes: Array[Byte] = id.getBytes(StandardCharsets.UTF_8)
+      override val tagBytes: Array[Byte] = tag.getBytes(StandardCharsets.UTF_8)
     }
   }
   def apply(

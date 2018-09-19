@@ -1,6 +1,6 @@
 package sss.asado.block.serialize
 
-import block.GetTxPage
+import sss.asado.block.GetTxPage
 import com.google.common.primitives.{Ints, Longs}
 import sss.asado.util.Serialize.Serializer
 

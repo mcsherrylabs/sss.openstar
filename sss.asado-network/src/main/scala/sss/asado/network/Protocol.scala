@@ -24,11 +24,11 @@ object Protocol {
 
 trait Protocol {
 
-  def toWire(networkMessage: NetworkMessage):ByteString = {
-    toWire(networkMessage.msgCode, networkMessage.data)
+  def toWire(networkMessage: SerializedMessage):ByteString = {
+    toWire(networkMessage.chainId, networkMessage.msgCode, networkMessage.data)
   }
 
-  def toWire(msgCode: Byte, dataBytes:Array[Byte]):ByteString = {
+  def toWire(chainCode: Byte, msgCode: Byte, dataBytes:Array[Byte]):ByteString = {
 
     val dataLength: Int = dataBytes.length
     val dataWithChecksum = if (dataLength > 0) {
@@ -36,15 +36,17 @@ trait Protocol {
       Bytes.concat(checksum, dataBytes)
     } else dataBytes //empty array
 
-    val bytes = Protocol.MAGIC ++ Array(msgCode) ++ Ints.toByteArray(dataLength) ++ dataWithChecksum
+    val bytes = Protocol.MAGIC ++ Array(chainCode) ++ Array(msgCode) ++ Ints.toByteArray(dataLength) ++ dataWithChecksum
     ByteString(Ints.toByteArray(bytes.length) ++ bytes)
   }
 
-  def fromWire(bytes: ByteBuffer): Try[NetworkMessage] = Try {
+  def fromWire(bytes: ByteBuffer): Try[SerializedMessage] = Try {
     val magic = new Array[Byte](Protocol.MagicLength)
     bytes.get(magic)
 
     assert(magic.sameElements(Protocol.MAGIC), "Wrong magic bytes" + magic.mkString)
+
+    val chainCode = bytes.get
 
     val msgCode = bytes.get
 
@@ -69,6 +71,6 @@ trait Protocol {
       assert(checksum.sameElements(digest), s"Invalid data checksum length = $length")
     }
 
-    NetworkMessage(msgCode, data)
+    SerializedMessage(chainCode, msgCode, data)
   }
 }

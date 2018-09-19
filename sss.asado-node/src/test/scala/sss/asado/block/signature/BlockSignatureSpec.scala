@@ -2,6 +2,7 @@ package sss.asado.block.signature
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.db.Db
 
 /**
@@ -10,6 +11,7 @@ import sss.db.Db
 class BlockSignatureSpec  extends FlatSpec with Matchers {
 
   implicit val db: Db = Db()
+  implicit val chainId: GlobalChainIdMask = 2.toByte
 
   "A Block Sig" should " be persisted " in {
     BlockSignatures(2).add(DummySeedBytes(50), DummySeedBytes(90), "someNodeId")

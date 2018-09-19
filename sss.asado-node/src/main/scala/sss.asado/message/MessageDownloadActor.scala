@@ -5,8 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-
-import sss.asado.network.{MessageEventBus, NetworkMessage, NetworkRef}
+import sss.asado.network.{MessageEventBus, SerializedMessage, NetworkRef}
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -47,7 +46,7 @@ class MessageDownloadActor(who: String,
     case CheckForMessages =>
       if (isQuiet) {
         ncRef.send(
-          NetworkMessage(
+          SerializedMessage(0.toByte,
             MessageKeys.MessageQuery,
             createQuery.toBytes),
           homeDomain.nodeId.id)
@@ -55,17 +54,17 @@ class MessageDownloadActor(who: String,
         isQuiet = false
       }
 
-    case NetworkMessage(MessageKeys.EndMessagePage, bytes) =>
+    case SerializedMessage(_, MessageKeys.EndMessagePage, bytes) =>
       isQuiet = true
       self ! CheckForMessages
 
-    case NetworkMessage(MessageKeys.EndMessageQuery, bytes) =>
+    case SerializedMessage(_, MessageKeys.EndMessageQuery, bytes) =>
       isQuiet = true
       context.system.scheduler.scheduleOnce(FiniteDuration(5, TimeUnit.SECONDS),
                                             self,
                                             CheckForMessages)
 
-    case NetworkMessage(MessageKeys.MessageMsg, bytes) =>
+    case SerializedMessage(_, MessageKeys.MessageMsg, bytes) =>
       decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
         inBox.addNew(msg)
       }

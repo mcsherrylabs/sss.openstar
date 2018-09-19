@@ -1,6 +1,6 @@
-package sss.asado.block.serialize
+package sss.asado.common.block.serialize
 
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.util.Serialize._
 
 /**
@@ -11,7 +11,7 @@ object BlockIdSerializer extends Serializer[BlockId] {
 
   override def toBytes(blockId: BlockId): Array[Byte] = {
     LongSerializer(blockId.blockHeight) ++
-      LongSerializer(blockId.numTxs).toBytes
+      LongSerializer(blockId.txIndex).toBytes
   }
 
   override def fromBytes(b: Array[Byte]): BlockId = {

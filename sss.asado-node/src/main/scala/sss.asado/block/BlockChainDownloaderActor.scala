@@ -1,7 +1,7 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block._
+import sss.asado.common.block._
 import org.joda.time.DateTime
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
@@ -9,8 +9,9 @@ import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.ledger.Ledgers
-import sss.asado.network.{Connection, MessageEventBus, NetworkMessage, NetworkRef}
+import sss.asado.network.{Connection, MessageEventBus, NetworkRef, SerializedMessage}
 import sss.asado.state.AsadoStateProtocol.{LocalLeaderEvent, RemoteLeaderEvent}
 import sss.db.Db
 
@@ -63,6 +64,8 @@ class BlockChainDownloaderActor(
   messageRouter.subscribe(CloseBlock)
   messageRouter.subscribe(BlockSig)
 
+  implicit val chainId: GlobalChainIdMask = 127.toByte
+
   log.info(s"BlockChainDownloader actor has started... $self")
 
   override def postStop = log.warning("BlockChainDownloaderActor is down!");
@@ -92,9 +95,9 @@ class BlockChainDownloaderActor(
         GetTxPage(lb.height + 1, startAtNextIndex, 50)
       }
 
-      nc.send(NetworkMessage(MessageKeys.GetPageTx, getTxs.toBytes), who.nodeId)
+      nc.send(SerializedMessage(MessageKeys.GetPageTx, getTxs.toBytes), who.nodeId)
 
-    case NetworkMessage(MessageKeys.PagedTx, bytes) =>
+    case SerializedMessage(_, MessageKeys.PagedTx, bytes) =>
       decode(PagedTx, bytes.toBlockChainTx) { blockChainTx =>
         Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
           case Failure(e) =>
@@ -104,8 +107,8 @@ class BlockChainDownloaderActor(
         }
       }
 
-    case NetworkMessage(MessageKeys.EndPageTx, bytes) =>
-      sender() ! NetworkMessage(MessageKeys.GetPageTx, bytes)
+    case SerializedMessage(_, MessageKeys.EndPageTx, bytes) =>
+      sender() ! SerializedMessage(MessageKeys.GetPageTx, bytes)
 
     case CommitBlock(serverRef, blockId, reTryCount) => {
 
@@ -141,26 +144,26 @@ class BlockChainDownloaderActor(
                                             nodeIdentity.publicKey,
                                             sig)
 
-                serverRef ! NetworkMessage(MessageKeys.BlockNewSig,
+                serverRef ! SerializedMessage(MessageKeys.BlockNewSig,
                                            newSig.toBytes)
               }
               assert(blockHeader.height == blockId.blockHeight,
                      s"How can ${blockHeader} differ from ${blockId}")
               if (!synced) {
                 val nextBlockPage = GetTxPage(blockHeader.height + 1, 0)
-                serverRef ! NetworkMessage(MessageKeys.GetPageTx,
+                serverRef ! SerializedMessage(MessageKeys.GetPageTx,
                                            nextBlockPage.toBytes)
               }
           }
       }
     }
 
-    case NetworkMessage(BlockSig, bytes) =>
+    case SerializedMessage(_, BlockSig, bytes) =>
       decode(BlockSig, bytes.toBlockSignature) { blkSig =>
         BlockSignatures(blkSig.height).write(blkSig)
       }
 
-    case NetworkMessage(CloseBlock, bytes) =>
+    case SerializedMessage(_, CloseBlock, bytes) =>
       decode(CloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence =
           BlockSignatures(distClose.blockId.blockHeight)
@@ -169,17 +172,17 @@ class BlockChainDownloaderActor(
         self ! CommitBlock(sender(), distClose.blockId)
       }
 
-    case NetworkMessage(Synced, bytes) =>
+    case SerializedMessage(_, Synced, bytes) =>
       synced = true
       val getTxPage = bytes.toGetTxPage
       stateMachine ! IsSynced
       log.info(s"Downloader is synced to tx page $getTxPage")
 
-    case NetworkMessage(ConfirmTx, bytes) =>
+    case SerializedMessage(_, ConfirmTx, bytes) =>
       decode(ConfirmTx, bytes.toBlockChainTx) { blockChainTx =>
         Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
           case Failure(e) =>
-            sender() ! NetworkMessage(MessageKeys.NackConfirmTx,
+            sender() ! SerializedMessage(MessageKeys.NackConfirmTx,
                                       blockChainTx.toId.toBytes)
             log.error(
               e,
@@ -189,7 +192,7 @@ class BlockChainDownloaderActor(
               log.warning(s"Local  is  ${resultBlockChainTx.toId}")
               log.warning(s"Remote is  ${blockChainTx.toId}")
             }
-            sender() ! NetworkMessage(MessageKeys.AckConfirmTx,
+            sender() ! SerializedMessage(MessageKeys.AckConfirmTx,
                                       resultBlockChainTx.toId.toBytes)
         }
       }

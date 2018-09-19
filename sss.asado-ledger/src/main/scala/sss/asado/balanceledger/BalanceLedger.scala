@@ -4,7 +4,8 @@ import java.util
 
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
-import sss.asado.block.BlockId
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block.BlockId
 import sss.asado.contract.LedgerContext._
 import sss.asado.contract.{CoinbaseDecumbrance, CoinbaseValidator, LedgerContext, SinglePrivateKey}
 import sss.asado.identityledger.IdentityService
@@ -13,8 +14,8 @@ import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.Db
 
 object BalanceLedger {
-  def apply(cbe : CoinbaseValidator,identityService: IdentityService)(implicit db:Db) : BalanceLedger =
-    new BalanceLedger(new UTXODBStorage(), cbe, identityService)
+  def apply(cbe : CoinbaseValidator,identityService: IdentityService)(implicit db:Db, chainIdMask: GlobalChainIdMask) : BalanceLedger =
+    new BalanceLedger(new UTXODBStorage(chainIdMask), cbe, identityService)
 }
 
 trait BalanceLedgerQuery {

@@ -1,18 +1,16 @@
-package sss.asado
+package sss.asado.common
 
 import com.google.common.primitives.Longs
-import sss.asado.block.serialize._
-import sss.asado.ledger.{LedgerItem, TxId}
+import sss.asado.common.block.serialize._
+import sss.asado.ledger._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.util.ByteArrayEncodedStrOps._
+
 import sss.asado.util.Serialize.ToBytes
 
-/**
-  * Created by alan on 3/24/16.
-  */
 package object block {
 
-  case class BlockId(blockHeight: Long, numTxs: Long)
+  case class BlockId(blockHeight: Long, txIndex: Long)
   case class BlockTx(index: Long, ledgerItem: LedgerItem)
   case class BlockChainTx(height: Long, blockTx: BlockTx) {
     def toId: BlockChainTxId =
@@ -20,7 +18,7 @@ package object block {
   }
 
   case class TxMessage(msgType: Byte, txId: TxId, msg: String)
-      extends ByteArrayComparisonOps {
+    extends ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = obj match {
       case txMsg: TxMessage =>
         txMsg.msg == msg &&
@@ -50,7 +48,7 @@ package object block {
   }
 
   case class BlockChainTxId(height: Long, blockTxId: BlockTxId)
-      extends ByteArrayComparisonOps {
+    extends ByteArrayComparisonOps {
     override def equals(obj: scala.Any): Boolean = obj match {
       case blockChainTxId: BlockChainTxId =>
         blockChainTxId.height == height &&
@@ -63,11 +61,36 @@ package object block {
     override def hashCode(): Int = Longs.hashCode(height) + blockTxId.hashCode()
   }
 
+  implicit object BlockIdOrdering extends Ordering[BlockId] {
+
+    override def compare(x: BlockId, y: BlockId): Int = {
+      //if x < y negative
+      if(x.blockHeight < y.blockHeight) -1
+      else if (x.blockHeight == y.blockHeight) {
+        if(x.txIndex < y.txIndex) -1
+        else if(x.txIndex == y.txIndex) 0
+        else 1
+      } else 1
+    }
+  }
+
+  implicit object BlockChainTxOrdering extends Ordering[BlockChainTx] {
+    override def compare(x: BlockChainTx, y: BlockChainTx): Int = {
+      //if x < y negative
+      if(x.height < y.height) -1
+      else if (x.height == y.height) {
+        if(x.blockTx.index < y.blockTx.index) -1
+        else if(x.blockTx.index == y.blockTx.index) 0
+        else 1
+      } else 1
+    }
+  }
+
   implicit class BlockChainIdTxTo(t: BlockChainTxId) extends ToBytes {
     override def toBytes: Array[Byte] = BlockChainTxIdSerializer.toBytes(t)
   }
   implicit class BlockChainIdTxFrom(b: Array[Byte]) {
-    def toBlockChainIdTx: BlockChainTxId = BlockChainTxIdSerializer.fromBytes(b)
+    def toBlockChainTxId: BlockChainTxId = BlockChainTxIdSerializer.fromBytes(b)
   }
   implicit class BlockIdTxTo(t: BlockTxId) extends ToBytes {
     override def toBytes: Array[Byte] = BlockTxIdSerializer.toBytes(t)

@@ -6,6 +6,7 @@ import java.util
 
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions._
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.{Db, OrderAsc, Row}
 
@@ -72,11 +73,11 @@ object BlockSignatures {
   private val public_key_str = "public_key"
 
 
-  def apply(height: Long)(implicit db: Db): BlockSignatures = new BlockSignaturePersister(height)
+  def apply(height: Long)(implicit db: Db,chainId: GlobalChainIdMask): BlockSignatures = new BlockSignaturePersister(height)
 
-  private class BlockSignaturePersister(height: Long)(implicit db: Db) extends BlockSignatures {
+  private class BlockSignaturePersister(height: Long)(implicit db: Db, chainId: GlobalChainIdMask) extends BlockSignatures {
 
-    private lazy val tableName = s"block_sigs_$height"
+    private lazy val tableName = s"block_sigs_${chainId}_$height"
 
     private def createTableSql =
       s"""CREATE TABLE IF NOT EXISTS $tableName

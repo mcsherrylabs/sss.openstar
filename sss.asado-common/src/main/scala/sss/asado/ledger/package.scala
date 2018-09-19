@@ -4,13 +4,12 @@ import java.nio.charset.StandardCharsets
 
 import com.google.common.primitives.Ints
 import sss.asado.account.NodeIdentity
-import sss.asado.block.BlockId
+import sss.asado.common.block.BlockId
 import sss.asado.util.ByteArrayComparisonOps._
 import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
-import scala.util.Try
 
 /**
   * Created by alan on 5/24/16.
@@ -37,7 +36,7 @@ package object ledger {
     }
   }
 
-  case class LedgerItem(ledgerId: Byte, txId : TxId, txEntryBytes: Array[Byte]) {
+  case class LedgerItem(ledgerId: Byte, txId : TxId, txEntryBytes: Array[Byte]) extends AsadoEvent {
     def toBytes: Array[Byte] =  ledgerId +: (txId ++ txEntryBytes)
     lazy val txIdHexStr : String = txId.toBase64Str
 

@@ -2,7 +2,7 @@ package sss.asado.block.serialize
 
 import java.nio.charset.StandardCharsets
 
-import block.Leader
+import sss.asado.block.Leader
 import sss.asado.util.Serialize.Serializer
 
 /**

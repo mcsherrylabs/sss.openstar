@@ -1,9 +1,10 @@
+package sss.asado
 
 import akka.actor.ActorRef
-import sss.asado.AsadoEvent
 import sss.asado.block.serialize._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.block.{BlockChainTx, BlockId}
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.asado.util.Serialize.ToBytes
 
 /**
@@ -19,16 +20,25 @@ package object block {
   case object IsSynced
   case object NotSynced
 
+  case class Synchronized(chainIdMask: GlobalChainIdMask, height: Long, index: Long) extends AsadoEvent
+
   case class GetTxPage(blockHeight: Long, index: Long, pageSize: Int = 50)
 
-  case class VoteLeader(nodeId: String)
-  case class Leader(nodeId: String)
-  case class FindLeader(height: Long, commitedTxIndex: Long, signatureIndex: Int, nodeId: String)
+  case class VoteLeader(nodeId: UniqueNodeIdentifier, height: Long, txIndex: Long)
+  case class Leader(nodeId: UniqueNodeIdentifier)
+  case class FindLeader(height: Long, commitedTxIndex: Long, signatureIndex: Int, nodeId: UniqueNodeIdentifier)
 
   case class ReDistributeTx(blockChainTx: BlockChainTx)
   case class DistributeTx(client: ActorRef, blockChainTx: BlockChainTx)
   case class DistributeSig(blockSig: BlockSignature)
   case class DistributeClose(blockSigs: Seq[BlockSignature], blockId: BlockId)
+
+  implicit class SynchronizedTo(sync: Synchronized) extends ToBytes {
+    override def toBytes: Array[Byte] = SynchronizedSerializer.toBytes(sync)
+  }
+  implicit class SynchronizedFrom(b: Array[Byte]) {
+    def toSynchronized: Synchronized = SynchronizedSerializer.fromBytes(b)
+  }
 
   implicit class GetTxPageTo(getTxPage: GetTxPage) extends ToBytes {
     override def toBytes: Array[Byte] = GetTxPageSerializer.toBytes(getTxPage)

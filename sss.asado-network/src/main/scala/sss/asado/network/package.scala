@@ -2,10 +2,14 @@ package sss.asado
 
 import java.net.{InetAddress, InetSocketAddress}
 
-import akka.actor.ActorRef
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.ConnectionHandler.HandshakeStep
+import sss.asado.util.Serialize.ToBytes
 
 package object network {
+
+  type NetSendTo = (SerializedMessage, UniqueNodeIdentifier) => Unit
+  type NetSendToMany = (SerializedMessage, Set[UniqueNodeIdentifier]) => Unit
 
   type ReconnectionStrategy = Stream[Int]
 
@@ -39,7 +43,6 @@ package object network {
   type InitialHandshakeStepGenerator =
     InetSocketAddress => HandshakeStep
 
-  type UniqueNodeIdentifier = String
 
   final case class ConnectionLost(nodeId: UniqueNodeIdentifier) extends AsadoEvent
 
@@ -52,13 +55,22 @@ package object network {
                                     cause: Option[Throwable])
       extends AsadoEvent
 
-  final case class IncomingNetworkMessage(
+  final case class IncomingSerializedMessage(
       fromNodeId: UniqueNodeIdentifier,
-      msgCode: Byte,
-      data: Array[Byte]
+      msg: SerializedMessage
   )
 
-  final case class NetworkMessage(msgCode: Byte, data: Array[Byte])
+  object SerializedMessage {
+
+    implicit val noChain: GlobalChainIdMask = 0.toByte
+
+    def apply(msgCode: Byte, data: Array[Byte])(implicit chainId: GlobalChainIdMask): SerializedMessage =
+      SerializedMessage(chainId, msgCode, data)
+  }
+
+  final case class SerializedMessage(chainId: GlobalChainIdMask, msgCode: Byte, data: Array[Byte]) {
+    def this(chainId: GlobalChainIdMask, msgCode: Byte, byteable: ToBytes) = this(chainId, msgCode, byteable.toBytes)
+  }
 
   private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
 
@@ -68,6 +80,9 @@ package object network {
   }
 
   def toNodeIds(patterns: Set[String]): Set[NodeId] = patterns map toNodeId
+
+  def indefiniteReconnectionStrategy(delaysInSeconds: Int): ReconnectionStrategy =
+    Stream.continually(delaysInSeconds)
 
   def reconnectionStrategy(delaysInSeconds: Int*): ReconnectionStrategy =
     delaysInSeconds.toStream

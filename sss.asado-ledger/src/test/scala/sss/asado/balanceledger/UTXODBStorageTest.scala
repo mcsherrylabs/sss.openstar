@@ -9,7 +9,7 @@ import sss.asado.contract.SinglePrivateKey
 import sss.asado.ledger.SignedTxEntry
 import sss.db.Db
 
-/**
+/**!
   * Created by alan on 2/15/16.
   */
 class UTXODBStorageTest extends FlatSpec with Matchers {
@@ -22,7 +22,8 @@ class UTXODBStorageTest extends FlatSpec with Matchers {
   implicit val db = Db()
   val r = db.executeSql("TRUNCATE TABLE utxo;")
   println(s"Got $r from sql")
-  val dbStorage = new UTXODBStorage
+  val dbStorage = new UTXODBStorage(1)
+  val dbStorage2 = new UTXODBStorage(2)
 
 
   "UTXO Storage " should " allow outputs to be persisted " in {
@@ -64,6 +65,26 @@ class UTXODBStorageTest extends FlatSpec with Matchers {
 
     val txOutput2 = dbStorage(TxIndex(genisis.txId, 1))
     assert(txOutput2.amount === 100)
+  }
+
+  it should " differentiate between tagged storages " in {
+
+    dbStorage.write(TxIndex(genisis.txId, 0), tx.outs(0))
+    val txOutput = dbStorage(TxIndex(genisis.txId, 0))
+
+    intercept[NoSuchElementException] {
+      dbStorage2(TxIndex(genisis.txId, 0))
+    }
+
+    dbStorage2.write(TxIndex(genisis.txId, 0), tx.outs(0))
+    dbStorage.delete(TxIndex(genisis.txId, 0))
+
+    intercept[NoSuchElementException] {
+      dbStorage(TxIndex(genisis.txId, 0))
+    }
+
+    val txOutput2 = dbStorage2(TxIndex(genisis.txId, 0))
 
   }
+
 }

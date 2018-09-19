@@ -3,20 +3,24 @@ package sss.asado.block
 import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block.DistributeTx
-import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.MessageKeys
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.asado.ledger.{LedgerItem, _}
-import sss.asado.network.NetworkMessage
+import sss.asado.network.MessageEventBus.IncomingMessage
+import sss.asado.network.SerializedMessage
 import sss.asado.util.SeqSerializer
 
 import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 3/18/16.
   */
-class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
+class TxWriter(chainId: GlobalChainIdMask, writeConfirmActor: ActorRef) extends Actor with ActorLogging {
 
   log.info("TxWriter actor has started...")
+
+  //FIXME or delete me
+  import SerializedMessage.noChain
 
   override def receive: Receive = working(None)
 
@@ -26,7 +30,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
       val sendr = sender()
       Try(blockLedger(signedTx)) match {
         case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
-          sendr ! NetworkMessage(MessageKeys.SignedTxAck, btx.toId.toBytes)
+          sendr ! SerializedMessage(chainId, MessageKeys.SignedTxAck, btx.toId.toBytes)
           writeConfirmActor ! DistributeTx(sendr, btx)
 
         case Failure(e) =>
@@ -35,7 +39,7 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
             case _ => 0.toByte
           }
           log.info(s"Failed to ledger tx! ${signedTx.txIdHexStr} ${e.getMessage}")
-          sendr ! NetworkMessage(MessageKeys.SignedTxNack, TxMessage(id, signedTx.txId, e.getMessage).toBytes)
+          sendr ! SerializedMessage(MessageKeys.SignedTxNack, TxMessage(id, signedTx.txId, e.getMessage).toBytes)
 
       }
     }
@@ -44,13 +48,14 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
   def errorNoLedger(txId: TxId): Unit = {
     val msg = "No ledger open, retry later."
     log.error(msg)
-    sender() ! NetworkMessage(MessageKeys.TempNack, TxMessage(0.toByte, txId, msg).toBytes)
+
+    sender() ! SerializedMessage(MessageKeys.TempNack, TxMessage(0.toByte, txId, msg).toBytes)
   }
 
   def errorBadMessage: Unit = {
     val msg = "Cannot deserialise that message, wrong code for the bytes?"
     log.error(msg)
-    sender() ! NetworkMessage(MessageKeys.MalformedMessage, msg.getBytes(StandardCharsets.UTF_8))
+    sender() ! SerializedMessage(MessageKeys.MalformedMessage, msg.getBytes(StandardCharsets.UTF_8))
   }
 
   private def working(blockLedgerOpt: Option[BlockChainLedger]): Receive = {
@@ -60,7 +65,16 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
       blockChainActor ! AcknowledgeNewLedger
     }
 
-    case NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
+    case IncomingMessage(_, MessageKeys.SeqSignedTx, _, stxs: Seq[Array[Byte]]) =>
+      blockLedgerOpt match {
+        case Some(blockLedger) => stxs foreach { stx =>
+          writeStx(blockLedger, stx.toLedgerItem)
+        }
+        case None => stxs.foreach(stx => errorNoLedger(stx.toLedgerItem.txId))
+      }
+
+
+    case SerializedMessage(_, MessageKeys.SeqSignedTx, bytes) =>
 
       blockLedgerOpt match {
         case Some(blockLedger) => SeqSerializer.fromBytes(bytes) foreach { stx =>
@@ -70,7 +84,13 @@ class TxWriter(writeConfirmActor: ActorRef) extends Actor with ActorLogging {
       }
 
 
-    case NetworkMessage(MessageKeys.SignedTx, bytes) =>
+    case IncomingMessage(_, _, _, stx: LedgerItem) =>
+      blockLedgerOpt match {
+        case Some(blockLedger) => writeStx(blockLedger, stx)
+        case None => errorNoLedger(stx.txId)
+      }
+
+    case SerializedMessage(_, MessageKeys.SignedTx, bytes) =>
 
       Try(bytes.toLedgerItem) match {
         case Success(stx) => blockLedgerOpt match {

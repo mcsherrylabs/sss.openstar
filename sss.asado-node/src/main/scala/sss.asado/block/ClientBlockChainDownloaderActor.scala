@@ -1,13 +1,14 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block._
+import sss.asado.common.block._
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.block.signature.BlockSignatures
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.ledger.Ledgers
-import sss.asado.network.{Connection, MessageEventBus, NetworkMessage, NetworkRef}
+import sss.asado.network.{Connection, MessageEventBus, NetworkRef, SerializedMessage}
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -28,12 +29,12 @@ class ClientBlockChainDownloaderActor(
                                        stateMachine: ActorRef,
                                        numBlocksCached: Int,
                                        secondsBetweenChecks: Int,
-                                       bc: BlockChain with BlockChainSignatures)(implicit db: Db, ledgers: Ledgers)
+                                       bc: BlockChain with BlockChainSignatures)(implicit db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask)
     extends Actor
     with ActorLogging
     with AsadoEventPublishingActor {
 
-  private case class CommitBlock(serverRef: ActorRef,
+  private case class CommitBlock(cId: GlobalChainIdMask, serverRef: ActorRef,
                                  blockId: BlockId,
                                  retryCount: Int = 0)
 
@@ -67,14 +68,14 @@ class ClientBlockChainDownloaderActor(
       }
 
       nc.send(
-        NetworkMessage(
+        SerializedMessage(SerializedMessage.noChain,
           MessageKeys.SimpleGetPageTx, getTxs.toBytes
         ),
         connectionToSyncWith.nodeId
       )
 
 
-    case NetworkMessage(MessageKeys.SimplePagedTx, bytes) =>
+    case SerializedMessage(cId , MessageKeys.SimplePagedTx, bytes) =>
       decode(SimplePagedTx, bytes.toBlockChainTx) { blockChainTx =>
         Try(BlockChainLedger(blockChainTx.height).journal(blockChainTx.blockTx)) match {
           case Failure(e) =>
@@ -84,10 +85,10 @@ class ClientBlockChainDownloaderActor(
         }
       }
 
-    case NetworkMessage(MessageKeys.SimpleEndPageTx, bytes) =>
-      sender() ! NetworkMessage(MessageKeys.SimpleGetPageTx, bytes)
+    case SerializedMessage(cId , MessageKeys.SimpleEndPageTx, bytes) =>
+      sender() ! SerializedMessage(cId, MessageKeys.SimpleGetPageTx, bytes)
 
-    case CommitBlock(serverRef, blockId, reTryCount) => {
+    case CommitBlock(cId, serverRef, blockId, reTryCount) => {
 
       Try(BlockChainLedger(blockId.blockHeight).commit(blockId)) match {
         case Failure(e) =>
@@ -98,7 +99,7 @@ class ClientBlockChainDownloaderActor(
           context.system.scheduler.scheduleOnce(
             retryDelaySeconds seconds,
             self,
-            CommitBlock(serverRef, blockId, reTryCount + 1))
+            CommitBlock(cId, serverRef, blockId, reTryCount + 1))
         case Success(_) =>
           Try(bc.closeBlock(bc.blockHeader(blockId.blockHeight - 1))) match {
             case Failure(e) =>
@@ -113,7 +114,7 @@ class ClientBlockChainDownloaderActor(
               assert(blockHeader.height == blockId.blockHeight,
                      s"(C)How can ${blockHeader} differ from ${blockId}")
               val nextBlockPage = GetTxPage(blockId.blockHeight + 1, 0)
-              serverRef ! NetworkMessage(MessageKeys.SimpleGetPageTx,
+              serverRef ! SerializedMessage(cId, MessageKeys.SimpleGetPageTx,
                                          nextBlockPage.toBytes)
               val blockHeightToDrop = blockId.blockHeight - numBlocksCached
               if (blockHeightToDrop > 0)
@@ -122,20 +123,20 @@ class ClientBlockChainDownloaderActor(
       }
     }
 
-    case NetworkMessage(SimpleCloseBlock, bytes) =>
+    case SerializedMessage(cId, SimpleCloseBlock, bytes) =>
       decode(SimpleCloseBlock, bytes.toDistributeClose) { distClose =>
         val blockSignaturePersistence =
           BlockSignatures(distClose.blockId.blockHeight)
         blockSignaturePersistence.write(distClose.blockSigs)
-        self ! CommitBlock(sender(), distClose.blockId)
+        self ! CommitBlock(cId, sender(), distClose.blockId)
       }
 
-    case NetworkMessage(SimpleGetPageTxEnd, getTxPage) =>
+    case SerializedMessage(cId, SimpleGetPageTxEnd, getTxPage) =>
       stateMachine ! ClientSynced
       log.info(
         s"Client downloader is synced, pausing for $secondsBetweenChecks seconds")
       context.system.scheduler.scheduleOnce(secondsBetweenChecks seconds) { nc.send(
-          NetworkMessage(
+          SerializedMessage(cId,
             MessageKeys.SimpleGetPageTx, getTxPage
           ), connectionToSyncWith.nodeId
         )

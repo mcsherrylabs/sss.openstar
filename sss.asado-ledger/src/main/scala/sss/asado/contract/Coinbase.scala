@@ -59,9 +59,12 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
             //require(in.amount == rewardPerBlockAmount, s"${in.amount} is not the amount allowed for a block ($rewardPerBlockAmount)")
             require(params.nonEmpty && params.head.nonEmpty, "The tx sig must be provided - not enough params.")
             val sigOfTx = params(0)(0)
-            val pKey = pKeyOfFirstSigner(blockHeight)
 
+            val pKey = pKeyOfFirstSigner(blockHeight)
             require(pKey.isDefined, s"Cannot find the public key used to sign block $blockHeight")
+            require(PublicKeyAccount(pKey.get).verify(sigOfTx, tx.txId),
+              "The signature provided did not match the tx and key.")
+
 
             tx.outs.foreach { out => out.encumbrance match {
                 case SinglePrivateKey(publicKey, minBlockHeight) =>
@@ -78,8 +81,6 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
                 case _ => require(false, "The reward coins must be locked using SinglePrivateKey encumbrance ")
               }
             }
-            require(PublicKeyAccount(pKey.get).verify(sigOfTx, tx.txId),
-              "The signature provided did not match the tx and key.")
 
             log.debug(s"Writing Coinbase Tx ${tx.txId.toBase64Str} for height $currentBlockHeight")
             write(currentBlockHeight, tx.txId.toBase64Str)

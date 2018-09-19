@@ -1,11 +1,9 @@
 package sss.asado.state
 
 import akka.actor.ActorRef
-import akka.agent.Agent
 import sss.asado.InitWithActorRefs
 import sss.asado.block._
 import sss.asado.message.CheckForMessages
-import sss.asado.network.{Connection, NetworkRef}
 import sss.asado.state.AsadoStateProtocol._
 import sss.db.Db
 

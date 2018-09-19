@@ -1,12 +1,11 @@
 package sss.asado.block
 
-
-
-
 import sss.ancillary.Logging
-import sss.asado.chains.Chain
-import sss.asado.ledger.{LedgerItem, Ledgers}
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.util.ByteArrayComparisonOps._
+import sss.asado.ledger._
 import sss.db.Db
 
 
@@ -14,7 +13,7 @@ import sss.db.Db
 object BlockChainLedger {
 
   def apply(height: Long)
-           (implicit db: Db, ledgers: Ledgers): BlockChainLedger =
+           (implicit db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask): BlockChainLedger =
     new BlockChainLedger(Block(height), ledgers)
 
 }
@@ -63,7 +62,7 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
   def commit(blockId: BlockId): Unit = block.inTransaction {
     require(blockId.blockHeight == block.height, s"Cannot apply txs from block ${block.height} to block ${blockId.blockHeight}")
     val count = block.count
-    require(blockId.numTxs == block.entries.size, s"There are $count txs in blocks, but there should be ${blockId.numTxs}, come back later when all are written.")
+    require(blockId.txIndex == block.entries.size, s"There are $count txs in blocks, but there should be ${blockId.txIndex}, come back later when all are written.")
     commit(block.getUnCommitted)
   }
 

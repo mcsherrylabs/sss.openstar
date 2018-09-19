@@ -1,13 +1,13 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ReceiveTimeout}
-import block._
-import sss.asado.MessageKeys
+import sss.asado.block._
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.{BlockChain, BlockChainLedger}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger.Ledgers
-import sss.asado.network._
+import sss.asado.network.{MessageEventBus, _}
 import sss.asado.state.AsadoStateProtocol.QuorumStateEvent
 import sss.asado.state.LeaderActor.{FindTheLeader, LeaderFound}
 import sss.db.Db
@@ -38,8 +38,9 @@ class LeaderActor(thisNodeId: String,
     with AsadoEventSubscribedActor {
 
   assert(quorum.size > 0, "have you wired up the quorum?")
+  def receive = ???
 
-  messageBus.subscribe(MessageKeys.FindLeader)
+  /*messageBus.subscribe(MessageKeys.FindLeader)
   messageBus.subscribe(MessageKeys.Leader)
   messageBus.subscribe(MessageKeys.VoteLeader)
 
@@ -68,11 +69,11 @@ class LeaderActor(thisNodeId: String,
       val findMsg = makeFindLeaderNetMsg
       log.info("Sending FindLeader to network ")
       context.setReceiveTimeout(10 seconds)
-      ncRef.send(NetworkMessage(MessageKeys.FindLeader, findMsg.toBytes), quorum)
+      ncRef.send(SerializedMessage(MessageKeys.FindLeader, findMsg.toBytes), quorum)
 
     case ReceiveTimeout => self ! FindTheLeader
 
-    case NetworkMessage(MessageKeys.FindLeader, bytes) =>
+    case SerializedMessage(_, MessageKeys.FindLeader, bytes) =>
       log.info("Someone asked us to vote on a leader (FindLeader)")
       (makeFindLeaderNetMsg, bytes.toFindLeader) match {
         case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId),
@@ -80,7 +81,7 @@ class LeaderActor(thisNodeId: String,
             if (hisBlkHeight > myBlockHeight) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
-          sender ! NetworkMessage(MessageKeys.VoteLeader,
+          sender ! SerializedMessage(MessageKeys.VoteLeader,
                                   VoteLeader(nodeId).toBytes)
 
         case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId),
@@ -88,7 +89,7 @@ class LeaderActor(thisNodeId: String,
             if (hisBlkHeight == myBlockHeight) && (hisCommittedTxIndex > myCommittedTxIndex) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
-          sender ! NetworkMessage(MessageKeys.VoteLeader,
+          sender ! SerializedMessage(MessageKeys.VoteLeader,
                                   VoteLeader(nodeId).toBytes)
 
         case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId),
@@ -98,7 +99,7 @@ class LeaderActor(thisNodeId: String,
               (mySigIndex > hisSigIndx) =>
           // I vote for him
           log.info(s"My name is $nodeId and I'm voting for $hisId")
-          sender ! NetworkMessage(MessageKeys.VoteLeader,
+          sender ! SerializedMessage(MessageKeys.VoteLeader,
                                   VoteLeader(nodeId).toBytes)
 
         case (FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId),
@@ -113,14 +114,14 @@ class LeaderActor(thisNodeId: String,
           if (makeLong(nodeId) > makeLong(hisId)) {
             log.info(
               s"My name is $nodeId and I'm voting for $hisId in order to get started up.")
-            sender ! NetworkMessage(MessageKeys.VoteLeader,
+            sender ! SerializedMessage(MessageKeys.VoteLeader,
                                     VoteLeader(nodeId).toBytes)
           }
 
         case (mine, his) => log.info(s"$mine is ahead of $his")
       }
 
-    case NetworkMessage(MessageKeys.VoteLeader, bytes) =>
+    case SerializedMessage(_, MessageKeys.VoteLeader, bytes) =>
       val vote = bytes.toVoteLeader
       val confirms = leaderConfirms + vote.nodeId
       log.info(
@@ -138,12 +139,12 @@ class LeaderActor(thisNodeId: String,
             log.info(
               s"Committed the outstanding txs ($numTxs) in partial block")
             stateMachine ! LeaderFound(thisNodeId)
-            ncRef.send(NetworkMessage(MessageKeys.Leader, Leader(thisNodeId).toBytes))
+            ncRef.send(SerializedMessage(1. toByte, MessageKeys.Leader, Leader(thisNodeId).toBytes), "NOWHERE")
         }
 
       } else context.become(handleNoLeader(confirms))
 
-    case NetworkMessage(MessageKeys.Leader, bytes) =>
+    case SerializedMessage(_, MessageKeys.Leader, bytes) =>
       val leader = bytes.toLeader
       context.setReceiveTimeout(Duration.Undefined)
       context.become(handle(leader.nodeId))
@@ -153,13 +154,13 @@ class LeaderActor(thisNodeId: String,
 
   private def handle(leader: String): Receive = {
 
-    case NetworkMessage(MessageKeys.FindLeader, bytes) =>
+    case SerializedMessage(_, MessageKeys.FindLeader, bytes) =>
       if (leader == thisNodeId)
-        sender() ! NetworkMessage(MessageKeys.Leader, Leader(leader).toBytes)
-    case NetworkMessage(MessageKeys.VoteLeader, bytes) =>
+        sender() ! SerializedMessage(1.toByte, MessageKeys.Leader, Leader(leader).toBytes)
+    case SerializedMessage(_, MessageKeys.VoteLeader, bytes) =>
       log.info(
         s"Got an surplus vote from ${bytes.toVoteLeader.nodeId}, leader is $leader")
-    case NetworkMessage(MessageKeys.Leader, bytes) =>
+    case SerializedMessage(_, MessageKeys.Leader, bytes) =>
       log.info(
         s"Got an unneeded leader indicator ${bytes.toLeader.nodeId}, leader is $leader")
 
@@ -171,5 +172,5 @@ class LeaderActor(thisNodeId: String,
       self ! FindTheLeader
 
     //case x => log.info(s"Spurious leadership message $x")
-  }
+  }*/
 }

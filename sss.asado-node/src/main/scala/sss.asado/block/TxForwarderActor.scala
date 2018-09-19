@@ -2,11 +2,12 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import com.twitter.util.SynchronizedLruMap
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.MessageKeys.decode
 import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.common.block._
 import sss.asado.ledger._
-import sss.asado.network._
+import sss.asado.network.{MessageEventBus, _}
 import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.SeqSerializer
@@ -66,13 +67,13 @@ class TxForwarderActor(messageRouter: MessageEventBus,
       context.become(noForward)
 
 
-    case m @ NetworkMessage(MessageKeys.SignedTx, bytes) =>
+    case m @ SerializedMessage(_, MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toLedgerItem) { stx =>
         txs +=  (stx.txId.toBase64Str -> sender())
         ncRef.send(m, leader)
       }
 
-    case m @ NetworkMessage(MessageKeys.SeqSignedTx, bytes) =>
+    case m @ SerializedMessage(_, MessageKeys.SeqSignedTx, bytes) =>
       decode(MessageKeys.SeqSignedTx, SeqSerializer.fromBytes(bytes)) { seqStx =>
         seqStx foreach { stx =>
           val le: LedgerItem = stx.toLedgerItem
@@ -81,17 +82,17 @@ class TxForwarderActor(messageRouter: MessageEventBus,
         ncRef.send(m, leader)
       }
 
-    case m @ NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
-      decode(MessageKeys.SignedTxAck, bytes.toBlockChainIdTx) { txAck =>
+    case m @ SerializedMessage(_, MessageKeys.SignedTxAck, bytes) =>
+      decode(MessageKeys.SignedTxAck, bytes.toBlockChainTxId) { txAck =>
         txs.get(txAck.blockTxId.txId.toBase64Str) map (_ ! m)
       }
 
-    case m @ NetworkMessage(MessageKeys.TempNack, bytes) =>
+    case m @ SerializedMessage(_, MessageKeys.TempNack, bytes) =>
       decode(MessageKeys.TempNack, bytes.toTxMessage) { tempNack =>
         txs.get(tempNack.txId.toBase64Str) map (_ ! m)
       }
 
-    case m @ NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+    case m @ SerializedMessage(_, MessageKeys.SignedTxNack, bytes) =>
       decode(MessageKeys.SignedTxNack, bytes.toTxMessage) { txNack =>
         txs.get(txNack.txId.toBase64Str) map (_ ! m)
         txs -= txNack.txId.toBase64Str
@@ -99,8 +100,8 @@ class TxForwarderActor(messageRouter: MessageEventBus,
 
 
 
-    case m @ NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
-      decode(MessageKeys.AckConfirmTx, bytes.toBlockChainIdTx) { txAck =>
+    case m @ SerializedMessage(_, MessageKeys.AckConfirmTx, bytes) =>
+      decode(MessageKeys.AckConfirmTx, bytes.toBlockChainTxId) { txAck =>
         txs.get(txAck.blockTxId.txId.toBase64Str) map (_ ! m)
 
       }

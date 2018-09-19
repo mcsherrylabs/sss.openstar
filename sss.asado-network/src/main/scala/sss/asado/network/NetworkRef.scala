@@ -4,6 +4,7 @@ import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorRef
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.network.NetworkControllerActor._
 
 import scala.concurrent.duration.Duration
@@ -20,13 +21,13 @@ class NetworkRef private[network] (networkController: ActorRef,
                                    connectionsRef: AtomicReference[Set[Connection]],
                                    stopFuture: Promise[Unit]) {
 
-  def send(msg: NetworkMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
+  def send(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
+    require(nIds.nonEmpty, s"Programmer error sending SerializedMessage to zero recipients! ($msg)")
     nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
   }
 
-  def send(msg: NetworkMessage, nIds: UniqueNodeIdentifier*): Unit = {
-    nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
-  }
+  def send(msg: SerializedMessage, nId: UniqueNodeIdentifier): Unit =
+    networkController ! SendToNodeId(msg, nId)
 
   def connect(nId: NodeId,
               reconnectionStrategy: ReconnectionStrategy =

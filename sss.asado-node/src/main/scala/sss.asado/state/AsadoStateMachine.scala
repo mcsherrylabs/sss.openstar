@@ -1,11 +1,11 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, FSM}
-import block.{IsSynced, NotSynced}
+import sss.asado.block.{IsSynced, NotSynced}
 import sss.asado.AsadoEvent
 import sss.asado.actor.AsadoEventPublishingActor
-import sss.asado.chains.QuorumMonitor.Quorum
-import sss.asado.network.Connection
+import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
+import sss.asado.network.{Connection, ConnectionLost}
 import sss.asado.state.LeaderActor.LeaderFound
 
 /**
@@ -49,7 +49,7 @@ trait AsadoStateMachine
   startWith(ConnectingState, None)
 
   when(ConnectingState) {
-    case Event(Quorum(_), _) => goto(QuorumState)
+    case Event(Quorum(_, _, _), _) => goto(QuorumState)
   }
 
   onTransition {
@@ -65,12 +65,6 @@ trait AsadoStateMachine
       publish(NotReadyEvent)
       self ! StopAcceptingTransactions
 
-    /*case ReadyState -> OrderedState =>
-      self ! StopAcceptingTransactions
-    case ReadyState -> ConnectingState =>
-      self ! StopAcceptingTransactions
-      self ! Connecting*/
-    //case _ -> ConnectingState => self ! Connecting
   }
 
   when(QuorumState) {
@@ -87,11 +81,11 @@ trait AsadoStateMachine
   }
 
   whenUnhandled {
-    /*case Event(QuorumLost, _)           => goto(ConnectingState) using None
-    case Event(ConnectionLost(_, _), _) => stay()
-    case Event(PeerConnectionLost(conn, _), Some(leaderId))
-        if (conn.nodeId.id == leaderId) =>
-      goto(QuorumState) using None*/
+    case Event(QuorumLost(_), _)           => goto(ConnectingState) using None
+    //case Event(ConnectionLost(_, _), _) => stay()
+    case Event(ConnectionLost(nodeId), Some(leaderId))
+        if (nodeId == leaderId) =>
+      goto(QuorumState) using None
     case x => log.warning(x.toString); stay()
   }
 

@@ -1,6 +1,6 @@
-package sss.asado.block.serialize
+package sss.asado.common.block.serialize
 
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.util.Serialize._
 
 /**

@@ -1,7 +1,7 @@
 package sss.asado.state
 
 import akka.actor.{Actor, ActorLogging, FSM}
-import block.ClientSynced
+import sss.asado.block.ClientSynced
 import sss.asado.AsadoEvent
 import sss.asado.actor.AsadoEventPublishingActor
 import sss.asado.network.{Connection, ConnectionLost}

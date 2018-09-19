@@ -5,6 +5,8 @@ import java.sql.SQLException
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.asado.ledger._
 import sss.db.Db
 
@@ -15,9 +17,10 @@ import sss.db.Db
 object BlockTestSpec {
   lazy val pkPair = PrivateKeyAccount(DummySeedBytes)
 
+  implicit val chainId: GlobalChainIdMask = 4.toByte
   implicit val db = Db()
   val someBlock = Block(99)
-  val block999 = Block(999)
+  val block999 = Block(9999)
 
   lazy val dumbSignedTx = LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
 

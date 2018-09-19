@@ -9,48 +9,53 @@ import sss.ancillary.{DynConfig, _}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
-import sss.asado.chains.{Chain, GlobalChainIdMask}
+import sss.asado.chains.BlockCloseDistributorActor.ProcessCoinBaseHook
+import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
+import sss.asado.chains.{GenerateCoinBaseTxs, QuorumMonitor, TxWriterActor}
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
+import sss.asado.eventbus.MessageInfo
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
-import sss.asado.network.MessageEventBus.MessageInfo
 import sss.asado.network.NetworkInterface.BindControllerSettings
-import sss.asado.network._
+import sss.asado.network.{MessageEventBus, _}
+import sss.asado.peers.{PeerManager, PeerQuery}
+import sss.asado.peers.PeerManager.{Capabilities, Query}
 import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
-import sss.asado.{InitWithActorRefs, MessageKeys}
+import sss.asado.util.StringCheck.SimpleTag
+import sss.asado.{InitWithActorRefs, MessageKeys, PublishedMessageKeys, UniqueNodeIdentifier}
 import sss.db.Db
 import sss.db.datasource.DataSource
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
   * mcsherrylabs on 3/9/16.
   */
-trait PhraseBuilder {
+trait RequirePhrase {
   val phrase: Option[String]
 }
 
-trait ConfigBuilder extends Configure {
+trait RequireGlobalChainId {
+  implicit val globalChainId: GlobalChainIdMask = 1.toByte
+}
+
+trait RequireConfig {
+  val conf: Config
+}
+
+trait ConfigBuilder extends RequireConfig with Configure {
   val configName: String
   lazy val conf: Config = config(configName)
 }
 
-trait NodeConfigBuilder {
-
-  self: ConfigBuilder =>
-
-  lazy val bindSettings: BindControllerSettings =
-    DynConfig[BindControllerSettings](conf.getConfig("bind"))
-
-  lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
+trait RequireNodeConfig {
+  val bindSettings: BindControllerSettings
+  val nodeConfig: NodeConfig
 
   trait NodeConfig {
     val conf: Config
@@ -64,11 +69,24 @@ trait NodeConfigBuilder {
     val connectedClients = Agent[Set[Connection]](Set.empty[Connection])*/
   }
 
+}
+trait NodeConfigBuilder extends RequireNodeConfig {
+
+  self: RequireConfig =>
+
+  lazy val bindSettings: BindControllerSettings =
+    DynConfig[BindControllerSettings](conf.getConfig("bind"))
+
+  lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
+
+
   case class NodeConfigImpl(conf: Config) extends NodeConfig with Configure {
 
     lazy val settings: BindControllerSettings = bindSettings
-    lazy val uPnp = DynConfig.opt[UPnPSettings](s"${configName}.upnp") map (new UPnP(
-      _))
+
+    lazy val uPnp = if(conf.hasPath("upnp"))
+      Some(new UPnP(DynConfig[UPnPSettings](conf.getConfig("upnp")))) else None
+
     lazy val blockChainSettings: BlockChainSettings =
       DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
     lazy val production: Boolean = conf.getBoolean("production")
@@ -98,48 +116,98 @@ trait HomeDomainBuilder {
 
 }
 
-trait DbBuilder {
+trait RequireDb {
+  implicit val db: Db
+}
 
-  self: ConfigBuilder =>
+trait DbBuilder extends RequireDb {
 
-  lazy implicit val db = Db(conf.getConfig("database"))(
-    DataSource(conf.getConfig("database.datasource")))
+  self: RequireConfig =>
+
+  override lazy implicit val db: Db = {
+    Db(conf.getConfig("database"))(
+      DataSource(conf.getConfig("database.datasource")))
+  }
 
 }
 
-trait ActorSystemBuilder {
+
+trait RequireActorSystem {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
-trait QuorumMonitorBuilder {
-    self: ChainBuilder with
-      MessageEventBusBuilder =>
-
-    lazy val quorumMonitor: QuorumMonitor = new QuorumMonitor(messageEventBus, chain)
+trait RequireQuorumMonitor {
+  val quorumMonitor: QuorumMonitor
 }
 
+trait QuorumMonitorBuilder extends RequireQuorumMonitor {
+    self: ChainBuilder with
+      RequireActorSystem with
+      RequireNodeIdentity with
+      RequirePeerManager with
+      MessageEventBusBuilder =>
+
+    lazy val quorumMonitor: QuorumMonitor = QuorumMonitor(
+      messageEventBus,
+      chain.id,
+      nodeIdentity.id,
+      chain.quorumCandidates(),
+      peerManager
+    )
+}
+
+trait RequireCoinbaseGenerator {
+  val processCoinBaseHook: ProcessCoinBaseHook
+}
+
+trait CoinbaseGeneratorBuilder
+  extends RequireCoinbaseGenerator {
+
+  self: MessageEventBusBuilder with
+    RequireDb with
+    ChainBuilder with
+    RequireGlobalChainId with
+    RequireNodeIdentity with
+    WalletBuilder with
+    NetworkControllerBuilder =>
+
+  import chain.ledgers
+
+  lazy override val processCoinBaseHook: ProcessCoinBaseHook =
+    new GenerateCoinBaseTxs(
+      messageEventBus,
+      nodeIdentity,
+      ledgers,
+      net.send,
+      wallet
+    )
+}
 
 trait ChainBuilder {
 
   self: BlockChainBuilder
     with IdentityServiceBuilder
     with BalanceLedgerBuilder
-    with DbBuilder =>
+    with MessageEventBusBuilder
+    with RequireNodeConfig
+    with RequireGlobalChainId
+    with RequireDb =>
 
-  val globalChainId: GlobalChainIdMask = 1
-  val quorumService = new QuorumService(globalChainId.toString)
-
+  lazy val quorumService = new QuorumService(globalChainId)
 
   lazy val chain: Chain = new Chain {
-    override val id: GlobalChainIdMask = globalChainId
+    implicit override val id: GlobalChainIdMask = globalChainId
+
 
     override implicit val ledgers: Ledgers = new Ledgers({
       val identityLedger =
         new IdentityLedger(MessageKeys.IdentityLedger, identityService)
 
       val quorumLedger: QuorumLedger = new QuorumLedger(
+        globalChainId,
         MessageKeys.QuorumLedger,
         quorumService,
+        messageEventBus,
         identityService.accounts)
 
       Map(
@@ -148,31 +216,68 @@ trait ChainBuilder {
         MessageKeys.QuorumLedger -> quorumLedger
       )}
     )
-    override def quorumMembers: Seq[UniqueNodeIdentifier] = quorumService.members()
+    override def quorumCandidates(): Set[UniqueNodeIdentifier] = quorumService.candidates()
   }
 
 
 }
 
-trait DecoderBuilder {
-  val decoder: Byte => Option[MessageInfo] = ???
+trait RequireDecoder {
+  val decoder: Byte => Option[MessageInfo]
+}
+
+trait DecoderBuilder extends RequireDecoder {
+  lazy val m = MessageKeys.messages
+  lazy val decoder: Byte => Option[MessageInfo] = m.find
+}
+
+trait RequirePeerQuery {
+  val peerQuery: PeerQuery
+}
+
+trait PeerQueryBuilder extends RequirePeerQuery {
+  self: RequirePeerManager =>
+
+  lazy override val peerQuery: PeerQuery = peerManager
+
+}
+
+trait RequirePeerManager {
+  val peerManager: PeerManager
+}
+
+trait PeerManagerBuilder extends RequirePeerManager {
+  self: NetworkControllerBuilder with
+  RequireActorSystem with
+  ChainBuilder with
+  RequireNodeConfig with
+  MessageEventBusBuilder =>
+
+  lazy val peerManager: PeerManager = new PeerManager(net,
+    nodeConfig.peersList,
+    Capabilities(chain.id), messageEventBus)
 }
 
 trait MessageEventBusBuilder {
-  self: ActorSystemBuilder with
-    DecoderBuilder =>
+  self: RequireActorSystem with
+    RequireDecoder =>
 
   lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
 
 }
 
-trait SeedBytesBuilder {
+trait RequireSeedBytes {
   lazy val seedBytes = new SeedBytes {}
 }
 
-trait NodeIdentityBuilder {
+trait RequireNodeIdentity {
+  val nodeIdentityManager: NodeIdentityManager
+  val nodeIdentity: NodeIdentity
+}
 
-  self: ConfigBuilder with PhraseBuilder with SeedBytesBuilder =>
+trait NodeIdentityBuilder extends RequireNodeIdentity {
+
+  self: RequireConfig with RequirePhrase with RequireSeedBytes =>
 
   lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
   lazy val nodeIdentity: NodeIdentity = {
@@ -185,7 +290,8 @@ trait NodeIdentityBuilder {
 
 trait BalanceLedgerBuilder {
   self: NodeConfigBuilder
-    with DbBuilder
+    with RequireDb
+    with RequireGlobalChainId
     with BlockChainBuilder
     with IdentityServiceBuilder =>
 
@@ -201,7 +307,7 @@ trait BalanceLedgerBuilder {
 }
 
 trait IdentityServiceBuilder {
-  self: DbBuilder =>
+  self: RequireDb =>
 
   lazy val identityService: IdentityService = IdentityService()
 }
@@ -219,7 +325,7 @@ case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
 
 trait BootstrapIdentitiesBuilder {
 
-  self: ConfigBuilder =>
+  self: RequireConfig =>
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] =
     buildBootstrapIdentities
@@ -234,10 +340,10 @@ trait BootstrapIdentitiesBuilder {
 
 trait LeaderActorBuilder {
 
-  self: ActorSystemBuilder
+  self: RequireActorSystem
     with NodeConfigBuilder
     with ChainBuilder
-    with DbBuilder
+    with RequireDb
     with BlockChainBuilder
     with NodeIdentityBuilder
     with MessageEventBusBuilder
@@ -253,16 +359,16 @@ trait LeaderActorBuilder {
             nodeIdentity.id,
             Set(),
             messageEventBus,
-            ncRef,
+            net,
             stateMachineActor,
             bc))
   }
 }
 
 trait MessageQueryHandlerActorBuilder {
-  self: DbBuilder
+  self: RequireDb
     with MessageEventBusBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with NodeIdentityBuilder
     with BlockChainBuilder
     with ConfigBuilder
@@ -288,9 +394,9 @@ trait MessageQueryHandlerActorBuilder {
 }
 
 trait MessageDownloadServiceBuilder {
-  self: DbBuilder
+  self: RequireDb
     with MessageEventBusBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with NodeIdentityBuilder
     with HomeDomainBuilder
     with NetworkControllerBuilder =>
@@ -300,12 +406,21 @@ trait MessageDownloadServiceBuilder {
           nodeIdentity.id,
           homeDomain,
           messageEventBus,
-          ncRef,
+          net,
           db))
 }
 
-trait BlockChainBuilder {
-  self: DbBuilder =>
+trait RequireBlockChain {
+  val bc: BlockChain with BlockChainSignatures
+    with BlockChainGenesis
+    with BlockChainTxConfirms
+
+  def currentBlockHeight: Long
+}
+
+trait BlockChainBuilder extends RequireBlockChain {
+
+  self: RequireDb with RequireGlobalChainId =>
 
   lazy val bc: BlockChain
     with BlockChainSignatures
@@ -322,8 +437,8 @@ trait StateMachineActorBuilder {
 
 trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
 
-  self: ActorSystemBuilder
-    with DbBuilder
+  self: RequireActorSystem
+    with RequireDb
     with NodeConfigBuilder
     with NodeIdentityBuilder
     with BlockChainBuilder
@@ -353,7 +468,7 @@ trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
             nodeConfig.blockChainSettings,
             bc,
             messageEventBus,
-            ncRef,
+            net,
             db))
   }
 
@@ -361,8 +476,8 @@ trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
 
 trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
 
-  self: ActorSystemBuilder
-    with DbBuilder
+  self: RequireActorSystem
+    with RequireDb
     with NodeConfigBuilder
     with NodeIdentityBuilder
     with BlockChainBuilder
@@ -402,27 +517,28 @@ trait HandshakeGeneratorBuilder {
 
 trait NetworkControllerBuilder {
 
-  self: ActorSystemBuilder
-    with DbBuilder
+  self: RequireActorSystem
+    with RequireDb
     with NodeConfigBuilder
     with MessageEventBusBuilder
     with NetworkInterfaceBuilder
     with HandshakeGeneratorBuilder =>
 
-  val netController =
+  lazy val netController =
     new NetworkController(initialStepGenerator, networkInterface, messageEventBus)
 
-  lazy val ncRef = netController.waitStart()
+  lazy val net = netController.waitStart()
 }
 
 trait MinimumNode
     extends Logging
+    with RequireGlobalChainId
     with ConfigBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with DbBuilder
     with NodeConfigBuilder
-    with PhraseBuilder
-    with SeedBytesBuilder
+    with RequirePhrase
+    with RequireSeedBytes
     with NodeIdentityBuilder
     with IdentityServiceBuilder
     with BootstrapIdentitiesBuilder
@@ -449,13 +565,17 @@ trait MinimumNode
   Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
 }
 
+
+
 trait CoreNode
     extends MinimumNode
     with BlockChainDownloaderBuilder
     with TxForwarderActorBuilder
     with CoreStateMachineActorBuilder
     with LeaderActorBuilder
-    with BlockChainActorsBuilder {}
+    with BlockChainActorsBuilder
+    with PeerManagerBuilder
+    with QuorumMonitorBuilder {}
 
 trait ServicesNode
     extends CoreNode
@@ -470,6 +590,6 @@ trait ClientNode
     with MessageDownloadServiceBuilder
     with HomeDomainBuilder {
 
-  def connectHome = ncRef.connect(homeDomain.nodeId)
+  def connectHome = net.connect(homeDomain.nodeId)
 
 }

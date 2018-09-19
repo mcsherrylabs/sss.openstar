@@ -11,11 +11,13 @@ trait HttpServerBuilder {
 
   self: NodeConfigBuilder with
           BlockChainBuilder with
-          DbBuilder with
-          ActorSystemBuilder with
+          RequireDb with
+          NodeIdentityBuilder with
+          RequireActorSystem with
           MessageEventBusBuilder with
+          ChainBuilder with
           IdentityServiceBuilder with
-          WalletBuilder with
+          //WalletBuilder with
           NetworkControllerBuilder =>
 
   lazy val httpServer =  {
@@ -28,7 +30,7 @@ trait HttpServerBuilder {
   }
 
   def buildConsoleServlet: Option[ConsoleServlet] = {
-    Option(new ConsoleServlet(ncRef, identityService, wallet, db))
+    Option(new ConsoleServlet(net, messageEventBus, nodeIdentity, quorumService, identityService, db))
   }
 
 
@@ -42,7 +44,7 @@ trait ClaimServletBuilder {
 
   self: NodeConfigBuilder with
     MessageEventBusBuilder with
-    ActorSystemBuilder with
+    RequireActorSystem with
     IntegratedWalletBuilder with
     StateMachineActorBuilder with
     BalanceLedgerBuilder with

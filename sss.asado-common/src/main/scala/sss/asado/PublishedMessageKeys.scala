@@ -1,5 +1,13 @@
 package sss.asado
 
+import java.nio.charset.StandardCharsets
+
+import sss.asado.common.block.BlockChainTxId
+import sss.asado.eventbus.{MessageInfoComposite, MessageInfos}
+import sss.asado.ledger._
+import sss.asado.common.block._
+import sss.asado.util.SeqSerializer
+
 /**
   * Created by alan on 5/24/16.
   */
@@ -21,12 +29,29 @@ trait PublishedMessageKeys {
   val NackConfirmTx: Byte = 106
   val TempNack: Byte = 107
 
+  val DistributeTx: Byte = 108
+  val SignedTxConfirm: Byte = 109 //logically belongs with SignedTx, is a client confirm
+
   val MalformedMessage: Byte = 20
   val GenericErrorMessage: Byte = 21
 
   val BalanceLedger: Byte = 70
   val IdentityLedger: Byte = 71
   val QuorumLedger: Byte = 72
-}
 
-object PublishedMessageKeys extends PublishedMessageKeys
+  protected val publishedMsgs: MessageInfos =
+    MessageInfoComposite[LedgerItem](SignedTx, classOf[LedgerItem], _.toLedgerItem) +:
+    MessageInfoComposite[BlockChainTxId](SignedTxAck, classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[TxMessage](SignedTxNack, classOf[TxMessage], _.toTxMessage) :+
+    MessageInfoComposite[Seq[Array[Byte]]](SeqSignedTx, classOf[Seq[Array[Byte]]], SeqSerializer.fromBytes(_)) +:
+    MessageInfoComposite[BlockChainTx](ConfirmTx, classOf[BlockChainTx], _.toBlockChainTx) +: //todo should be toBlockChainTxId?
+    MessageInfoComposite[BlockChainTxId](SignedTxConfirm, classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTx](DistributeTx, classOf[BlockChainTx], _.toBlockChainTx) +:
+    MessageInfoComposite[BlockChainTxId](AckConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTxId](NackConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[TxMessage](TempNack, classOf[TxMessage], _.toTxMessage) +:
+    MessageInfoComposite[String](MalformedMessage, classOf[String], new String(_, StandardCharsets.UTF_8)) +:
+    MessageInfoComposite[String](GenericErrorMessage, classOf[String], new String(_, StandardCharsets.UTF_8))
+
+
+}

@@ -3,12 +3,16 @@ package sss.asado.quorumledger
 import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
+import sss.asado
 import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.eventbus.EventPublish
 import sss.asado.identityledger.TaggedPublicKeyAccount
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
+
+import scala.reflect.ClassTag
 
 /**
   * Created by alan on 4/22/16.
@@ -25,8 +29,13 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
   private val key2 = privateAcc2.publicKey
 
   private val ledgerId = 99.toByte
+  private val chainId = 99.toByte
 
-  private val quorumService = new QuorumService("99999")
+  val evPublish = new EventPublish {
+    override def publish[T <: asado.AsadoEvent : ClassTag](event: T): Unit = ()
+  }
+
+  private val quorumService = new QuorumService(chainId)
 
   private def makeSig(msg: Array[Byte], account: PrivateKeyAccount): Array[Byte] = {
     account.sign(msg)
@@ -49,7 +58,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     }
   }
 
-  private val quorumLedger = new QuorumLedger(ledgerId, quorumService, findAccounts)
+  private val quorumLedger = new QuorumLedger(chainId, ledgerId, quorumService, evPublish, findAccounts)
 
   private def makeLedgerItem(tx: QuorumLedgerTx, sigs: Seq[Seq[Array[Byte]]] = Seq()): LedgerItem = {
     val ste = SignedTxEntry(tx.toBytes, sigs)
@@ -60,7 +69,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
   "The quorum ledger " should " allow a valid add " in {
     val add = makeLedgerItem(AddNodeId("id1"))
     quorumLedger(add, 0)
-    assert(quorumService.members() == Seq("id1"))
+    assert(quorumService.candidates() === Set("id1"))
   }
 
 
@@ -69,7 +78,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     intercept[IllegalArgumentException] {
       quorumLedger(item, 0)
     }
-    assert(quorumService.members() == Seq("id1"))
+    assert(quorumService.candidates() === Set("id1"))
   }
 
   it should " require a signature when adding a second member" in {
@@ -78,7 +87,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
       quorumLedger(makeLedgerItem(AddNodeId("id2")), 0)
     }
     //any further adds must be signed by id1
-    assert(quorumService.members() == Seq("id1"))
+    assert(quorumService.candidates() === Set("id1"))
   }
 
   it should " reject an incorrect signature when adding a second member" in {
@@ -89,7 +98,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     intercept[IllegalArgumentException] {
       quorumLedger(makeLedgerItem(tx, sigs), 0)
     }
-    assert(quorumService.members() == Seq("id1"))
+    assert(quorumService.candidates() === Set("id1"))
   }
 
   it should " accept an correct signature when adding a second member" in {
@@ -101,7 +110,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     quorumLedger(makeLedgerItem(tx, sigs), 0)
 
     //any further adds must be signed by both id1 and id2
-    assert(quorumService.members() == Seq("id1",  "id2"))
+    assert(quorumService.candidates() === Set("id1",  "id2"))
   }
 
   it should " reject an add when not signed by *all* members " in {
@@ -113,7 +122,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
       quorumLedger(makeLedgerItem(tx, sigs), 0)
     }
 
-    assert(quorumService.members() == Seq("id1",  "id2"))
+    assert(quorumService.candidates() === Set("id1",  "id2"))
   }
 
   it should " accept an add when signed by *all* members " in {
@@ -127,7 +136,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     )
 
     quorumLedger(makeLedgerItem(tx, sigs), 0)
-    assert(quorumService.members() == Seq("id1",  "id2", "id3"))
+    assert(quorumService.candidates() === Set("id1",  "id2", "id3"))
   }
 
   it should " reject a remove when not signed by other members " in {
@@ -141,7 +150,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
       quorumLedger(makeLedgerItem(tx, sigs), 0)
     }
     // No change
-    assert(quorumService.members() == Seq("id1",  "id2", "id3"))
+    assert(quorumService.candidates() === Set("id1",  "id2", "id3"))
   }
 
   it should " accept a remove when signed by other members " in {
@@ -156,7 +165,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     )
 
     quorumLedger(makeLedgerItem(tx, sigs), 0)
-    assert(quorumService.members() == Seq("id1",  "id2"))
+    assert(quorumService.candidates() === Set("id1",  "id2"))
   }
 
   /*it should " allow a member to resign " in {
@@ -185,7 +194,7 @@ class QuorumLedgerSpec extends FlatSpec with Matchers with ByteArrayComparisonOp
     intercept[QuorumLedgerException] {
       quorumLedger(makeLedgerItem(txNoMore, sigsNoMore), 0)
     }
-    assert(quorumService.members() == Seq("id1"))
+    assert(quorumService.candidates() === Set("id1"))
   }
 
 

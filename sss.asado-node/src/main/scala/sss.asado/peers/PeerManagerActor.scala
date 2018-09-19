@@ -1,57 +1,80 @@
 package sss.asado.peers
 
 import akka.actor.Actor
-import sss.asado.chains.GlobalChainIdMask
-import sss.asado.network._
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.eventbus.PureEvent
+import sss.asado.network.MessageEventBus.IncomingMessage
+import sss.asado.network.{MessageEventBus, _}
 import sss.asado.peers.PeerManager.{Capabilities, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
 import sss.asado.util.IntBitSet
 
 
-class PeerManagerActor( ncRef: NetworkRef,
-                        ourCapabilities: Capabilities,
-                        messageEventBus: MessageEventBus
+private class PeerManagerActor( ncRef: NetworkRef,
+                                bootstrapNodes: Set[NodeId],
+                                ourCapabilities: Capabilities,
+                                messageEventBus: MessageEventBus
                       ) extends Actor {
 
   private case class KnownConnection(c: Connection, cabs: Capabilities)
 
-  var queries: Set[Query] = Set()
+  private val ourCapabilitiesNetworkMsg: SerializedMessage =
+    SerializedMessage(0.toByte, MessageKeys.Capabilities,
+      ourCapabilities.toBytes)
 
-  var knownConns : Map[UniqueNodeIdentifier, GlobalChainIdMask] = Map()
 
-  messageEventBus.subscribe(classOf[Capabilities])
+  private var queries: Set[Query] = Set()
+
+  private var knownConns : Map[UniqueNodeIdentifier, Capabilities] = Map()
+
+  messageEventBus.subscribe(MessageKeys.Capabilities)
+  messageEventBus.subscribe(MessageKeys.QueryCapabilities)
   messageEventBus.subscribe(classOf[ConnectionLost])
   messageEventBus.subscribe(classOf[Connection])
 
-  private def matchWithCapabilities(caps: Capabilities)(q:Query): Boolean = {
+  bootstrapNodes foreach (ncRef.connect(_, indefiniteReconnectionStrategy(30)))
+
+
+  private def matchWithCapabilities(nodeId: UniqueNodeIdentifier,
+                                    otherNodesCaps: Capabilities)(q:Query): Boolean = {
     q match {
       case ChainQuery(chainId: GlobalChainIdMask) =>
-        IntBitSet(chainId).intersects(caps.supportedChains)
+        otherNodesCaps.contains(chainId)
 
       case IdQuery(ids: Set[String]) =>
-        ids contains caps.nodeId
+        ids contains nodeId
 
       case _ => false
     }
   }
+
   override def receive: Receive = {
 
     case UnQuery(q) => queries -= q
 
+    case q@IdQuery(ids) =>
+      queries += q
+      //ids foreach (ncRef.connect(_, indefiniteReconnectionStrategy(30)))
+
     case q: Query => queries += q
 
-    case connection: Connection =>
-      val nm = ourCapabilities.toNetworkMessage
-      ncRef.send(nm, connection.nodeId)
+
+    case Connection(nodeId) =>
+      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array()), nodeId)
 
     case ConnectionLost(lost) =>
       knownConns -= lost
 
-    case c@Capabilities(mask, nodeId) =>
-      knownConns += nodeId -> mask
+    case IncomingMessage(_, MessageKeys.QueryCapabilities, nodeId, _) =>
+      // TODO if spamming, blacklist
+      ncRef.send(ourCapabilitiesNetworkMsg, nodeId)
+
+    case IncomingMessage(_, MessageKeys.Capabilities, nodeId, otherNodesCaps: Capabilities) =>
+      knownConns += nodeId -> otherNodesCaps
 
       queries
-        .find (matchWithCapabilities(c))
-        .foreach (_ => messageEventBus.publish(PeerConnection(c)))
+        .find (matchWithCapabilities(nodeId, otherNodesCaps))
+        .foreach (_ => messageEventBus.publish(PeerConnection(nodeId, otherNodesCaps)))
 
   }
 }

@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{Actor, _}
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.network.ConnectionHandler.{Begin, ConnectionRef, HandshakeStep}
 import sss.asado.network.NetworkControllerActor._
 
@@ -16,7 +17,7 @@ import language.postfixOps
 
 private[network] object NetworkControllerActor {
 
-  case class SendToNodeId(msg: NetworkMessage, nId: UniqueNodeIdentifier)
+  case class SendToNodeId(msg: SerializedMessage, nId: UniqueNodeIdentifier)
   case class ConnectTo(nodeId: NodeId,
                        reconnectionStrategy: ReconnectionStrategy)
 
@@ -225,7 +226,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
     strategies.get(nodeId) foreach { case (addr, strategy) =>
         val delayTime = strategy.head
         val timeToRetry = delayTime
-        log.info("Reconnect strategy for {} in {} s", nodeId, delayTime)
+        log.debug("Reconnect strategy for {} in {} s", nodeId, delayTime)
         system.scheduler.scheduleOnce(timeToRetry seconds,
                                       self,
                                       ConnectTo(NodeId(nodeId, addr), strategy.tail))

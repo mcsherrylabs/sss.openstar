@@ -4,6 +4,8 @@ package sss.asado.block
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.NodeIdentity
 import sss.asado.DummySeedBytes
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block.{BlockId, BlockTx}
 import sss.asado.ledger._
 import sss.db.Db
 
@@ -22,13 +24,9 @@ object TestLedger extends Ledger {
 }
 class BlockChainLedgerTest extends FlatSpec with Matchers {
 
-
+  implicit val chainId: GlobalChainIdMask = 5.toByte
   implicit val db: Db = Db()
   implicit val ledgers = new Ledgers(Map(99.toByte -> TestLedger))
-
-  def resetUtxo = db.executeSql("TRUNCATE TABLE utxo")
-
-  resetUtxo
 
   val ledger = BlockChainLedger(1)
 
@@ -40,9 +38,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     }
   }
 
-
   def resetUTXOBlockAndCreateTx(height: Long): LedgerItem  = {
-    resetUtxo
     Block(height).truncate
     LedgerItem(99, DummySeedBytes(32), DummySeedBytes(12))
   }

@@ -4,6 +4,8 @@ import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.TestClientKey
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.db.Db
 
 /**
@@ -15,6 +17,7 @@ class BlockChainSpec extends FlatSpec with Matchers {
   val merkleRoot= "12345678123456781234567812345678".getBytes
   val prevHash = "12345678123456781234567812345678".getBytes
 
+  implicit val chainId: GlobalChainIdMask = 2.toByte
   implicit val db = Db()
   val bc = new BlockChainImpl()
 

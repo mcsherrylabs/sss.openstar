@@ -2,6 +2,8 @@ package sss.asado.block
 
 import com.twitter.util.SynchronizedLruMap
 import sss.ancillary.Logging
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.asado.ledger._
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db._
@@ -12,12 +14,12 @@ import scala.util.{Failure, Success, Try}
 
 object Block extends Logging {
   private val blockTableNamePrefix = "block_"
-  private lazy val blockCache = new SynchronizedLruMap[Long, Block](100)
-  private def makeTableName(height: Long) = s"$blockTableNamePrefix$height"
-  def apply(height: Long)(implicit db:Db): Block = blockCache.getOrElseUpdate(height, new Block(height))
+  //private lazy val blockCache = new SynchronizedLruMap[(GlobalChainIdMask, Long), Block](100)
+  def makeTableName(height: Long, chainId: GlobalChainIdMask) = s"$blockTableNamePrefix${height}_${chainId}"
+  def apply(height: Long)(implicit db:Db, chainId: GlobalChainIdMask): Block = new Block(height) //blockCache.getOrElseUpdate((chainId, height), new Block(height))
 
-  def drop(height: Long)(implicit db:Db) = {
-    val tblName = makeTableName(height)
+  def drop(height: Long)(implicit db:Db, chainId: GlobalChainIdMask) = {
+    val tblName = makeTableName(height, chainId)
     Try(db.executeSql(s"DROP TABLE $tblName")) match {
       case Failure(e) => log.debug(s"Exception, table ${tblName} probably doesn't exist.")
       case Success(_) =>
@@ -38,11 +40,11 @@ object Block extends Logging {
   }
 }
 
-class Block(val height: Long)(implicit db:Db) extends Logging {
+class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extends Logging {
 
   import Block._
 
-  private val tableName = makeTableName(height)
+  private val tableName = makeTableName(height, chainId)
   private val id = "id"
   private val txid = "txid"
   private val entry = "entry"
@@ -69,7 +71,7 @@ class Block(val height: Long)(implicit db:Db) extends Logging {
   def page(index: Long, pageSize: Int): Seq[Array[Byte]] = {
     var count = 0
     blockTxTable.page(index, pageSize, Seq(OrderAsc(id))) map { r =>
-      require(r[Long](id) == index + count)
+      require(r[Long](id) == index + count, s"row: $r, index: $index count: $count")
       count += 1
       r[Array[Byte]](entry)
     }

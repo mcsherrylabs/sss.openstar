@@ -12,12 +12,12 @@ import sss.asado.block.{BlockChainActor, BlockChainDownloaderActor, BlockChainSy
 trait BlockChainActorsBuilder {
 
   self : NodeConfigBuilder with
-    ActorSystemBuilder with
+    RequireActorSystem with
     MessageEventBusBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
     BlockChainBuilder with
-    DbBuilder with
+    RequireDb with
     ChainBuilder with
     WalletBuilder with
     StateMachineActorBuilder =>
@@ -41,8 +41,8 @@ trait BlockChainActorsBuilder {
   def buildBlockChainActor =
     actorSystem.actorOf(Props(classOf[BlockChainActor],
       nodeIdentity,
-      nodeConfig.blockChainSettings, bc,
-
+      nodeConfig.blockChainSettings,
+      bc,
       txRouter,
       blockChainSynchronizationActor,
       wallet,
@@ -58,39 +58,39 @@ trait BlockChainActorsBuilder {
 
 trait BlockChainDownloaderBuilder {
 
-  self : ActorSystemBuilder with
+  self : RequireActorSystem with
     MessageEventBusBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
     BlockChainBuilder with
-    DbBuilder with
+    RequireDb with
     ChainBuilder =>
 
   lazy val blockChainDownloaderActor: ActorRef = buildChainDownloader
 
   def buildChainDownloader =
-    actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, ncRef,
+    actorSystem.actorOf(Props(classOf[BlockChainDownloaderActor], nodeIdentity, net,
       messageEventBus, stateMachineActor, bc, db, chain.ledgers))
 
 }
 
 trait ClientBlockChainDownloaderBuilder {
 
-  self : ActorSystemBuilder with
+  self : RequireActorSystem with
     NodeConfigBuilder with
     MessageEventBusBuilder with
     StateMachineActorBuilder with
     NodeIdentityBuilder with
     NetworkControllerBuilder with
     BlockChainBuilder with
-    DbBuilder with
+    RequireDb with
     ChainBuilder =>
 
   lazy val blockChainDownloaderActor: ActorRef = buildClientChainDownloader
 
   def buildClientChainDownloader =
-    actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], ncRef,
+    actorSystem.actorOf(Props(classOf[ClientBlockChainDownloaderActor], net,
       messageEventBus,
       stateMachineActor,
       nodeConfig.blockChainSettings.numBlocksCached,
@@ -105,7 +105,7 @@ trait ClientBlockChainDownloaderBuilder {
 trait TxForwarderActorBuilder {
 
   self : NodeConfigBuilder with
-    ActorSystemBuilder with
+    RequireActorSystem with
     MessageEventBusBuilder with
     StateMachineActorBuilder with
     NetworkControllerBuilder =>
@@ -122,9 +122,9 @@ trait TxForwarderActorBuilder {
 trait SimpleTxPageActorBuilder {
 
   self : NodeConfigBuilder with
-    ActorSystemBuilder with
+    RequireActorSystem with
     MessageEventBusBuilder with
-    BlockChainBuilder with DbBuilder  =>
+    BlockChainBuilder with RequireDb  =>
 
   lazy val simpleTxPageActor: ActorRef = buildSimpleTxPageActor
 

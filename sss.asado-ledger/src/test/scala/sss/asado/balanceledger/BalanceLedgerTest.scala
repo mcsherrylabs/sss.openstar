@@ -3,7 +3,8 @@ package sss.asado.balanceledger
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.{NodeIdentityManager, PrivateKeyAccount}
-import sss.asado.block.BlockId
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block.BlockId
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger._
@@ -18,15 +19,17 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
   nodeIdentityManager.deleteKey("testKey", "tag")
   val nodeIdentity = nodeIdentityManager("testKey", "tag", "phrase1233333333")
 
+  implicit val chainId: GlobalChainIdMask = 1.toByte
+
   def pKeyOfFirstSigner(blockHeight:Long) = Option(nodeIdentity.publicKey)
 
   implicit val db: Db = Db()
-  db.executeSql("TRUNCATE TABLE utxo ")
 
   val cbv = CoinbaseValidator(pKeyOfFirstSigner, 100, 0)
   val identityService = IdentityService()
   val ledger = BalanceLedger(cbv, identityService)
 
+  //FIXME SHAMEFULLY the state of validOut is used throughout this test.
   var validOut: TxIndex = _
   var cbTx: SignedTxEntry = _
 

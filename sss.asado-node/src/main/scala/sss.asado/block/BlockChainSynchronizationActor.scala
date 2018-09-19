@@ -1,10 +1,11 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
-import block._
+import sss.asado.common.block._
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.network.{MessageEventBus, NetworkMessage, NodeId}
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.network.{MessageEventBus, NodeId, SerializedMessage}
 import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.{InitWithActorRefs, MessageKeys}
@@ -42,7 +43,7 @@ class BlockChainSynchronizationActor(
                                      peersList: Set[NodeId],
                                      stateMachine: ActorRef,
                                      bc: BlockChain with BlockChainTxConfirms,
-                                     messageRouter: MessageEventBus)(implicit db: Db)
+                                     messageRouter: MessageEventBus)(implicit db: Db, chainId: GlobalChainIdMask)
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
@@ -81,7 +82,7 @@ class BlockChainSynchronizationActor(
     case DistributeTx(client,
                       btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
       def toMapElement(upToDatePeer: ActorRef) = {
-        upToDatePeer ! NetworkMessage(MessageKeys.ConfirmTx, btx.toBytes)
+        upToDatePeer ! SerializedMessage(MessageKeys.ConfirmTx, btx.toBytes)
         upToDatePeer -> (awaitGroup(upToDatePeer) :+ ClientTx(client, btx.toId))
       }
       awaitGroup =
@@ -108,24 +109,24 @@ class BlockChainSynchronizationActor(
 
     case ReDistributeTx(btx) =>
       updateToDatePeers.foreach(
-        _ ! NetworkMessage(MessageKeys.ConfirmTx, btx.toBytes))
+        _ ! SerializedMessage(MessageKeys.ConfirmTx, btx.toBytes))
 
     case distClose @ DistributeClose(allSigs, BlockId(blockheight, numTxs)) =>
-      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.CloseBlock,
+      updateToDatePeers foreach (_ ! SerializedMessage(MessageKeys.CloseBlock,
                                                     distClose.toBytes))
 
     case distSig @ DistributeSig(blockSignature: BlockSignature) =>
-      updateToDatePeers foreach (_ ! NetworkMessage(MessageKeys.BlockSig,
+      updateToDatePeers foreach (_ ! SerializedMessage(MessageKeys.BlockSig,
                                                     blockSignature.toBytes))
 
-    case NetworkMessage(MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>
+    case SerializedMessage(_, MessageKeys.NackConfirmTx, blockChainTxIdNackedBytes) =>
       val sndr = sender()
       Try {
-        val blockChainTxIdNacked = blockChainTxIdNackedBytes.toBlockChainIdTx
+        val blockChainTxIdNacked = blockChainTxIdNackedBytes.toBlockChainTxId
         val newMap = awaitGroup(sndr).filter { ctx =>
           if (ctx.blockChainTxId == blockChainTxIdNacked) {
             //Yes. side effects.
-            ctx.client ! NetworkMessage(MessageKeys.NackConfirmTx,
+            ctx.client ! SerializedMessage(MessageKeys.NackConfirmTx,
                                         blockChainTxIdNackedBytes)
             false
           } else true
@@ -141,17 +142,17 @@ class BlockChainSynchronizationActor(
         case Success(_) =>
       }
 
-    case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
+    case SerializedMessage(_, MessageKeys.AckConfirmTx, bytes) =>
       val sndr = sender()
       Try {
-        val confirm = bytes.toBlockChainIdTx
+        val confirm = bytes.toBlockChainTxId
         bc.confirm(confirm)
 
         val newMap = awaitGroup(sndr).filter { ctx =>
           if (ctx.blockChainTxId == confirm) {
             // Forward the confirm from a remote peer to the original client
             // who raised the tx.
-            ctx.client ! NetworkMessage(MessageKeys.AckConfirmTx, bytes)
+            ctx.client ! SerializedMessage(MessageKeys.AckConfirmTx, bytes)
             false
           } else true
         } match {
@@ -187,7 +188,7 @@ class BlockChainSynchronizationActor(
       //We may be restarting the blockchain after a pause for client syncing.
       blockChainActor ! StartBlockChain(self, lastTxPage)
       //TODO REPLACE QUORUM WITH SOMETHING !!!! if (updateToDatePeers.size == quorum) stateMachine ! IsSynced
-      clientRef ! NetworkMessage(MessageKeys.Synced, lastTxPage.toBytes)
+      clientRef ! SerializedMessage(MessageKeys.Synced, lastTxPage.toBytes)
 
     case sbc @ StopBlockChain(_, _) => blockChainActor ! sbc
   }

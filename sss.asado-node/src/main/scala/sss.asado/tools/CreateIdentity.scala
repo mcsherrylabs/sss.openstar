@@ -20,7 +20,7 @@ object CreateIdentity {
 
       //require(identity.forall(c => c.isDigit || c.isLower),
        // s"Identity ($identity) must be lower case and a simple alpha numeric")
-      object SeedBytes extends SeedBytesBuilder {
+      object SeedBytes extends RequireSeedBytes {
         val nodeIdentityManager = new NodeIdentityManager(seedBytes)
         if (nodeIdentityManager.keyExists(identity, defaultTag)) {
           println(s"Key exists for identity $identity - unlocking with phrase")

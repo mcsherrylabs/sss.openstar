@@ -2,7 +2,7 @@ package sss.asado.block.serialize
 
 import java.nio.charset.StandardCharsets
 
-import block.FindLeader
+import sss.asado.block.FindLeader
 import com.google.common.primitives.{Ints, Longs}
 import sss.asado.util.Serialize.Serializer
 

@@ -3,13 +3,7 @@ package sss.asado.network
 import java.net.InetSocketAddress
 
 import language.postfixOps
-import akka.actor.{
-  Actor,
-  ActorLogging,
-  ActorRef,
-  Cancellable,
-  SupervisorStrategy
-}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, SupervisorStrategy}
 import akka.io.Tcp
 import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
@@ -137,7 +131,7 @@ class ConnectionHandlerActor(
   private var chunksBuffer: ByteString = CompactByteString()
 
   def sendAndReceiveMessages(nId: NodeId): Receive = {
-    case m @ NetworkMessage(msgCode, data) =>
+    case m: SerializedMessage =>
       log.debug(s"Sending $m to $remote")
       val bytes = toWire(m)
       connection ! Write(bytes)
@@ -148,9 +142,9 @@ class ConnectionHandlerActor(
 
       t._1.find { packet =>
         fromWire(packet.toByteBuffer) match {
-          case Success(NetworkMessage(msgCode, data)) =>
+          case Success(s) =>
             eventBus.publish(
-              IncomingNetworkMessage(nId.id, msgCode, data))
+              IncomingSerializedMessage(nId.id, s))
             false
 
           case Failure(e) =>

@@ -4,14 +4,14 @@ import java.util.Date
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, Terminated}
 import akka.routing.{ActorRefRoutee, Broadcast, GetRoutees, Routees}
-import block.{BlockClosedEvent, DistributeClose}
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor}
 import sss.asado.balanceledger._
 import sss.asado.block.signature.BlockSignatures
-import sss.asado.chains.Chain
+import sss.asado.chains.Chains.Chain
+import sss.asado.common.block.BlockId
 import sss.asado.ledger._
-import sss.asado.network.NetworkMessage
+import sss.asado.network.SerializedMessage
 import sss.asado.state.AsadoStateProtocol._
 import sss.asado.util.SeqSerializer
 import sss.asado.wallet.Wallet
@@ -75,6 +75,9 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
     with AsadoEventPublishingActor {
 
   import chain.ledgers
+  import chain.id
+
+
   override def postStop = log.warning("BlockChain actor is down!"); super.postStop
 
   context watch writersRouterRef
@@ -209,7 +212,8 @@ class BlockChainActor(nodeIdentity: NodeIdentity,
           val txs = ledgers.coinbase(nodeIdentity, BlockId(newLastBlock.height, newLastBlock.numTxs))
           if(txs.nonEmpty) {
             val txsSerialized = SeqSerializer.toBytes(txs.map(_.toBytes))
-            writersRouterRef ! NetworkMessage(MessageKeys.SeqSignedTx, txsSerialized)
+
+            writersRouterRef ! SerializedMessage(MessageKeys.SeqSignedTx, txsSerialized)
             txs.foreach { le =>
               // if it's a signed tx entry, send it to the wallet, otherwise ignore.
               // currently (June) there are no other coinbase txs.

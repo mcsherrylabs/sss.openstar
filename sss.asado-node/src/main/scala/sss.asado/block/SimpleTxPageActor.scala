@@ -1,12 +1,12 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block._
+import sss.asado.common.block._
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
-import sss.asado.network.NetworkMessage
+import sss.asado.network.SerializedMessage
 import sss.db.Db
 
 import scala.language.postfixOps
@@ -26,6 +26,9 @@ class SimpleTxPageActor(maxSignatures: Int,
   private case class EndOfBlock(ref: ActorRef, blockId: BlockId)
   private case class TxToReturn(ref: ActorRef, blockChainTx: BlockChainTx)
 
+  //FIXME TODO or delete me
+  import SerializedMessage.noChain
+
   log.info("Simple TxPage actor has started...")
 
 
@@ -34,12 +37,12 @@ class SimpleTxPageActor(maxSignatures: Int,
 
     case EndOfBlock(ref, blockId) =>
       val closeBytes = DistributeClose(BlockSignatures(blockId.blockHeight).signatures(maxSignatures), blockId).toBytes
-      ref ! NetworkMessage(SimpleCloseBlock, closeBytes)
+      ref ! SerializedMessage(SimpleCloseBlock, closeBytes)
 
-    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(SimpleEndPageTx, getTxPageBytes)
+    case EndOfPage(ref, getTxPageBytes) => ref ! SerializedMessage(SimpleEndPageTx, getTxPageBytes)
 
     case TxToReturn(ref, blockChainTx) =>
-      ref ! NetworkMessage(MessageKeys.SimplePagedTx, blockChainTx.toBytes)
+      ref ! SerializedMessage(MessageKeys.SimplePagedTx, blockChainTx.toBytes)
 
     case getTxPageRef @ GetTxPageRef(ref, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
@@ -55,12 +58,12 @@ class SimpleTxPageActor(maxSignatures: Int,
            self ! TxToReturn(ref, bctx)
         }
         if (nextPage.size == pageSize) self ! EndOfPage(ref, pageIncremented.toBytes)
-        else if (maxHeight == blockHeight) ref ! NetworkMessage(SimpleGetPageTxEnd, pageIncremented.toBytes)
+        else if (maxHeight == blockHeight) ref ! SerializedMessage(SimpleGetPageTxEnd, pageIncremented.toBytes)
         else self ! EndOfBlock(ref, BlockId(blockHeight, index + nextPage.size))
       } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
 
 
-    case netTxPage@NetworkMessage(SimpleGetPageTx, bytes) =>
+    case netTxPage@SerializedMessage(_, SimpleGetPageTx, bytes) =>
       decode(SimpleGetPageTx, bytes.toGetTxPage) { getTxPage =>
         self ! GetTxPageRef(sender(), getTxPage)
       }

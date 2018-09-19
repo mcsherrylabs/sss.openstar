@@ -8,7 +8,7 @@ import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
 
 trait WalletPersistenceBuilder {
 
-  self: NodeIdentityBuilder with DbBuilder =>
+  self: NodeIdentityBuilder with RequireDb =>
   lazy val walletPersistence = new WalletPersistence(nodeIdentity.id, db)
 }
 
@@ -19,7 +19,7 @@ trait WalletBuilder {
     IdentityServiceBuilder with
     WalletPersistenceBuilder with
     BlockChainBuilder with
-    DbBuilder =>
+    RequireDb =>
 
   lazy val wallet = new Wallet(nodeIdentity,
     balanceLedger,
@@ -33,7 +33,7 @@ trait IntegratedWalletBuilder {
   self :
     WalletBuilder with
     MessageEventBusBuilder with
-    ActorSystemBuilder =>
+    RequireActorSystem =>
 
   lazy val integratedWallet = new IntegratedWallet(wallet, messageEventBus)
 }

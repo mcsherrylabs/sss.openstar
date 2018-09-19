@@ -1,12 +1,12 @@
 package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import block._
+import sss.asado.common.block._
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.ledger._
-import sss.asado.network.NetworkMessage
+import sss.asado.network.SerializedMessage
 import sss.db.Db
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,16 +29,18 @@ class TxPageActor(maxSignatures: Int,
 
   log.info("TxPage actor has started...")
 
+  import SerializedMessage.noChain
+
   override def receive: Receive = {
 
     case EndOfBlock(ref, blockId) =>
       val closeBytes = DistributeClose(BlockSignatures(blockId.blockHeight).signatures(maxSignatures), blockId).toBytes
-      ref ! NetworkMessage(CloseBlock, closeBytes)
+      ref ! SerializedMessage(CloseBlock, closeBytes)
 
-    case EndOfPage(ref, getTxPageBytes) => ref ! NetworkMessage(EndPageTx, getTxPageBytes)
+    case EndOfPage(ref, getTxPageBytes) => ref ! SerializedMessage(EndPageTx, getTxPageBytes)
 
     case TxToReturn(ref, blockChainTx) =>
-      ref ! NetworkMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
+      ref ! SerializedMessage(MessageKeys.PagedTx, blockChainTx.toBytes)
 
     case BlockChainStopped(getTxPageWithRef: GetTxPageWithRef) => self ! getTxPageWithRef.copy(servicePaused = true)
 
@@ -72,13 +74,13 @@ class TxPageActor(maxSignatures: Int,
         } else log.warning(s"${sender} asking for block height of $getTxPage, current block height is $maxHeight")
       }
 
-    case netTxPage@NetworkMessage(GetPageTx, bytes) =>
+    case netTxPage@SerializedMessage(_, GetPageTx, bytes) =>
       decode(GetPageTx, bytes.toGetTxPage) { getTxPage =>
         val sendr = sender()
         self ! GetTxPageWithRef(sendr, false, getTxPage)
       }
 
-    case NetworkMessage(BlockNewSig, bytes) =>
+    case SerializedMessage(_, BlockNewSig, bytes) =>
       decode(BlockNewSig, bytes.toBlockSignature) { blkSig =>
           val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
           context.parent ! DistributeSig(newSig)
