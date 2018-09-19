@@ -40,23 +40,22 @@ trait HttpServerBuilder {
 
 }
 
-trait ClaimServletBuilder {
-
-  self: NodeConfigBuilder with
-    MessageEventBusBuilder with
-    RequireActorSystem with
-    IntegratedWalletBuilder with
-    StateMachineActorBuilder with
-    BalanceLedgerBuilder with
-    HttpServerBuilder =>
-
-
-  def buildClaimServlet: Option[ClaimServlet] = {
-    Option(new ClaimServlet(actorSystem, stateMachineActor, messageEventBus, balanceLedger,integratedWallet))
-  }
-
-  def addClaimServlet = {
-    buildClaimServlet map (let => httpServer.addServlet(InitServlet(let, "/claim/*")))
-  }
-
-}
+//trait ClaimServletBuilder {
+//
+//
+//  self: NodeConfigBuilder with
+//    MessageEventBusBuilder with
+//    RequireActorSystem with
+//    IntegratedWalletBuilder with
+//    BalanceLedgerBuilder with
+//    HttpServerBuilder =>
+//
+//
+//  def buildClaimServlet: Option[ClaimServlet] = {
+//    Option(new ClaimServlet(actorSystem, stateMachineActor, messageEventBus, balanceLedger,integratedWallet))
+//  }
+//   def addClaimServlet = {
+//    //buildClaimServlet map (let => httpServer.addServlet(InitServlet(let, "/claim/*")))
+//  }
+//
+//}

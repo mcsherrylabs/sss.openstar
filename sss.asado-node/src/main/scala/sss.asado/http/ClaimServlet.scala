@@ -9,7 +9,6 @@ import sss.asado.common.block._
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.{MessageEventBus, SerializedMessage}
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
@@ -99,7 +98,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
 
   private def working: Receive = {
 
-    case NotReadyEvent => context.become(init)
+    // TODO how does it shutdown case NotReadyEvent => context.become(init)
 
     case c@Claiming(identity, txIdHex, netMsg, promise) =>
       inFlightClaims += (txIdHex-> ClaimTracker(sender(), c))
@@ -166,7 +165,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
   def init: Receive = {
     case c@Claiming(identity, txIdHex, netMsg, promise) => promise.success("fail:Network not ready")
 
-    case ReadyStateEvent => context.become(working)
+    // TODO, how does this start up now? case ReadyStateEvent => context.become(working)
   }
 
 }

@@ -4,13 +4,18 @@ package sss.asado
 import sss.ancillary.Logging
 import sss.asado.block._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.common.block._
 import sss.asado.eventbus.{MessageInfoComposite, MessageInfos, PureEvent}
 import sss.asado.message._
+import sss.asado.message.serialize.MsgResponseSerializer
 import sss.asado.message.{EndMessageQuery => EndMessageQueryObj}
 import sss.asado.message.{EndMessagePage => EndMessagePageObj}
+import sss.asado.network.SerializedMessage
 import sss.asado.peers.PeerManager._
+import sss.asado.util.Serialize.ToBytes
 
+import scala.reflect.ClassTag
 import scala.util._
 
 /**
@@ -50,6 +55,9 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val EndMessageQuery: Byte = 64
   val MessageResponse: Byte = 65
 
+//  val messages: MessageInfos = MessageInfoComposite[MessageResponse](MessageResponse, classOf[MessageResponse], _.toMessageResponse, MsgResponseSerializer.toBytes) +:
+//    MessageInfoComposite[EndMessageQueryObj.type](EndMessageQuery, EndMessageQueryObj.getClass.asInstanceOf[Class[EndMessageQueryObj.type]], _ => EndMessageQueryObj, _ => Array())
+
   private val localMessages: MessageInfos =  {
         MessageInfoComposite[MessageResponse](MessageResponse, classOf[MessageResponse], _.toMessageResponse) +:
         MessageInfoComposite[EndMessageQueryObj.type](EndMessageQuery, EndMessageQueryObj.getClass.asInstanceOf[Class[EndMessageQueryObj.type]], _ => EndMessageQueryObj) +:
@@ -81,6 +89,7 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   }
 
   val messages = localMessages ++ publishedMsgs
+
 
   def decode[T](msgCode: Byte, f: => T)(t: T => Unit): Unit = {
     Try {

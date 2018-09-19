@@ -3,23 +3,22 @@ package sss.asado.chains
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props}
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor, SystemPanic}
-import sss.asado.balanceledger.TxIndex
-import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
-import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSettings, BlockChainSignatures, BlockClosedEvent, BlockHeader, DistributeClose}
+import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockClosedEvent, BlockHeader, DistributeClose}
 import sss.asado.chains.BlockCloseDistributorActor.{CloseBlock, ProcessCoinBaseHook}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.QuorumMonitor.Quorum
-
 import sss.asado.common.block._
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
-import sss.asado.util.ByteArrayComparisonOps
-
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.nodebuilder.{BlockChainSettings, Encoder}
+import sss.asado.util.{ByteArrayComparisonOps}
+import sss.asado.MessageKeys
 import sss.db.Db
 
 import scala.language.postfixOps
+import scala.language.implicitConversions
+
 import scala.util.{Failure, Success, Try}
 
 
@@ -53,8 +52,9 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
                                          bc: BlockChain with BlockChainSignatures,
                                          blockChainSettings: BlockChainSettings,
                                          nodeIdentity: NodeIdentity,
-                                         processCoinBaseHook: ProcessCoinBaseHook
-                    )(implicit db: Db, chainId: GlobalChainIdMask)
+                                         processCoinBaseHook: ProcessCoinBaseHook,
+
+                    )(implicit db: Db, chainId: GlobalChainIdMask, encode:Encoder)
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
@@ -75,7 +75,8 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
     case IncomingMessage(`chainId`, MessageKeys.BlockNewSig, nodeId, bSig: BlockSignature) =>
       // do something.
       val sig = bc.addSignature(bSig.height, bSig.signature, bSig.publicKey, nodeId)
-      send(SerializedMessage(MessageKeys.BlockSig, sig.toBytes), currentQuorum.members)
+
+      send(encode(MessageKeys.BlockSig, sig), currentQuorum.members)
       val currentNumSigsForBlock = bc.signatures(bSig.height, Int.MaxValue).size
 
       //TODO put a time limit on when this should end, can't accept sigs' indefinitely.
@@ -94,8 +95,8 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
 
           val sig = bc.sign(nodeIdentity, newLastBlock)
 
-          send(SerializedMessage(MessageKeys.CloseBlock,
-            DistributeClose(Seq(sig), BlockId(newLastBlock.height,newLastBlock.numTxs)).toBytes),
+          send(encode(MessageKeys.CloseBlock,
+            DistributeClose(Seq(sig), BlockId(newLastBlock.height,newLastBlock.numTxs))),
             currentQuorum.members)
 
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
@@ -114,4 +115,5 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
 
 
   override def receive: Receive = updateQuorum orElse waitForClose
+
 }

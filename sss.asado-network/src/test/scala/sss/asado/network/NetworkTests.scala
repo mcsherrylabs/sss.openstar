@@ -38,7 +38,7 @@ object NetworkTests {
       nc.connect(servers._1.nodeId, reconnectionStrategy(1))
       WaitFor[Connection] { c: Connection =>
         val nm = SerializedMessage(1.toByte, 1.toByte, Array())
-        nc.send(nm, c.nodeId)
+        nc.send(nm, Set(c.nodeId))
         WaitFor[ConnectionLost] { lost =>
           WaitFor[Connection] { c =>
             nc.disconnect(c.nodeId)

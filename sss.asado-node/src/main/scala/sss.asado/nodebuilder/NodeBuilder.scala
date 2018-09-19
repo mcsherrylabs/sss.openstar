@@ -6,6 +6,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
+import sss.asado.MessageKeys.messages
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
@@ -14,7 +15,7 @@ import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
 import sss.asado.chains.{GenerateCoinBaseTxs, QuorumMonitor, TxWriterActor}
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
-import sss.asado.eventbus.MessageInfo
+import sss.asado.eventbus.{MessageInfo, PureEvent}
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
@@ -24,6 +25,7 @@ import sss.asado.peers.{PeerManager, PeerQuery}
 import sss.asado.peers.PeerManager.{Capabilities, Query}
 import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
+import sss.asado.util.Serialize.ToBytes
 import sss.asado.util.StringCheck.SimpleTag
 import sss.asado.{InitWithActorRefs, MessageKeys, PublishedMessageKeys, UniqueNodeIdentifier}
 import sss.db.Db
@@ -51,6 +53,16 @@ trait RequireConfig {
 trait ConfigBuilder extends RequireConfig with Configure {
   val configName: String
   lazy val conf: Config = config(configName)
+}
+
+trait BlockChainSettings {
+  val inflationRatePerBlock: Int
+  val maxTxPerBlock: Int
+  val maxBlockOpenSecs: Int
+  val maxSignatures: Int
+  val spendDelayBlocks: Int
+  val numTxWriters: Int
+  val numBlocksCached: Int
 }
 
 trait RequireNodeConfig {
@@ -169,7 +181,7 @@ trait CoinbaseGeneratorBuilder
     RequireGlobalChainId with
     RequireNodeIdentity with
     WalletBuilder with
-    NetworkControllerBuilder =>
+    RequireNetSend =>
 
   import chain.ledgers
 
@@ -178,9 +190,20 @@ trait CoinbaseGeneratorBuilder
       messageEventBus,
       nodeIdentity,
       ledgers,
-      net.send,
+      sendTo,
       wallet
     )
+}
+
+trait ShutdownHookBuilder {
+
+  def shutdown(): Unit
+
+  Runtime.getRuntime.addShutdownHook(new Thread() {
+    override def run(): Unit = {
+      shutdown()
+    }
+  })
 }
 
 trait ChainBuilder {
@@ -222,6 +245,31 @@ trait ChainBuilder {
 
 }
 
+trait Encoder {
+  implicit def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage
+  implicit def apply[T <% ToBytes](msgCode: Byte, t: T)(implicit chainId: GlobalChainIdMask): SerializedMessage
+}
+
+trait RequireEncoder {
+  val encode: Encoder
+}
+
+trait EncoderBuilder extends RequireEncoder {
+
+  lazy val encode = new Encoder {
+    override def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage = {
+      SerializedMessage(chainId, msgCode, Array())
+    } ensuring (messages.find(msgCode).get.clazz == classOf[PureEvent],
+      s"No bytes were provided but code $msgCode does not map to a PureEvent class")
+
+    override def apply[T <% ToBytes](msgCode: Byte, t: T)
+                                    (implicit chainId: GlobalChainIdMask): SerializedMessage = {
+      SerializedMessage(msgCode, t)
+    } ensuring(messages.find(msgCode).get.clazz.isAssignableFrom(t.getClass),
+      s"The class to encode doesn't match the msgCode type ${t.getClass} $msgCode ")
+  }
+}
+
 trait RequireDecoder {
   val decoder: Byte => Option[MessageInfo]
 }
@@ -251,11 +299,12 @@ trait PeerManagerBuilder extends RequirePeerManager {
   RequireActorSystem with
   ChainBuilder with
   RequireNodeConfig with
+  RequireEncoder with
   MessageEventBusBuilder =>
 
   lazy val peerManager: PeerManager = new PeerManager(net,
     nodeConfig.peersList,
-    Capabilities(chain.id), messageEventBus)
+    Capabilities(chain.id), messageEventBus, encode)
 }
 
 trait MessageEventBusBuilder {
@@ -338,32 +387,6 @@ trait BootstrapIdentitiesBuilder {
   }
 }
 
-trait LeaderActorBuilder {
-
-  self: RequireActorSystem
-    with NodeConfigBuilder
-    with ChainBuilder
-    with RequireDb
-    with BlockChainBuilder
-    with NodeIdentityBuilder
-    with MessageEventBusBuilder
-    with IdentityServiceBuilder
-    with NetworkControllerBuilder
-    with StateMachineActorBuilder =>
-
-  lazy val leaderActor: ActorRef = buildLeaderActor
-
-  def buildLeaderActor = {
-    actorSystem.actorOf(
-      Props(classOf[LeaderActor],
-            nodeIdentity.id,
-            Set(),
-            messageEventBus,
-            net,
-            stateMachineActor,
-            bc))
-  }
-}
 
 trait MessageQueryHandlerActorBuilder {
   self: RequireDb
@@ -430,79 +453,6 @@ trait BlockChainBuilder extends RequireBlockChain {
   def currentBlockHeight: Long = bc.lastBlockHeader.height + 1
 }
 
-trait StateMachineActorBuilder {
-  val stateMachineActor: ActorRef
-  def initStateMachine = {}
-}
-
-trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
-
-  self: RequireActorSystem
-    with RequireDb
-    with NodeConfigBuilder
-    with NodeIdentityBuilder
-    with BlockChainBuilder
-    with BlockChainActorsBuilder
-    with LeaderActorBuilder
-    with BlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with NetworkControllerBuilder
-    with MessageEventBusBuilder =>
-
-  lazy val stateMachineActor: ActorRef = buildCoreStateMachine
-
-  override def initStateMachine = {
-
-    stateMachineActor ! InitWithActorRefs(leaderActor,
-                                          txRouter,
-                                          blockChainActor,
-                                          txForwarderActor)
-
-    blockChainDownloaderActor
-  }
-
-  def buildCoreStateMachine: ActorRef = {
-    actorSystem.actorOf(
-      Props(classOf[AsadoCoreStateMachineActor],
-            nodeIdentity.id,
-            nodeConfig.blockChainSettings,
-            bc,
-            messageEventBus,
-            net,
-            db))
-  }
-
-}
-
-trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
-
-  self: RequireActorSystem
-    with RequireDb
-    with NodeConfigBuilder
-    with NodeIdentityBuilder
-    with BlockChainBuilder
-    with MessageDownloadServiceBuilder
-    with ClientBlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with MessageEventBusBuilder =>
-
-  lazy val stateMachineActor: ActorRef = buildClientStateMachine
-
-  override def initStateMachine = {
-    stateMachineActor ! InitWithActorRefs(messageDownloaderActor,
-                                          blockChainDownloaderActor,
-                                          txForwarderActor)
-  }
-
-  def buildClientStateMachine: ActorRef = {
-    actorSystem.actorOf(
-      Props(classOf[AsadoClientStateMachineActor],
-            nodeIdentity.id,
-            nodeConfig.blockChainSettings,
-            bc,
-            db))
-  }
-}
 
 trait HandshakeGeneratorBuilder {
 
@@ -513,6 +463,23 @@ trait HandshakeGeneratorBuilder {
       networkInterface,
       idVerifier
     )
+}
+
+trait RequireNetSend extends RequireEncoder {
+
+  def s[T <% ToBytes](msgCode: Byte, t:T, m: Seq[UniqueNodeIdentifier])(implicit cId: GlobalChainIdMask): Unit = {
+    sendToMany(encode(msgCode, t), m)
+  }
+
+  val sendToMany: NetSendToMany
+  val sendTo: NetSendTo = (s, n) => sendToMany(s, Set(n))
+}
+
+trait NetSendBuilder extends RequireNetSend {
+
+  self :NetworkControllerBuilder =>
+
+  lazy val sendToMany: NetSendToMany = net.send
 }
 
 trait NetworkControllerBuilder {
@@ -545,7 +512,6 @@ trait MinimumNode
     with DecoderBuilder
     with MessageEventBusBuilder
     with BlockChainBuilder
-    with StateMachineActorBuilder
     with NetworkInterfaceBuilder
     with HandshakeGeneratorBuilder
     with NetworkControllerBuilder
@@ -554,8 +520,7 @@ trait MinimumNode
     with WalletPersistenceBuilder
     with WalletBuilder
     with IntegratedWalletBuilder
-    with HttpServerBuilder
-    with SimpleTxPageActorBuilder {
+    with HttpServerBuilder {
 
   def shutdown: Unit = {
     httpServer.stop
@@ -566,30 +531,3 @@ trait MinimumNode
 }
 
 
-
-trait CoreNode
-    extends MinimumNode
-    with BlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with CoreStateMachineActorBuilder
-    with LeaderActorBuilder
-    with BlockChainActorsBuilder
-    with PeerManagerBuilder
-    with QuorumMonitorBuilder {}
-
-trait ServicesNode
-    extends CoreNode
-    with MessageQueryHandlerActorBuilder
-    with ClaimServletBuilder {}
-
-trait ClientNode
-    extends MinimumNode
-    with ClientBlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with ClientStateMachineActorBuilder
-    with MessageDownloadServiceBuilder
-    with HomeDomainBuilder {
-
-  def connectHome = net.connect(homeDomain.nodeId)
-
-}

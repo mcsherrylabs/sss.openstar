@@ -8,7 +8,6 @@ import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.common.block._
 import sss.asado.ledger._
 import sss.asado.network.{MessageEventBus, _}
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, RemoteLeaderEvent}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.SeqSerializer
 
@@ -19,7 +18,7 @@ case class Forward(who: Connection)
 
 
 class TxForwarderActor(messageRouter: MessageEventBus,
-                       ncRef: NetworkRef,
+                       send: NetSendTo,
                        clientRefCacheSize: Int)
   extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
@@ -31,7 +30,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
 
   private def noForward: Receive = {
 
-    case RemoteLeaderEvent(con) => self ! Forward(con)
+    // TODO REPLACE -> case RemoteLeaderEvent(con) => self ! Forward(con)
 
     case Forward(who) =>
       messageRouter.subscribe(MessageKeys.SignedTx)
@@ -50,7 +49,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
 
   private def forwardMode(leader: UniqueNodeIdentifier): Receive = {
 
-    case NotReadyEvent =>  self ! StopAcceptingTxs
+    // TODO -> case NotReadyEvent =>  self ! StopAcceptingTxs
 
     case ConnectionLost(nodeId) if(leader == nodeId) =>
     // case Terminated(leaderRef) =>
@@ -70,7 +69,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
     case m @ SerializedMessage(_, MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toLedgerItem) { stx =>
         txs +=  (stx.txId.toBase64Str -> sender())
-        ncRef.send(m, leader)
+        send(m, leader)
       }
 
     case m @ SerializedMessage(_, MessageKeys.SeqSignedTx, bytes) =>
@@ -79,7 +78,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
           val le: LedgerItem = stx.toLedgerItem
           txs += (le.txId.toBase64Str -> sender())
         }
-        ncRef.send(m, leader)
+        send(m, leader)
       }
 
     case m @ SerializedMessage(_, MessageKeys.SignedTxAck, bytes) =>

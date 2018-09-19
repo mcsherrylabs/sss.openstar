@@ -4,6 +4,7 @@ import akka.actor.{ActorSystem, Props}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.asado.network.{MessageEventBus, _}
+import sss.asado.nodebuilder.Encoder
 import sss.asado.peers.PeerManager.{Capabilities, Query, UnQuery}
 import sss.asado.util.IntBitSet
 import sss.asado.util.Serialize._
@@ -29,7 +30,7 @@ object PeerManager {
     }
   }
 
-  implicit class CapabilitiesToBytes(val c: Capabilities) extends AnyVal {
+  implicit class CapabilitiesToBytes(val c: Capabilities) extends ToBytes {
     def toBytes: Array[Byte] = ByteSerializer(c.supportedChains).toBytes
   }
 
@@ -42,7 +43,8 @@ object PeerManager {
 class PeerManager(networkRef: NetworkRef,
                   bootstrapNodes: Set[NodeId],
                   ourCapabilities: Capabilities,
-                  eventMessageBus: MessageEventBus)
+                  eventMessageBus: MessageEventBus,
+                  encode: Encoder)
                  (implicit actorSystem: ActorSystem) extends PeerQuery {
 
 
@@ -56,7 +58,8 @@ class PeerManager(networkRef: NetworkRef,
     networkRef,
     bootstrapNodes,
     ourCapabilities,
-    eventMessageBus))
+    eventMessageBus,
+    encode))
 
   // register for connections
   // on connection get the supported chains

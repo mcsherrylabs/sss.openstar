@@ -79,7 +79,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
   private def finishSendingConfirms(q: Quorum) : Receive = {
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
-      send(SerializedMessage(MessageKeys.ConfirmTx, bTx.toBytes), Set(mem))
+      send(SerializedMessage(MessageKeys.ConfirmTx, bTx), Set(mem))
 
       if(confirms.size + badConfirms.size == q.members.size)
         context stop self
@@ -88,7 +88,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
   private def withQuorum(q: Quorum): Receive = onQuorum orElse {
 
     case TxConfirmed(bTx, confirmers) =>
-      send(SerializedMessage(MessageKeys.ConfirmTx, bTx.toBytes), confirmers)
+      send(SerializedMessage(MessageKeys.ConfirmTx, bTx), confirmers)
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
@@ -107,7 +107,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
     case quorum: Quorum =>
       context become withQuorum(quorum)
       val remainingMembers = q.members.filterNot(confirms.contains(_))
-      send(SerializedMessage(MessageKeys.DistributeTx, bTx.toBytes), remainingMembers)
+      send(SerializedMessage(MessageKeys.DistributeTx, bTx), remainingMembers)
 
   }
 

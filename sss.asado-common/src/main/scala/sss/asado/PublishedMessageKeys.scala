@@ -3,7 +3,7 @@ package sss.asado
 import java.nio.charset.StandardCharsets
 
 import sss.asado.common.block.BlockChainTxId
-import sss.asado.eventbus.{MessageInfoComposite, MessageInfos}
+import sss.asado.eventbus.{MessageInfoComposite, MessageInfos, StringMessage}
 import sss.asado.ledger._
 import sss.asado.common.block._
 import sss.asado.util.SeqSerializer
@@ -43,15 +43,15 @@ trait PublishedMessageKeys {
     MessageInfoComposite[LedgerItem](SignedTx, classOf[LedgerItem], _.toLedgerItem) +:
     MessageInfoComposite[BlockChainTxId](SignedTxAck, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[TxMessage](SignedTxNack, classOf[TxMessage], _.toTxMessage) :+
-    MessageInfoComposite[Seq[Array[Byte]]](SeqSignedTx, classOf[Seq[Array[Byte]]], SeqSerializer.fromBytes(_)) +:
+    MessageInfoComposite[Seq[LedgerItem]](SeqSignedTx, classOf[Seq[LedgerItem]], SeqSerializer.fromBytes(_) map (_.toLedgerItem)) +:
     MessageInfoComposite[BlockChainTx](ConfirmTx, classOf[BlockChainTx], _.toBlockChainTx) +: //todo should be toBlockChainTxId?
     MessageInfoComposite[BlockChainTxId](SignedTxConfirm, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[BlockChainTx](DistributeTx, classOf[BlockChainTx], _.toBlockChainTx) +:
     MessageInfoComposite[BlockChainTxId](AckConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[BlockChainTxId](NackConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[TxMessage](TempNack, classOf[TxMessage], _.toTxMessage) +:
-    MessageInfoComposite[String](MalformedMessage, classOf[String], new String(_, StandardCharsets.UTF_8)) +:
-    MessageInfoComposite[String](GenericErrorMessage, classOf[String], new String(_, StandardCharsets.UTF_8))
+    MessageInfoComposite[StringMessage](MalformedMessage, classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8))) +:
+    MessageInfoComposite[StringMessage](GenericErrorMessage, classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8)))
 
 
 }

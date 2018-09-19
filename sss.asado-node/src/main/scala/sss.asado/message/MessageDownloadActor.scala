@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.MessageKeys._
-import sss.asado.network.{MessageEventBus, SerializedMessage, NetworkRef}
+import sss.asado.network.{MessageEventBus, NetSendTo, NetworkRef, SerializedMessage}
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -21,7 +21,7 @@ case object ForceCheckForMessages
 class MessageDownloadActor(who: String,
                            homeDomain: HomeDomain,
                            messageRouter: MessageEventBus,
-                           ncRef: NetworkRef)(implicit db: Db)
+                           send: NetSendTo)(implicit db: Db)
     extends Actor
     with ActorLogging {
 
@@ -45,7 +45,7 @@ class MessageDownloadActor(who: String,
 
     case CheckForMessages =>
       if (isQuiet) {
-        ncRef.send(
+        send(
           SerializedMessage(0.toByte,
             MessageKeys.MessageQuery,
             createQuery.toBytes),

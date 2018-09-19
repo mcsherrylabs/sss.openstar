@@ -46,7 +46,23 @@ import scala.util.{Failure, Success, Try}
   */
 object ChainDownloadRequestActor {
 
-  case class ChainDownloadRequestActorProps(p: Props)
+
+  def createStartSyncer(
+                  nodeIdentity: NodeIdentity,
+                  sendTo: NetSendTo,
+                  messageEventBus: EventSubscriptions,
+                  bc: BlockChain with BlockChainSignatures,
+                  db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask)(context: ActorContext, peerConnection: PeerConnection): Unit= {
+
+    ChainDownloadRequestActor(props(peerConnection,
+      nodeIdentity,
+      sendTo,
+      messageEventBus,
+      bc)(db, ledgers, chainId)
+    )(context)
+  }
+
+  case class CheckedProps(p: Props) extends AnyVal
 
   def props(peerConnection: PeerConnection,
             nodeIdentity: NodeIdentity,
@@ -55,9 +71,9 @@ object ChainDownloadRequestActor {
             bc: BlockChain with BlockChainSignatures)(
       implicit db: Db,
       ledgers: Ledgers,
-      chainId: GlobalChainIdMask): ChainDownloadRequestActorProps =
+      chainId: GlobalChainIdMask): CheckedProps =
 
-    ChainDownloadRequestActorProps(
+    CheckedProps(
       Props(classOf[ChainDownloadRequestActor],
             peerConnection,
             nodeIdentity,
@@ -69,7 +85,7 @@ object ChainDownloadRequestActor {
             chainId)
     )
 
-  def apply(props: ChainDownloadRequestActorProps)(
+  def apply(props: CheckedProps)(
       implicit context: ActorContext): ActorRef = {
     context.actorOf(props.p)
   }
@@ -111,7 +127,7 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
 
     case StartSync =>
       val getTxs = createGetTxPage()
-      send(SerializedMessage(MessageKeys.GetPageTx, getTxs.toBytes),
+      send(SerializedMessage(MessageKeys.GetPageTx, getTxs),
            syncingWithNode)
 
     case IncomingMessage(`chainId`,
@@ -134,7 +150,7 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
                          MessageKeys.EndPageTx,
                          `syncingWithNode`,
                          getTxPage: GetTxPage) =>
-      send(SerializedMessage(MessageKeys.GetPageTx, getTxPage.toBytes),
+      send(SerializedMessage(MessageKeys.GetPageTx, getTxPage),
            syncingWithNode)
 
     /*case IncomingMessage(`chainId`,
@@ -173,13 +189,13 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
                      s"How can ${blockHeader} differ from ${blockId}")
 
               newBlockSignature(blockHeader) foreach { newSig =>
-                send(SerializedMessage(MessageKeys.BlockNewSig, newSig.toBytes),
+                send(SerializedMessage(MessageKeys.BlockNewSig, newSig),
                      syncingWithNode)
               }
 
               send(
                 SerializedMessage(MessageKeys.GetPageTx,
-                                  GetTxPage(blockHeader.height + 1, 0).toBytes),
+                                  GetTxPage(blockHeader.height + 1, 0)),
                 syncingWithNode)
 
           }

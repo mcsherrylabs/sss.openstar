@@ -26,9 +26,6 @@ class NetworkRef private[network] (networkController: ActorRef,
     nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
   }
 
-  def send(msg: SerializedMessage, nId: UniqueNodeIdentifier): Unit =
-    networkController ! SendToNodeId(msg, nId)
-
   def connect(nId: NodeId,
               reconnectionStrategy: ReconnectionStrategy =
                 NoReconnectionStrategy): Unit = {

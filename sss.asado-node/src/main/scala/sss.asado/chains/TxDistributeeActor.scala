@@ -122,7 +122,7 @@ private class TxDistributeeActor(
           nodeIdentity.publicKey,
           sig)
 
-        send(SerializedMessage(MessageKeys.BlockNewSig,newSig.toBytes), nodeId)
+        send(SerializedMessage(MessageKeys.BlockNewSig,newSig), nodeId)
       }
       //val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
 

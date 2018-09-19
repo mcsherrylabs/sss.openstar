@@ -38,8 +38,13 @@ package object message {
     def toMessagePayLoad: MessagePayload
   }
 
-  case object EndMessagePage
-  case object EndMessageQuery
+  case object EndMessagePage extends ToBytes {
+    override def toBytes: Array[Byte] = Array.emptyByteArray
+  }
+
+  case object EndMessageQuery extends ToBytes {
+    override def toBytes: Array[Byte] = Array.emptyByteArray
+  }
 
   type Identity = String
 

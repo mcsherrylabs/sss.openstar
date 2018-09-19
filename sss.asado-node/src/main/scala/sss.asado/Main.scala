@@ -5,6 +5,7 @@ import java.util.logging.{Level, Logger}
 import akka.actor.{ActorContext, ActorRef, Props}
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
+import sss.asado.chains.ChainSynchronizer.StartSyncer
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains._
 import sss.asado.network.{MessageEventBus, NetSendToMany, NetworkRef}
@@ -21,43 +22,8 @@ import scala.language.postfixOps
 
 case class InitWithActorRefs(refs: ActorRef*)
 
-  object CoreMain {
-    def main(withArgs: Array[String]): Unit = {
 
-      val core = new CoreNode {
-        override val configName: String = withArgs(0)
-        override val phrase: Option[String] = {
-          if(withArgs.length > 1) Option(withArgs(1))
-          else None
-        }
-      }
-      core.initStateMachine
-      core.net
-      core.startHttpServer
-      core.initSimplePageTxActor
-
-    }
-  }
-
-  object ServicesMain {
-    def main(withArgs: Array[String]): Unit = {
-
-      val core = new ServicesNode {
-        override val configName: String = withArgs(0)
-        override val phrase: Option[String] = if(withArgs.length > 1) Option(withArgs(1)) else None
-
-      }
-      core.initStateMachine
-      core.messageServiceActor
-      core.addClaimServlet
-      core.net
-      core.startHttpServer
-      core.initSimplePageTxActor
-
-    }
-  }
-
-object ANewHopeMain {
+object Main {
 
   def main(withArgs: Array[String]): Unit = {
 
@@ -78,13 +44,16 @@ object ANewHopeMain {
       with NetworkInterfaceBuilder
       with HandshakeGeneratorBuilder
       with NetworkControllerBuilder
+      with NetSendBuilder
       with BalanceLedgerBuilder
       with PeerManagerBuilder
+      with EncoderBuilder
       with HttpServerBuilder
       with UnsubscribedMessageHandlerBuilder
       with WalletBuilder
       with WalletPersistenceBuilder
       with CoinbaseGeneratorBuilder
+      with ShutdownHookBuilder
       with ChainBuilder {
 
       override val configName: String = withArgs(0)
@@ -92,24 +61,17 @@ object ANewHopeMain {
       override val phrase: Option[String] =
         if (withArgs.length > 1) Option(withArgs(1)) else None
 
-      def shutdown: Unit = {
+      override def shutdown: Unit = {
         actorSystem.terminate
       }
 
       Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
 
-      def startSyncer(context: ActorContext, peerConnection: PeerConnection): Unit= {
-        import chain.ledgers
 
-        val chainDownloadRequestActorProps = ChainDownloadRequestActor.props(peerConnection,
-          nodeIdentity,
-          net.send,
+      val startSyncer: StartSyncer = ChainDownloadRequestActor.createStartSyncer(nodeIdentity,
+          sendTo,
           messageEventBus,
-          bc)
-
-        ChainDownloadRequestActor(chainDownloadRequestActorProps)(context)
-      }
-
+          bc, db, chain.ledgers, chain.id)
 
       import chain.ledgers
 
@@ -121,17 +83,16 @@ object ANewHopeMain {
       val qm = QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
       val synchronization = new ChainSynchronizer(messageEventBus, chain.id, chain.quorumCandidates(), nodeIdentity.id, startSyncer)
 
-      LeaderElectionActor(nodeIdentity.id, messageEventBus, net.send: NetSendToMany, bc)
+      LeaderElectionActor(nodeIdentity.id, messageEventBus, sendToMany, bc)
 
-      ChainDownloadResponseActor(net.send, messageEventBus, nodeConfig.blockChainSettings.maxSignatures, bc)
+      ChainDownloadResponseActor(sendTo, messageEventBus, nodeConfig.blockChainSettings.maxSignatures, bc)
 
-      QuorumFollowersSyncedMonitor(messageEventBus, nodeIdentity.id, bc, net.send)
+      QuorumFollowersSyncedMonitor(messageEventBus, nodeIdentity.id, bc, sendTo)
 
       TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, messageEventBus, nodeIdentity.id,bc, net.send, processCoinBaseHook))
 
-      TxDistributeeActor(TxDistributeeActor.props(messageEventBus , net.send, bc, nodeIdentity))
+      TxDistributeeActor(TxDistributeeActor.props(messageEventBus , sendTo, bc, nodeIdentity))
 
-      //peerManager.addQuery(IdQuery(chain.quorumCandidates()))
       synchronization.startSync
       synchronization.queryStatus
       qm.queryQuorum

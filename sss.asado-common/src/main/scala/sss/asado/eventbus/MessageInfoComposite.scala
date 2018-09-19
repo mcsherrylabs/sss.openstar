@@ -11,6 +11,8 @@ case class MessageInfoComposite[K](
 
   override type T = K
   override def fromBytes(bytes: Array[Byte]): T = t(bytes)
+  override def toBytes(t: T)(implicit f: T => Array[Byte]): Array[Byte] = f(t)
+
 
   def find(code: Byte): Option[MessageInfoComposite[_]] = {
     if(code == msgCode) Option(this)

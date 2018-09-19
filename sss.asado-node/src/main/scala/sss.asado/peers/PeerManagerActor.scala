@@ -6,6 +6,7 @@ import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.eventbus.PureEvent
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network.{MessageEventBus, _}
+import sss.asado.nodebuilder.Encoder
 import sss.asado.peers.PeerManager.{Capabilities, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
 import sss.asado.util.IntBitSet
 
@@ -13,15 +14,16 @@ import sss.asado.util.IntBitSet
 private class PeerManagerActor( ncRef: NetworkRef,
                                 bootstrapNodes: Set[NodeId],
                                 ourCapabilities: Capabilities,
-                                messageEventBus: MessageEventBus
+                                messageEventBus: MessageEventBus,
+                                encode: Encoder
                       ) extends Actor {
 
   private case class KnownConnection(c: Connection, cabs: Capabilities)
 
-  private val ourCapabilitiesNetworkMsg: SerializedMessage =
-    SerializedMessage(0.toByte, MessageKeys.Capabilities,
-      ourCapabilities.toBytes)
+  import SerializedMessage.noChain
 
+  private val ourCapabilitiesNetworkMsg: SerializedMessage =
+    encode(MessageKeys.Capabilities, ourCapabilities)
 
   private var queries: Set[Query] = Set()
 
@@ -60,14 +62,14 @@ private class PeerManagerActor( ncRef: NetworkRef,
 
 
     case Connection(nodeId) =>
-      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array()), nodeId)
+      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array()), Set(nodeId))
 
     case ConnectionLost(lost) =>
       knownConns -= lost
 
     case IncomingMessage(_, MessageKeys.QueryCapabilities, nodeId, _) =>
       // TODO if spamming, blacklist
-      ncRef.send(ourCapabilitiesNetworkMsg, nodeId)
+      ncRef.send(ourCapabilitiesNetworkMsg, Set(nodeId))
 
     case IncomingMessage(_, MessageKeys.Capabilities, nodeId, otherNodesCaps: Capabilities) =>
       knownConns += nodeId -> otherNodesCaps

@@ -2,7 +2,7 @@ package sss.asado.chains
 
 import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props, SupervisorStrategy}
 import sss.asado.block.Synchronized
-import sss.asado.chains.ChainSynchronizer.NotSynchronized
+import sss.asado.chains.ChainSynchronizer.{NotSynchronized, StartSyncer}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
@@ -11,6 +11,9 @@ import sss.asado.{AsadoEvent, QueryStatus, Status, UniqueNodeIdentifier}
 import scala.util.Random
 
 object ChainSynchronizer {
+
+  type StartSyncer = (ActorContext, PeerConnection) => Unit
+
   case class NotSynchronized(chainIdMask: GlobalChainIdMask, nodeId: UniqueNodeIdentifier)
 }
 
@@ -18,7 +21,7 @@ class ChainSynchronizer(eventMessageBus: MessageEventBus,
                         chainId: GlobalChainIdMask,
                         chainQuorumCandidates: Set[UniqueNodeIdentifier],
                         myNodeId: UniqueNodeIdentifier,
-                        startSyncer: (ActorContext, PeerConnection) => Unit,
+                        startSyncer: StartSyncer,
                     )(implicit actorSystem: ActorSystem) {
 
   private val ref = actorSystem.actorOf(Props(SynchronizationActor),

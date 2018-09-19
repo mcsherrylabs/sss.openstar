@@ -64,13 +64,17 @@ package object network {
 
     implicit val noChain: GlobalChainIdMask = 0.toByte
 
-    def apply(msgCode: Byte, data: Array[Byte])(implicit chainId: GlobalChainIdMask): SerializedMessage =
-      SerializedMessage(chainId, msgCode, data)
+    def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage =
+      SerializedMessage(chainId, msgCode, Array())
+
+    def apply[T <% ToBytes](msgCode: Byte, obj: T)(implicit chainId: GlobalChainIdMask): SerializedMessage =
+      SerializedMessage(chainId, msgCode, obj.toBytes)
   }
 
-  final case class SerializedMessage(chainId: GlobalChainIdMask, msgCode: Byte, data: Array[Byte]) {
-    def this(chainId: GlobalChainIdMask, msgCode: Byte, byteable: ToBytes) = this(chainId, msgCode, byteable.toBytes)
-  }
+  final case class SerializedMessage private [network] (
+                                                        chainId: GlobalChainIdMask,
+                                                        msgCode: Byte,
+                                                        data: Array[Byte])
 
   private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
 

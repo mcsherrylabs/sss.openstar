@@ -133,7 +133,7 @@ private class LeaderElectionActor(
       log.info("Sending FindLeader to network ")
       //TODO PARAM TIMEOUT
       context.setReceiveTimeout(10 seconds)
-      send(SerializedMessage(MessageKeys.FindLeader, findMsg.toBytes), connectedMembers)
+      send(SerializedMessage(MessageKeys.FindLeader, findMsg), connectedMembers)
 
     case ReceiveTimeout => self ! FindTheLeader
 
@@ -146,12 +146,12 @@ private class LeaderElectionActor(
       if (hisBlkHeight > myBlockHeight) {
         // I vote for him
         log.info(s"My name is $nodeId and I'm voting for $hisId")
-        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex).toBytes), Set(qMember))
+        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
 
       } else if ((hisBlkHeight == myBlockHeight) && (hisCommittedTxIndex > myCommittedTxIndex)) {
         // I vote for him
         log.info(s"My name is $nodeId and I'm voting for $hisId")
-        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId,myBlockHeight, myCommittedTxIndex).toBytes), Set(qMember))
+        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId,myBlockHeight, myCommittedTxIndex)), Set(qMember))
 
       } else if ((hisBlkHeight == myBlockHeight) &&
               (hisCommittedTxIndex == myCommittedTxIndex) &&
@@ -160,7 +160,7 @@ private class LeaderElectionActor(
         log.info(s"My name is $nodeId and I'm voting for $hisId")
 
         send(SerializedMessage(MessageKeys.VoteLeader,
-          VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex).toBytes), Set(qMember))
+          VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
 
       } else  if ((hisBlkHeight == myBlockHeight) &&
               (hisCommittedTxIndex == myCommittedTxIndex) &&
@@ -174,7 +174,7 @@ private class LeaderElectionActor(
           log.info(
             s"My name is $nodeId and I'm voting for $hisId in order to get started up.")
           send(SerializedMessage(MessageKeys.VoteLeader,
-            VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex).toBytes), Set(qMember))
+            VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
         }
       }
 
@@ -193,7 +193,7 @@ private class LeaderElectionActor(
           context.setReceiveTimeout(Duration.Undefined)
           context.become(handle(thisNodeId, connectedMembers))
 
-          send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId).toBytes), connectedMembers)
+          send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId)), connectedMembers)
 
           val useToGetBlockIndexDetails = createFindLeader()
 
@@ -227,7 +227,7 @@ private class LeaderElectionActor(
 
     case IncomingMessage(`chainId`, MessageKeys.FindLeader, from, _) =>
       if (leader == thisNodeId)
-        send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId).toBytes), Set(from))
+        send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId)), Set(from))
 
     case IncomingMessage(`chainId`, MessageKeys.VoteLeader, from , _) =>
       log.info(

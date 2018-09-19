@@ -62,7 +62,7 @@ private class QuorumFollowersSyncedMonitor(
 
     case s@Synchronized(`chainId`, height, index) =>
 
-      send(SerializedMessage(MessageKeys.Synchronized, s.toBytes), leader)
+      send(SerializedMessage(MessageKeys.Synchronized, s), leader)
 
     case ConnectionLost(`leader`) => //TODO FIX ME <--- USE QUORUM
       context become waitForLeader

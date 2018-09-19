@@ -5,7 +5,7 @@ import scala.concurrent.duration._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, Props, Terminated}
 import sss.ancillary.Logging
 import sss.asado.{AsadoEvent, MessageKeys, UniqueNodeIdentifier}
-import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSettings, BlockChainSignatures, BlockChainTxConfirms, BlockClosedEvent, DistributeClose}
+import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainTxConfirms}
 import sss.asado.chains.BlockCloseDistributorActor.{CloseBlock, ProcessCoinBaseHook}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.QuorumFollowersSyncedMonitor.LocalBlockChainUp
@@ -16,10 +16,12 @@ import sss.asado.common.block._
 import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
+import sss.asado.nodebuilder.BlockChainSettings
 import sss.db.Db
 
 import scala.collection.SortedSet
 import scala.util.{Failure, Success, Try}
+import scala.language.postfixOps
 
 /**
   * Created by alan on 3/18/16.
@@ -73,15 +75,15 @@ object TxWriterActor {
 
     override def nack(id: Byte, msg: String, txId: TxId): Unit =
       send(SerializedMessage(MessageKeys.SignedTxNack,
-                             TxMessage(id, txId, msg).toBytes),
+                             TxMessage(id, txId, msg)),
            nodeId)
 
     override def ack(bTx: BlockChainTxId): Unit = {
-      send(SerializedMessage(MessageKeys.SignedTxAck, bTx.toBytes), nodeId)
+      send(SerializedMessage(MessageKeys.SignedTxAck, bTx), nodeId)
     }
 
     override def confirm(bTx: BlockChainTxId): Unit =
-      send(SerializedMessage(MessageKeys.SignedTxConfirm, bTx.toBytes), nodeId)
+      send(SerializedMessage(MessageKeys.SignedTxConfirm, bTx), nodeId)
   }
 
 
@@ -247,12 +249,12 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
     case IncomingMessage(`chainId`,
                          MessageKeys.SeqSignedTx,
                          clientNodeId,
-                         stxs: Seq[Array[Byte]]) =>
+                         stxs: Seq[LedgerItem]) =>
 
       stxs foreach { stx =>
         writeSignedTx(blockChainSettings.maxTxPerBlock,
           blockLedger,
-          stx.toLedgerItem,
+          stx,
           createTxDistributingActor(q, sendToMany),
           NetResponse(clientNodeId, shimSendManyToSend(sendToMany)))
       }

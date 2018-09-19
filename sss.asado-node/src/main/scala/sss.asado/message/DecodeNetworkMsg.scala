@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 trait DecodeNetworkMsg {
   self : Actor with ActorLogging =>
 
-  import SerializedMessage.noChain
+  /*import SerializedMessage.noChain
 
   def apply[T](f: => T)(work: T => Unit)(fail: => (Byte, Array[Byte])) = {
     Try {
@@ -22,5 +22,5 @@ trait DecodeNetworkMsg {
         log.error(e, "Generic failure handler")
         sender() ! SerializedMessage(fail._1, fail._2)
     }
-  }
+  }*/
 }

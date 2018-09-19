@@ -69,7 +69,7 @@ private class ChainDownloadResponseActor(send: NetSendTo,
       val closeBytes = DistributeClose(
         BlockSignatures(blockId.blockHeight)
           .signatures(maxSignatures), blockId)
-        .toBytes
+
 
       send(SerializedMessage(CloseBlock, closeBytes), someNodeId)
 
@@ -89,16 +89,16 @@ private class ChainDownloadResponseActor(send: NetSendTo,
         for (i <- nextPage.indices) {
           val stxBytes: Array[Byte] = nextPage(i)
           val bctx = BlockChainTx(blockHeight, BlockTx(index + i, stxBytes.toLedgerItem))
-          send(SerializedMessage(MessageKeys.PagedTx, bctx.toBytes), someClientNode)
+          send(SerializedMessage(MessageKeys.PagedTx, bctx), someClientNode)
         }
 
         if (nextPage.size == pageSize) {
-          send(SerializedMessage(MessageKeys.EndPageTx, pageIncremented.toBytes), someClientNode)
+          send(SerializedMessage(MessageKeys.EndPageTx, pageIncremented), someClientNode)
         } else if (maxHeight == blockHeight) {
           if(canIssueSyncs) {
-            send(SerializedMessage(MessageKeys.Synced, pageIncremented.toBytes), someClientNode)
+            send(SerializedMessage(MessageKeys.Synced, pageIncremented), someClientNode)
           } else {
-            send(SerializedMessage(MessageKeys.NotSynced, pageIncremented.toBytes), someClientNode)
+            send(SerializedMessage(MessageKeys.NotSynced, pageIncremented), someClientNode)
           }
         } else {
           self ! EndOfBlock(someClientNode, BlockId(blockHeight, index + nextPage.size))
