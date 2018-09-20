@@ -19,7 +19,11 @@ import scala.concurrent.{Future, Promise}
   */
 class NetworkRef private[network] (networkController: ActorRef,
                                    connectionsRef: AtomicReference[Set[Connection]],
-                                   stopFuture: Promise[Unit]) {
+                                   stopFuture: Promise[Unit]) extends NetSend {
+
+
+  override def apply(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit =
+    send(msg, nIds)
 
   def send(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
     require(nIds.nonEmpty, s"Programmer error sending SerializedMessage to zero recipients! ($msg)")

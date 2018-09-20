@@ -16,7 +16,7 @@ import scala.language.postfixOps
 
 class ChainSynchronizerSpec extends FlatSpec with Matchers {
 
-  private val chainId = 1.toByte
+  implicit private val chainId = 1.toByte
   import sss.asado.TestUtils.actorSystem
   private val myNodeId = "myNodeId"
 
@@ -44,7 +44,7 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
       context.actorOf(Props(new TestSyncer))
     }
 
-    def synchronization(candidates: Set[UniqueNodeIdentifier]) = new ChainSynchronizer(messageEventBus, chainId, candidates, myNodeId, startSyncer)
+    def synchronization(candidates: Set[UniqueNodeIdentifier]) = ChainSynchronizer(candidates, myNodeId, startSyncer)
   }
 
   private val probe1 = TestProbe()

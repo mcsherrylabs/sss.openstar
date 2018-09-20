@@ -6,7 +6,6 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.block.{Block, Synchronized}
 import sss.asado.chains.ChainSynchronizer.NotSynchronized
 import sss.asado.{TestSystem2, _}
-import sss.asado.network.NetSendTo
 import sss.asado.nodebuilder._
 import sss.asado.peers.PeerManager.{Capabilities, PeerConnection}
 
@@ -32,7 +31,8 @@ class ChainDownloadRequestActorSpec extends FlatSpec with Matchers {
 
     override val phrase: Option[String] = Some("password")
 
-    ChainDownloadResponseActor(send, messageEventBus, nodeConfig.blockChainSettings.maxSignatures, bc)
+
+    ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
 
     val peerConnection = PeerConnection("peer", Capabilities(globalChainId))
 
@@ -65,8 +65,6 @@ class ChainDownloadRequestActorSpec extends FlatSpec with Matchers {
     val reqProps = ChainDownloadRequestActor.props(
       peerConnection,
       nodeIdentity,
-      send: NetSendTo,
-      messageEventBus,
       bc)
 
 

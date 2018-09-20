@@ -3,7 +3,7 @@ package sss.asado.chains
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.asado.block._
 import org.joda.time.DateTime
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, Send}
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, SystemPanic}
 import sss.asado.common.block._
@@ -48,17 +48,15 @@ object ChainDownloadRequestActor {
 
 
   def createStartSyncer(
-                  nodeIdentity: NodeIdentity,
-                  sendTo: NetSendTo,
-                  messageEventBus: EventSubscriptions,
-                  bc: BlockChain with BlockChainSignatures,
-                  db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask)(context: ActorContext, peerConnection: PeerConnection): Unit= {
+                         nodeIdentity: NodeIdentity,
+                         send: Send,
+                         messageEventBus: EventSubscriptions,
+                         bc: BlockChain with BlockChainSignatures,
+                         db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask)(context: ActorContext, peerConnection: PeerConnection): Unit= {
 
     ChainDownloadRequestActor(props(peerConnection,
       nodeIdentity,
-      sendTo,
-      messageEventBus,
-      bc)(db, ledgers, chainId)
+      bc)(db, chainId, send, messageEventBus, ledgers)
     )(context)
   }
 
@@ -66,23 +64,25 @@ object ChainDownloadRequestActor {
 
   def props(peerConnection: PeerConnection,
             nodeIdentity: NodeIdentity,
-            send: NetSendTo,
-            messageEventBus: EventSubscriptions,
             bc: BlockChain with BlockChainSignatures)(
       implicit db: Db,
-      ledgers: Ledgers,
-      chainId: GlobalChainIdMask): CheckedProps =
+      chainId: GlobalChainIdMask,
+      send: Send,
+      messageEventBus: EventSubscriptions,
+      ledgers: Ledgers
+      ): CheckedProps =
 
     CheckedProps(
       Props(classOf[ChainDownloadRequestActor],
             peerConnection,
             nodeIdentity,
-            send,
-            messageEventBus,
             bc,
             db,
-            ledgers,
-            chainId)
+            chainId,
+            send,
+            messageEventBus,
+            ledgers
+            )
     )
 
   def apply(props: CheckedProps)(
@@ -94,12 +94,13 @@ object ChainDownloadRequestActor {
 
 private class ChainDownloadRequestActor(peerConnection: PeerConnection,
                                         nodeIdentity: NodeIdentity,
-                                        send: NetSendTo,
-                                        messageEventBus: EventSubscriptions,
                                         bc: BlockChain)(
     implicit db: Db,
+    chainId: GlobalChainIdMask,
+    send: Send,
+    messageEventBus: EventSubscriptions,
     ledgers: Ledgers,
-    chainId: GlobalChainIdMask)
+    )
     extends Actor
     with ActorLogging
     with AsadoEventPublishingActor
@@ -127,7 +128,7 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
 
     case StartSync =>
       val getTxs = createGetTxPage()
-      send(SerializedMessage(MessageKeys.GetPageTx, getTxs),
+      send(MessageKeys.GetPageTx, getTxs,
            syncingWithNode)
 
     case IncomingMessage(`chainId`,
@@ -150,7 +151,7 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
                          MessageKeys.EndPageTx,
                          `syncingWithNode`,
                          getTxPage: GetTxPage) =>
-      send(SerializedMessage(MessageKeys.GetPageTx, getTxPage),
+      send(MessageKeys.GetPageTx, getTxPage,
            syncingWithNode)
 
     /*case IncomingMessage(`chainId`,
@@ -189,13 +190,13 @@ private class ChainDownloadRequestActor(peerConnection: PeerConnection,
                      s"How can ${blockHeader} differ from ${blockId}")
 
               newBlockSignature(blockHeader) foreach { newSig =>
-                send(SerializedMessage(MessageKeys.BlockNewSig, newSig),
+                send(MessageKeys.BlockNewSig, newSig,
                      syncingWithNode)
               }
 
               send(
-                SerializedMessage(MessageKeys.GetPageTx,
-                                  GetTxPage(blockHeader.height + 1, 0)),
+                MessageKeys.GetPageTx,
+                                  GetTxPage(blockHeader.height + 1, 0),
                 syncingWithNode)
 
           }

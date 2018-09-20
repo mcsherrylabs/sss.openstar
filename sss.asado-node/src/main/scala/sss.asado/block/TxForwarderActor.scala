@@ -2,7 +2,7 @@ package sss.asado.block
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Terminated}
 import com.twitter.util.SynchronizedLruMap
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.MessageKeys.decode
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.common.block._
@@ -18,7 +18,7 @@ case class Forward(who: Connection)
 
 
 class TxForwarderActor(messageRouter: MessageEventBus,
-                       send: NetSendTo,
+                       send: Send,
                        clientRefCacheSize: Int)
   extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
@@ -66,7 +66,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
       context.become(noForward)
 
 
-    case m @ SerializedMessage(_, MessageKeys.SignedTx, bytes) =>
+   /* case m @ SerializedMessage(_, MessageKeys.SignedTx, bytes) =>
       decode(MessageKeys.SignedTx, bytes.toLedgerItem) { stx =>
         txs +=  (stx.txId.toBase64Str -> sender())
         send(m, leader)
@@ -80,7 +80,7 @@ class TxForwarderActor(messageRouter: MessageEventBus,
         }
         send(m, leader)
       }
-
+*/
     case m @ SerializedMessage(_, MessageKeys.SignedTxAck, bytes) =>
       decode(MessageKeys.SignedTxAck, bytes.toBlockChainTxId) { txAck =>
         txs.get(txAck.blockTxId.txId.toBase64Str) map (_ ! m)

@@ -12,17 +12,26 @@ import scala.util.Random
 
 object ChainSynchronizer {
 
+  def apply(chainQuorumCandidates: Set[UniqueNodeIdentifier],
+            myNodeId: UniqueNodeIdentifier,
+            startSyncer: StartSyncer,
+           )(implicit actorSystem: ActorSystem,
+             chainId: GlobalChainIdMask,
+             eventMessageBus: MessageEventBus
+           ) = new ChainSynchronizer(chainQuorumCandidates, myNodeId, startSyncer)
+
   type StartSyncer = (ActorContext, PeerConnection) => Unit
 
   case class NotSynchronized(chainIdMask: GlobalChainIdMask, nodeId: UniqueNodeIdentifier)
 }
 
-class ChainSynchronizer(eventMessageBus: MessageEventBus,
-                        chainId: GlobalChainIdMask,
-                        chainQuorumCandidates: Set[UniqueNodeIdentifier],
+class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier],
                         myNodeId: UniqueNodeIdentifier,
                         startSyncer: StartSyncer,
-                    )(implicit actorSystem: ActorSystem) {
+                    )(implicit actorSystem: ActorSystem,
+                      chainId: GlobalChainIdMask,
+                      eventMessageBus: MessageEventBus
+) {
 
   private val ref = actorSystem.actorOf(Props(SynchronizationActor),
     s"Synchronization_${chainId}_${Random.nextLong()}")

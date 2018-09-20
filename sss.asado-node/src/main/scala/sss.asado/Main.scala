@@ -2,15 +2,12 @@ package sss.asado
 
 import java.util.logging.{Level, Logger}
 
-import akka.actor.{ActorContext, ActorRef, Props}
+import akka.actor.{ActorRef}
 import sss.ancillary.Logging
-import sss.asado.account.NodeIdentity
 import sss.asado.chains.ChainSynchronizer.StartSyncer
-import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains._
-import sss.asado.network.{MessageEventBus, NetSendToMany, NetworkRef}
 import sss.asado.nodebuilder._
-import sss.asado.peers.PeerManager.{IdQuery, PeerConnection}
+
 
 import scala.language.postfixOps
 
@@ -47,7 +44,6 @@ object Main {
       with NetSendBuilder
       with BalanceLedgerBuilder
       with PeerManagerBuilder
-      with EncoderBuilder
       with HttpServerBuilder
       with UnsubscribedMessageHandlerBuilder
       with WalletBuilder
@@ -69,7 +65,7 @@ object Main {
 
 
       val startSyncer: StartSyncer = ChainDownloadRequestActor.createStartSyncer(nodeIdentity,
-          sendTo,
+        send,
           messageEventBus,
           bc, db, chain.ledgers, chain.id)
 
@@ -81,17 +77,17 @@ object Main {
 
 
       val qm = QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
-      val synchronization = new ChainSynchronizer(messageEventBus, chain.id, chain.quorumCandidates(), nodeIdentity.id, startSyncer)
+      val synchronization = ChainSynchronizer(chain.quorumCandidates(), nodeIdentity.id, startSyncer)
 
-      LeaderElectionActor(nodeIdentity.id, messageEventBus, sendToMany, bc)
+      LeaderElectionActor(nodeIdentity.id, bc)
 
-      ChainDownloadResponseActor(sendTo, messageEventBus, nodeConfig.blockChainSettings.maxSignatures, bc)
+      ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
 
-      QuorumFollowersSyncedMonitor(messageEventBus, nodeIdentity.id, bc, sendTo)
+      QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
 
-      TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, messageEventBus, nodeIdentity.id,bc, net.send, processCoinBaseHook))
+      TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id,bc, processCoinBaseHook))
 
-      TxDistributeeActor(TxDistributeeActor.props(messageEventBus , sendTo, bc, nodeIdentity))
+      TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
 
       synchronization.startSync
       synchronization.queryStatus

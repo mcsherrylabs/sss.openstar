@@ -1,14 +1,13 @@
 package sss.asado.chains
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, ReceiveTimeout}
-import sss.asado.block.signature.BlockSignatures
 import sss.asado.block._
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor.{FindTheLeader, LeaderFound, MakeFindLeader, WeAreLeader}
 import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network.{MessageEventBus, _}
-import sss.asado.{AsadoEvent, MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -51,10 +50,11 @@ object LeaderElectionActor {
   }
 
   def apply(thisNodeId: UniqueNodeIdentifier,
-            messageBus: MessageEventBus,
-            send: NetSendToMany,
+
             createFindLeader: MakeFindLeader)
            (implicit  chainId: GlobalChainIdMask,
+            messageBus: MessageEventBus,
+            send: Send,
             actorSystem: ActorSystem): ActorRef = {
 
     actorSystem.actorOf(Props(classOf[LeaderElectionActor],
@@ -67,22 +67,22 @@ object LeaderElectionActor {
 
 
     def apply(thisNodeId: UniqueNodeIdentifier,
-            messageBus: MessageEventBus,
-            send: NetSendToMany,
             bc: BlockChain with BlockChainSignatures)
            (implicit db: Db,
             chainId: GlobalChainIdMask,
+            send: Send,
+            messageBus: MessageEventBus,
             actorSystem: ActorSystem): ActorRef = {
 
     def createFindLeader: MakeFindLeader = () => createFindLeaderMsg(thisNodeId, bc)
-    apply(thisNodeId, messageBus, send, createFindLeader)
+    apply(thisNodeId, createFindLeader)
   }
 }
 
 private class LeaderElectionActor(
                   thisNodeId: UniqueNodeIdentifier,
                   messageBus: MessageEventBus,
-                  send: NetSendToMany,
+                  send: Send,
                   createFindLeader: MakeFindLeader)(implicit chainId: GlobalChainIdMask)
     extends Actor
     with ActorLogging {
@@ -133,7 +133,7 @@ private class LeaderElectionActor(
       log.info("Sending FindLeader to network ")
       //TODO PARAM TIMEOUT
       context.setReceiveTimeout(10 seconds)
-      send(SerializedMessage(MessageKeys.FindLeader, findMsg), connectedMembers)
+      send(MessageKeys.FindLeader, findMsg, connectedMembers)
 
     case ReceiveTimeout => self ! FindTheLeader
 
@@ -146,12 +146,12 @@ private class LeaderElectionActor(
       if (hisBlkHeight > myBlockHeight) {
         // I vote for him
         log.info(s"My name is $nodeId and I'm voting for $hisId")
-        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
+        send(MessageKeys.VoteLeader, VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
 
       } else if ((hisBlkHeight == myBlockHeight) && (hisCommittedTxIndex > myCommittedTxIndex)) {
         // I vote for him
         log.info(s"My name is $nodeId and I'm voting for $hisId")
-        send(SerializedMessage(MessageKeys.VoteLeader, VoteLeader(nodeId,myBlockHeight, myCommittedTxIndex)), Set(qMember))
+        send(MessageKeys.VoteLeader, VoteLeader(nodeId,myBlockHeight, myCommittedTxIndex), Set(qMember))
 
       } else if ((hisBlkHeight == myBlockHeight) &&
               (hisCommittedTxIndex == myCommittedTxIndex) &&
@@ -159,8 +159,8 @@ private class LeaderElectionActor(
         // I vote for him
         log.info(s"My name is $nodeId and I'm voting for $hisId")
 
-        send(SerializedMessage(MessageKeys.VoteLeader,
-          VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
+        send(MessageKeys.VoteLeader,
+          VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
 
       } else  if ((hisBlkHeight == myBlockHeight) &&
               (hisCommittedTxIndex == myCommittedTxIndex) &&
@@ -173,8 +173,8 @@ private class LeaderElectionActor(
         if (makeLong(nodeId) > makeLong(hisId)) {
           log.info(
             s"My name is $nodeId and I'm voting for $hisId in order to get started up.")
-          send(SerializedMessage(MessageKeys.VoteLeader,
-            VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex)), Set(qMember))
+          send(MessageKeys.VoteLeader,
+            VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
         }
       }
 
@@ -193,7 +193,7 @@ private class LeaderElectionActor(
           context.setReceiveTimeout(Duration.Undefined)
           context.become(handle(thisNodeId, connectedMembers))
 
-          send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId)), connectedMembers)
+          send(MessageKeys.Leader, Leader(thisNodeId), connectedMembers)
 
           val useToGetBlockIndexDetails = createFindLeader()
 
@@ -227,7 +227,7 @@ private class LeaderElectionActor(
 
     case IncomingMessage(`chainId`, MessageKeys.FindLeader, from, _) =>
       if (leader == thisNodeId)
-        send(SerializedMessage(MessageKeys.Leader, Leader(thisNodeId)), Set(from))
+        send(MessageKeys.Leader, Leader(thisNodeId), Set(from))
 
     case IncomingMessage(`chainId`, MessageKeys.VoteLeader, from , _) =>
       log.info(

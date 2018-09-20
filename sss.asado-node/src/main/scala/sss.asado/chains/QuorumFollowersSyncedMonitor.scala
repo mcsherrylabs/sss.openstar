@@ -8,11 +8,10 @@ import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor.{LeaderFound, WeAreLeader}
 import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, QuorumLost}
 import sss.asado.chains.QuorumFollowersSyncedMonitor.LocalBlockChainUp
-
-import sss.asado.ledger. _
+import sss.asado.ledger._
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
-import sss.asado.{AsadoEvent, MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
 import sss.db.Db
 
 
@@ -24,29 +23,35 @@ object QuorumFollowersSyncedMonitor {
   case class LocalBlockChainUp(chainId: GlobalChainIdMask,
                                nodeId: UniqueNodeIdentifier) extends AsadoEvent
 
-  def apply(messageEventBus: MessageEventBus,
+  def apply(
             thisNodeId: UniqueNodeIdentifier,
             bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-            send: NetSendTo)(implicit actorSystem: ActorSystem,
-                             db: Db,
-                             ledgers: Ledgers,
-                             chainId: GlobalChainIdMask): ActorRef = {
+            )(implicit actorSystem: ActorSystem,
+              db: Db,
+              chainId: GlobalChainIdMask,
+              send: Send,
+              messageEventBus: MessageEventBus,
+              ledgers: Ledgers
+                             ): ActorRef = {
 
       actorSystem.actorOf(Props(classOf[QuorumFollowersSyncedMonitor],
-        messageEventBus,
         thisNodeId,
-        send,
         db,
         ledgers,
-        chainId)
+        chainId,
+        send,
+        messageEventBus)
       )
   }
 }
 
 private class QuorumFollowersSyncedMonitor(
-               messageEventBus: MessageEventBus,
                thisNodeId: UniqueNodeIdentifier,
-               send: NetSendTo)(implicit val db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask) extends Actor with ActorLogging {
+               )(implicit val db: Db,
+                 ledgers: Ledgers,
+                 chainId: GlobalChainIdMask,
+                 send: Send,
+                 messageEventBus: MessageEventBus) extends Actor with ActorLogging {
 
   log.info("QuorumFollowersSyncedMonitor actor has started...")
 
@@ -62,7 +67,7 @@ private class QuorumFollowersSyncedMonitor(
 
     case s@Synchronized(`chainId`, height, index) =>
 
-      send(SerializedMessage(MessageKeys.Synchronized, s), leader)
+      send(MessageKeys.Synchronized, s, leader)
 
     case ConnectionLost(`leader`) => //TODO FIX ME <--- USE QUORUM
       context become waitForLeader

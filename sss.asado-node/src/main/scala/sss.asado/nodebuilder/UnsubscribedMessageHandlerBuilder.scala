@@ -1,11 +1,11 @@
 package sss.asado.nodebuilder
 
-import java.nio.charset.StandardCharsets
-
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import sss.asado.{MessageKeys, PublishedMessageKeys, UniqueNodeIdentifier}
-import sss.asado.network.MessageEventBus.{IncomingMessage, Unsubscribed, UnsubscribedEvent, UnsubscribedIncomingMessage}
-import sss.asado.network.{MessageEventBus, NetSendTo, NetworkRef, SerializedMessage}
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.eventbus.StringMessage
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
+import sss.asado.network.MessageEventBus.{IncomingMessage, Unsubscribed, UnsubscribedIncomingMessage}
+import sss.asado.network.MessageEventBus
 
 trait UnsubscribedMessageHandlerBuilder {
 
@@ -15,12 +15,12 @@ trait UnsubscribedMessageHandlerBuilder {
           MessageEventBusBuilder =>
 
   lazy val startUnsubscribedHandler: ActorRef = {
-    DefaultMessageHandlerActor(sendTo, messageEventBus, nodeIdentity.id)
+    DefaultMessageHandlerActor(send, messageEventBus, nodeIdentity.id)
   }
 
   private object DefaultMessageHandlerActor {
 
-    def apply(send: NetSendTo,
+    def apply(send: Send,
               messageEventBus: MessageEventBus,
               thisNodeId: UniqueNodeIdentifier
              )(implicit actorSystem: ActorSystem): ActorRef = {
@@ -38,7 +38,7 @@ trait UnsubscribedMessageHandlerBuilder {
 }
 
 
-private class DefaultMessageHandlerImpl(send: NetSendTo,
+private class DefaultMessageHandlerImpl(send: Send,
                                         thisNodeId: UniqueNodeIdentifier,
                                         messageEventBus: MessageEventBus)
   extends Actor with
@@ -46,15 +46,21 @@ private class DefaultMessageHandlerImpl(send: NetSendTo,
 
   messageEventBus.subscribe(classOf[Unsubscribed])
 
+
   override def receive: Receive = {
 
-    case UnsubscribedIncomingMessage(IncomingMessage(chainId, msgCode, clientNodeId, _))
+    case UnsubscribedIncomingMessage(IncomingMessage(chainId: GlobalChainIdMask, msgCode, clientNodeId, _))
       if(msgCode != MessageKeys.GenericErrorMessage) =>
 
-      send(SerializedMessage(chainId, MessageKeys.GenericErrorMessage,
-        (s"$thisNodeId received your msg (code=$msgCode) " +
-          "but is not processing at this time").getBytes(StandardCharsets.UTF_8)),
-        clientNodeId)
+        implicit val c = chainId
+
+        send.apply(MessageKeys.GenericErrorMessage,
+
+          StringMessage(s"$thisNodeId received your msg (code=$msgCode) " +
+            "but is not processing at this time")
+
+        ,clientNodeId)
+
 
     case x =>
       log.warning("Event has no sink! {} ", x)

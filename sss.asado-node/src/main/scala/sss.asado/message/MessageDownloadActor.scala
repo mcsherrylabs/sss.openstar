@@ -3,9 +3,9 @@ package sss.asado.message
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, Send}
 import sss.asado.MessageKeys._
-import sss.asado.network.{MessageEventBus, NetSendTo, NetworkRef, SerializedMessage}
+import sss.asado.network.{MessageEventBus, NetworkRef, SerializedMessage}
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -20,8 +20,9 @@ case object ForceCheckForMessages
 
 class MessageDownloadActor(who: String,
                            homeDomain: HomeDomain,
-                           messageRouter: MessageEventBus,
-                           send: NetSendTo)(implicit db: Db)
+                           )(implicit db: Db,
+                             messageRouter: MessageEventBus,
+                             send: Send)
     extends Actor
     with ActorLogging {
 
@@ -32,6 +33,8 @@ class MessageDownloadActor(who: String,
   log.info("MessageDownload actor has started...")
 
   private val inBox = MessageInBox(who)
+
+  import SerializedMessage.noChain
 
   private var isQuiet = true
 
@@ -46,9 +49,8 @@ class MessageDownloadActor(who: String,
     case CheckForMessages =>
       if (isQuiet) {
         send(
-          SerializedMessage(0.toByte,
             MessageKeys.MessageQuery,
-            createQuery.toBytes),
+            createQuery,
           homeDomain.nodeId.id)
 
         isQuiet = false

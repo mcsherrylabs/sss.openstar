@@ -4,13 +4,13 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.block.serialize.VoteLeaderSerializer
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.block.{FindLeader, Leader, VoteLeader}
 import sss.asado.chains.LeaderElectionActor.{LeaderFound, MakeFindLeader, WeAreLeader}
 import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
 import sss.asado.network.TestMessageEventBusOps._
-import sss.asado.network.{IncomingSerializedMessage, NetSendToMany, SerializedMessage}
-import sss.asado.nodebuilder.{DecoderBuilder, MessageEventBusBuilder, RequireActorSystem}
+import sss.asado.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
+import sss.asado.nodebuilder.{DecoderBuilder, MessageEventBusBuilder, RequireActorSystem, RequireNetSend}
 import sss.asado.peers.PeerManager.{Capabilities, PeerConnection}
 
 import scala.language.postfixOps
@@ -24,15 +24,17 @@ class LeaderElectionActorSpec extends FlatSpec with Matchers {
 
   private object TestSystem extends MessageEventBusBuilder
     with DecoderBuilder
-    with RequireActorSystem {
+    with RequireActorSystem
+    with RequireNetSend {
     lazy implicit override val actorSystem: ActorSystem = sss.asado.TestUtils.actorSystem
+
 
     def createFind(nId: UniqueNodeIdentifier, sigIndx: Int): MakeFindLeader = () => {
       //FindLeader(height: Long, commitedTxIndex: Long, signatureIndex: Int, nodeId: UniqueNodeIdentifier)
       FindLeader(9, 5, sigIndx, nId)
     }
 
-    def send: NetSendToMany = (serMsg, targets) => {
+    def ns: NetSend = (serMsg, targets) => {
       serMsg match {
         //vote for better node if it's name is 'betterNode
         case SerializedMessage(chainId, MessageKeys.FindLeader, data) if(targets.contains(betterNode)) =>
@@ -57,7 +59,9 @@ class LeaderElectionActorSpec extends FlatSpec with Matchers {
       ()
     }
 
-    LeaderElectionActor(myNodeId, messageEventBus, send, createFind(myNodeId, 2))
+    override implicit val send: Send = Send(ns)
+
+    LeaderElectionActor(myNodeId, createFind(myNodeId, 2))
 
   }
 

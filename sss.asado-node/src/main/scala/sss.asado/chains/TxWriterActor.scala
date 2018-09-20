@@ -4,7 +4,7 @@ package sss.asado.chains
 import scala.concurrent.duration._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, Props, Terminated}
 import sss.ancillary.Logging
-import sss.asado.{AsadoEvent, MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainTxConfirms}
 import sss.asado.chains.BlockCloseDistributorActor.{CloseBlock, ProcessCoinBaseHook}
 import sss.asado.chains.Chains.GlobalChainIdMask
@@ -16,7 +16,6 @@ import sss.asado.common.block._
 import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
-import sss.asado.nodebuilder.BlockChainSettings
 import sss.db.Db
 
 import scala.collection.SortedSet
@@ -69,44 +68,46 @@ object TxWriterActor {
       listener foreach (_ ! InternalConfirm(chainId, bTx))
   }
 
-  private case class NetResponse(nodeId: UniqueNodeIdentifier, send: NetSendTo)(
+  private case class NetResponse(nodeId: UniqueNodeIdentifier, send: Send)(
       implicit chainId: GlobalChainIdMask)
       extends Response {
 
     override def nack(id: Byte, msg: String, txId: TxId): Unit =
-      send(SerializedMessage(MessageKeys.SignedTxNack,
-                             TxMessage(id, txId, msg)),
+      send(MessageKeys.SignedTxNack,
+                             TxMessage(id, txId, msg),
            nodeId)
 
     override def ack(bTx: BlockChainTxId): Unit = {
-      send(SerializedMessage(MessageKeys.SignedTxAck, bTx), nodeId)
+      send(MessageKeys.SignedTxAck, bTx, nodeId)
     }
 
     override def confirm(bTx: BlockChainTxId): Unit =
-      send(SerializedMessage(MessageKeys.SignedTxConfirm, bTx), nodeId)
+      send(MessageKeys.SignedTxConfirm, bTx, nodeId)
   }
 
 
   case class CheckedProps(value:Props) extends AnyVal
 
   def props(blockChainSettings: BlockChainSettings,
-            messageEventBus: MessageEventBus,
             thisNodeId: UniqueNodeIdentifier,
             bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-            sendToMany: NetSendToMany, processCoinBaseHook: ProcessCoinBaseHook)(implicit db: Db,
-                                                                                 ledgers: Ledgers,
-                                                                                 chainId: GlobalChainIdMask): CheckedProps = {
+            processCoinBaseHook: ProcessCoinBaseHook)(implicit db: Db,
+                                                                  chainId: GlobalChainIdMask,
+                                                                  send: Send,
+                                                                  messageEventBus: MessageEventBus,
+                                                                   ledgers: Ledgers
+                                                                  ): CheckedProps = {
     CheckedProps(
       Props(classOf[TxWriterActor],
         blockChainSettings,
-        messageEventBus,
         thisNodeId,
         bc,
-        sendToMany,
         processCoinBaseHook,
         db,
-        ledgers,
-        chainId
+        chainId,
+        send,
+        messageEventBus,
+        ledgers
         )
     )
   }
@@ -114,13 +115,13 @@ object TxWriterActor {
 }
 
 private class TxWriterActor(blockChainSettings: BlockChainSettings,
-    messageEventBus: MessageEventBus,
-    thisNodeId: UniqueNodeIdentifier,
-    bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-    sendToMany: NetSendToMany,
-    processCoinBaseHook: ProcessCoinBaseHook)(implicit val db: Db,
-                                                                      ledgers: Ledgers,
-                                                                      chainId: GlobalChainIdMask)
+                            thisNodeId: UniqueNodeIdentifier,
+                            bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
+                            processCoinBaseHook: ProcessCoinBaseHook)(implicit val db: Db,
+                                                                      chainId: GlobalChainIdMask,
+                                                                      send: Send,
+                                                                      messageEventBus: MessageEventBus,
+                                                                      ledgers: Ledgers)
     extends Actor
     with ActorLogging {
 
@@ -192,7 +193,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   def createBlockCloseDistributingActor(
                                          q: Quorum,
-                                         send: NetSendToMany,
+                                         send: Send,
                                          ledger: BlockChainLedger): ActorRef =
     BlockCloseDistributorActor(
       BlockCloseDistributorActor.props(
@@ -206,17 +207,14 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
 
   def createTxDistributingActor(
-      q: Quorum,
-      send: NetSendToMany
+      q: Quorum
   )(bTx: BlockChainTx): ActorRef =
     TxDistributorActor(
-      TxDistributorActor.props(bTx, q, messageEventBus, send)
+      TxDistributorActor.props(bTx, q)
     )
 
   private var allBlockTxsDistributed: SortedSet[Long] = SortedSet[Long]()
   private var blocksToClose: SortedSet[Long] = SortedSet[Long]()
-
-  private def shimSendManyToSend(many: NetSendToMany): NetSendTo = (s, n) => many(s, Set(n))
 
   private def checkConditionsForBlockClose(): Unit = {
 
@@ -236,7 +234,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
 
     case c @ CloseBlock(height) =>
-      createBlockCloseDistributingActor(q, sendToMany, blockLedger) ! c
+      createBlockCloseDistributingActor(q, send, blockLedger) ! c
 
     case BlockCloseTrigger =>
       blockCloseTimer map (_.cancel())
@@ -255,8 +253,8 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
         writeSignedTx(blockChainSettings.maxTxPerBlock,
           blockLedger,
           stx,
-          createTxDistributingActor(q, sendToMany),
-          NetResponse(clientNodeId, shimSendManyToSend(sendToMany)))
+          createTxDistributingActor(q),
+          NetResponse(clientNodeId, send))
       }
 
     case IncomingMessage(`chainId`,
@@ -267,8 +265,8 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       writeSignedTx(blockChainSettings.maxTxPerBlock,
         blockLedger,
         stx,
-        createTxDistributingActor(q, sendToMany),
-        NetResponse(clientNodeId, shimSendManyToSend(sendToMany))
+        createTxDistributingActor(q),
+        NetResponse(clientNodeId, send)
       )
 
 
@@ -277,7 +275,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       writeSignedTx(blockChainSettings.maxTxPerBlock,
         blockLedger,
         signedTx,
-        createTxDistributingActor(q, sendToMany),
+        createTxDistributingActor(q),
         InternalResponse(responseListener)
       )
 

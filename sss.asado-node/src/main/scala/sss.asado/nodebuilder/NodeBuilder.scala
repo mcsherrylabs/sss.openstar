@@ -6,13 +6,12 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions._
 import sss.ancillary.{DynConfig, _}
-import sss.asado.MessageKeys.messages
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
 import sss.asado.chains.BlockCloseDistributorActor.ProcessCoinBaseHook
 import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
-import sss.asado.chains.{GenerateCoinBaseTxs, QuorumMonitor, TxWriterActor}
+import sss.asado.chains.{BlockChainSettings, GenerateCoinBaseTxs, QuorumMonitor, TxWriterActor}
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
 import sss.asado.eventbus.{MessageInfo, PureEvent}
@@ -26,8 +25,8 @@ import sss.asado.peers.PeerManager.{Capabilities, Query}
 import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
 import sss.asado.util.Serialize.ToBytes
-import sss.asado.util.StringCheck.SimpleTag
-import sss.asado.{InitWithActorRefs, MessageKeys, PublishedMessageKeys, UniqueNodeIdentifier}
+
+import sss.asado._
 import sss.db.Db
 import sss.db.datasource.DataSource
 
@@ -35,8 +34,42 @@ import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
 /**
-  * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
-  * mcsherrylabs on 3/9/16.
+  * This is area is used to create 'components' that can be wired up for test or different applications
+  *
+  * A component should be created only if it is reusable across applications or tests. The final wiring
+  * can be done in the 'main' function, not everything has to be buildable.
+  *
+  * There are a few options for making a component available.
+  *
+  * 1. Declare as a requirement. Declare the name of the val and the type in a trait . e.g.
+  *
+  * trait RequireMyThing { val myThing: MyThing }
+  *
+  * This 'RequireMyThing' trait is now stackable and usable across applications and tests.
+  * If myThing is a simple instanciation it can read
+  *
+  * trait RequireMyThing { val myThing: MyThing = new MyThing() }
+  *
+  * If it is more complicated and needs construction use a Builder
+  *
+  * 2.
+  *
+  * trait MyThingBuilder extends RequireMyThing with RequireOtherThing { val myThing: MyThing = new MyThing(otherThing) }
+  *
+  * Note the MyThingBuilder depends only on other 'Require'ments. This means in tests or elsewhere one can use the Builder
+  * but the dependencies can be wired up as test dependencies.
+  *
+  * 3.
+  * Just add a Builder (no 'Require' trait) , in this case extending this trait means instantly depending on the components
+  * used to build it.
+  *
+  * So a component could have
+  *
+  * a. no building trait, to be instanciated in the 'main' function
+  * b. a Require trait
+  * c. a RequireTrait and extending Builder
+  * d. a Builder only
+  *
   */
 trait RequirePhrase {
   val phrase: Option[String]
@@ -55,16 +88,6 @@ trait ConfigBuilder extends RequireConfig with Configure {
   lazy val conf: Config = config(configName)
 }
 
-trait BlockChainSettings {
-  val inflationRatePerBlock: Int
-  val maxTxPerBlock: Int
-  val maxBlockOpenSecs: Int
-  val maxSignatures: Int
-  val spendDelayBlocks: Int
-  val numTxWriters: Int
-  val numBlocksCached: Int
-}
-
 trait RequireNodeConfig {
   val bindSettings: BindControllerSettings
   val nodeConfig: NodeConfig
@@ -76,9 +99,6 @@ trait RequireNodeConfig {
     val blockChainSettings: BlockChainSettings
     val production: Boolean
     val peersList: Set[NodeId]
-    //val quorum: Int
-    /*val connectedPeers = Agent[Set[Connection]](Set.empty[Connection])
-    val connectedClients = Agent[Set[Connection]](Set.empty[Connection])*/
   }
 
 }
@@ -107,7 +127,7 @@ trait NodeConfigBuilder extends RequireNodeConfig {
       .asScala
       .toSet
       .map(toNodeId)
-    //lazy val quorum = quorum(peersList.size)
+
   }
 }
 
@@ -153,11 +173,11 @@ trait RequireQuorumMonitor {
 }
 
 trait QuorumMonitorBuilder extends RequireQuorumMonitor {
-    self: ChainBuilder with
+    self: RequireChain with
       RequireActorSystem with
       RequireNodeIdentity with
       RequirePeerManager with
-      MessageEventBusBuilder =>
+      RequireMessageEventBus =>
 
     lazy val quorumMonitor: QuorumMonitor = QuorumMonitor(
       messageEventBus,
@@ -175,22 +195,19 @@ trait RequireCoinbaseGenerator {
 trait CoinbaseGeneratorBuilder
   extends RequireCoinbaseGenerator {
 
-  self: MessageEventBusBuilder with
+  self: RequireMessageEventBus with
     RequireDb with
-    ChainBuilder with
+    RequireChain with
     RequireGlobalChainId with
     RequireNodeIdentity with
-    WalletBuilder with
+    RequireWallet with
     RequireNetSend =>
 
   import chain.ledgers
 
   lazy override val processCoinBaseHook: ProcessCoinBaseHook =
     new GenerateCoinBaseTxs(
-      messageEventBus,
       nodeIdentity,
-      ledgers,
-      sendTo,
       wallet
     )
 }
@@ -206,7 +223,12 @@ trait ShutdownHookBuilder {
   })
 }
 
-trait ChainBuilder {
+trait RequireChain {
+  val chain: Chain
+  val quorumService: QuorumService
+}
+
+trait ChainBuilder extends RequireChain {
 
   self: BlockChainBuilder
     with IdentityServiceBuilder
@@ -245,31 +267,6 @@ trait ChainBuilder {
 
 }
 
-trait Encoder {
-  implicit def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage
-  implicit def apply[T <% ToBytes](msgCode: Byte, t: T)(implicit chainId: GlobalChainIdMask): SerializedMessage
-}
-
-trait RequireEncoder {
-  val encode: Encoder
-}
-
-trait EncoderBuilder extends RequireEncoder {
-
-  lazy val encode = new Encoder {
-    override def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage = {
-      SerializedMessage(chainId, msgCode, Array())
-    } ensuring (messages.find(msgCode).get.clazz == classOf[PureEvent],
-      s"No bytes were provided but code $msgCode does not map to a PureEvent class")
-
-    override def apply[T <% ToBytes](msgCode: Byte, t: T)
-                                    (implicit chainId: GlobalChainIdMask): SerializedMessage = {
-      SerializedMessage(msgCode, t)
-    } ensuring(messages.find(msgCode).get.clazz.isAssignableFrom(t.getClass),
-      s"The class to encode doesn't match the msgCode type ${t.getClass} $msgCode ")
-  }
-}
-
 trait RequireDecoder {
   val decoder: Byte => Option[MessageInfo]
 }
@@ -299,19 +296,23 @@ trait PeerManagerBuilder extends RequirePeerManager {
   RequireActorSystem with
   ChainBuilder with
   RequireNodeConfig with
-  RequireEncoder with
+
   MessageEventBusBuilder =>
 
   lazy val peerManager: PeerManager = new PeerManager(net,
     nodeConfig.peersList,
-    Capabilities(chain.id), messageEventBus, encode)
+    Capabilities(chain.id), messageEventBus)
 }
 
-trait MessageEventBusBuilder {
+trait RequireMessageEventBus {
+  implicit val messageEventBus: MessageEventBus
+}
+
+trait MessageEventBusBuilder extends RequireMessageEventBus {
   self: RequireActorSystem with
     RequireDecoder =>
 
-  lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
+  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
 
 }
 
@@ -465,21 +466,15 @@ trait HandshakeGeneratorBuilder {
     )
 }
 
-trait RequireNetSend extends RequireEncoder {
-
-  def s[T <% ToBytes](msgCode: Byte, t:T, m: Seq[UniqueNodeIdentifier])(implicit cId: GlobalChainIdMask): Unit = {
-    sendToMany(encode(msgCode, t), m)
-  }
-
-  val sendToMany: NetSendToMany
-  val sendTo: NetSendTo = (s, n) => sendToMany(s, Set(n))
+trait RequireNetSend {
+  implicit val send: Send
 }
 
 trait NetSendBuilder extends RequireNetSend {
 
   self :NetworkControllerBuilder =>
 
-  lazy val sendToMany: NetSendToMany = net.send
+  implicit override lazy val send: Send = Send(net)
 }
 
 trait NetworkControllerBuilder {

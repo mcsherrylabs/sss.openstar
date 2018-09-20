@@ -11,14 +11,12 @@ import sss.asado.chains.QuorumMonitor.Quorum
 import sss.asado.common.block._
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
-import sss.asado.nodebuilder.{BlockChainSettings, Encoder}
-import sss.asado.util.{ByteArrayComparisonOps}
-import sss.asado.MessageKeys
+import sss.asado.util.ByteArrayComparisonOps
+import sss.asado.{MessageKeys, Send}
 import sss.db.Db
 
 import scala.language.postfixOps
 import scala.language.implicitConversions
-
 import scala.util.{Failure, Success, Try}
 
 
@@ -33,7 +31,7 @@ object BlockCloseDistributorActor {
   def props(ledger: BlockChainLedger,
             q: Quorum,
             messageEventBus: MessageEventBus,
-            send: NetSendToMany,
+            send: Send,
             processCoinBaseHook: ProcessCoinBaseHook
            )
            (implicit db: Db, chainId: GlobalChainIdMask): CheckedProp =
@@ -47,14 +45,15 @@ object BlockCloseDistributorActor {
 
 private class BlockCloseDistributorActor(ledger: BlockChainLedger,
                                          q: Quorum,
-                                         messageEventBus: MessageEventBus,
-                                         send: NetSendToMany,
                                          bc: BlockChain with BlockChainSignatures,
                                          blockChainSettings: BlockChainSettings,
                                          nodeIdentity: NodeIdentity,
                                          processCoinBaseHook: ProcessCoinBaseHook,
 
-                    )(implicit db: Db, chainId: GlobalChainIdMask, encode:Encoder)
+                    )(implicit db: Db,
+                      chainId: GlobalChainIdMask,
+                      messageEventBus: MessageEventBus,
+                      send: Send)
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
@@ -76,7 +75,7 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
       // do something.
       val sig = bc.addSignature(bSig.height, bSig.signature, bSig.publicKey, nodeId)
 
-      send(encode(MessageKeys.BlockSig, sig), currentQuorum.members)
+      send(MessageKeys.BlockSig, sig, currentQuorum.members)
       val currentNumSigsForBlock = bc.signatures(bSig.height, Int.MaxValue).size
 
       //TODO put a time limit on when this should end, can't accept sigs' indefinitely.
@@ -95,8 +94,8 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
 
           val sig = bc.sign(nodeIdentity, newLastBlock)
 
-          send(encode(MessageKeys.CloseBlock,
-            DistributeClose(Seq(sig), BlockId(newLastBlock.height,newLastBlock.numTxs))),
+          send(MessageKeys.CloseBlock,
+            DistributeClose(Seq(sig), BlockId(newLastBlock.height,newLastBlock.numTxs)),
             currentQuorum.members)
 
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")

@@ -1,7 +1,7 @@
 package sss.asado.chains
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.MessageKeys._
 import sss.asado.block.{BlockChain, BlockChainSignatures, DistributeClose, GetTxPage, Synchronized}
 import sss.asado.block.signature.BlockSignatures
@@ -10,7 +10,7 @@ import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.common.block._
 import sss.asado.ledger._
 import sss.asado.network.MessageEventBus.IncomingMessage
-import sss.asado.network.{MessageEventBus, NetSendTo, NetworkRef, SerializedMessage}
+import sss.asado.network.MessageEventBus
 import sss.db.Db
 
 import scala.language.postfixOps
@@ -24,31 +24,36 @@ import scala.language.postfixOps
 
 object ChainDownloadResponseActor {
 
-  def apply(send: NetSendTo,
-            messageEventBus: MessageEventBus,
+  def apply(
             maxSignatures: Int,
             bc: BlockChain with BlockChainSignatures)
-           (implicit actorSystem: ActorSystem, db:Db, chainId: GlobalChainIdMask)
+           (implicit actorSystem: ActorSystem,
+            db:Db,
+            chainId: GlobalChainIdMask,
+            send: Send,
+            messageEventBus: MessageEventBus)
 
   : Unit = {
 
     actorSystem.actorOf(
       Props(classOf[ChainDownloadResponseActor],
-        send,
-        messageEventBus,
         maxSignatures,
         bc,
         db,
-        chainId)
+        chainId,
+        send,
+        messageEventBus)
     )
   }
 }
 
-private class ChainDownloadResponseActor(send: NetSendTo,
-                                         messageEventBus: MessageEventBus,
+private class ChainDownloadResponseActor(
                                          maxSignatures: Int,
                                          bc: BlockChain with BlockChainSignatures)
-                                        (implicit db: Db, chainId: GlobalChainIdMask) extends Actor with ActorLogging {
+                                        (implicit db: Db,
+                                         chainId: GlobalChainIdMask,
+                                         send: Send,
+                                         messageEventBus: MessageEventBus) extends Actor with ActorLogging {
 
   messageEventBus.subscribe(classOf[Synchronized])
   messageEventBus.subscribe(MessageKeys.GetPageTx)
@@ -71,7 +76,7 @@ private class ChainDownloadResponseActor(send: NetSendTo,
           .signatures(maxSignatures), blockId)
 
 
-      send(SerializedMessage(CloseBlock, closeBytes), someNodeId)
+      send(CloseBlock, closeBytes, someNodeId)
 
     case IncomingMessage(`chainId`, GetPageTx, someClientNode, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
@@ -89,16 +94,16 @@ private class ChainDownloadResponseActor(send: NetSendTo,
         for (i <- nextPage.indices) {
           val stxBytes: Array[Byte] = nextPage(i)
           val bctx = BlockChainTx(blockHeight, BlockTx(index + i, stxBytes.toLedgerItem))
-          send(SerializedMessage(MessageKeys.PagedTx, bctx), someClientNode)
+          send(MessageKeys.PagedTx, bctx, someClientNode)
         }
 
         if (nextPage.size == pageSize) {
-          send(SerializedMessage(MessageKeys.EndPageTx, pageIncremented), someClientNode)
+          send(MessageKeys.EndPageTx, pageIncremented, someClientNode)
         } else if (maxHeight == blockHeight) {
           if(canIssueSyncs) {
-            send(SerializedMessage(MessageKeys.Synced, pageIncremented), someClientNode)
+            send(MessageKeys.Synced, pageIncremented, someClientNode)
           } else {
-            send(SerializedMessage(MessageKeys.NotSynced, pageIncremented), someClientNode)
+            send(MessageKeys.NotSynced, pageIncremented, someClientNode)
           }
         } else {
           self ! EndOfBlock(someClientNode, BlockId(blockHeight, index + nextPage.size))

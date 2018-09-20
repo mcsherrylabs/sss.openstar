@@ -3,19 +3,18 @@ package sss.asado.peers
 import akka.actor.Actor
 import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.eventbus.PureEvent
+
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network.{MessageEventBus, _}
-import sss.asado.nodebuilder.Encoder
 import sss.asado.peers.PeerManager.{Capabilities, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
-import sss.asado.util.IntBitSet
+
 
 
 private class PeerManagerActor( ncRef: NetworkRef,
                                 bootstrapNodes: Set[NodeId],
                                 ourCapabilities: Capabilities,
                                 messageEventBus: MessageEventBus,
-                                encode: Encoder
+
                       ) extends Actor {
 
   private case class KnownConnection(c: Connection, cabs: Capabilities)
@@ -23,7 +22,7 @@ private class PeerManagerActor( ncRef: NetworkRef,
   import SerializedMessage.noChain
 
   private val ourCapabilitiesNetworkMsg: SerializedMessage =
-    encode(MessageKeys.Capabilities, ourCapabilities)
+    SerializedMessage(MessageKeys.Capabilities, ourCapabilities)
 
   private var queries: Set[Query] = Set()
 

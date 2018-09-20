@@ -55,8 +55,6 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val EndMessageQuery: Byte = 64
   val MessageResponse: Byte = 65
 
-//  val messages: MessageInfos = MessageInfoComposite[MessageResponse](MessageResponse, classOf[MessageResponse], _.toMessageResponse, MsgResponseSerializer.toBytes) +:
-//    MessageInfoComposite[EndMessageQueryObj.type](EndMessageQuery, EndMessageQueryObj.getClass.asInstanceOf[Class[EndMessageQueryObj.type]], _ => EndMessageQueryObj, _ => Array())
 
   private val localMessages: MessageInfos =  {
         MessageInfoComposite[MessageResponse](MessageResponse, classOf[MessageResponse], _.toMessageResponse) +:
@@ -106,21 +104,4 @@ object MessageKeys extends PublishedMessageKeys with Logging {
     }
   }
 
-}
-
-object TestIt {
-  def main(args: Array[String]): Unit = {
-
-
-
-
-
-    val f = MessageKeys.messages.find(MessageKeys.EndMessageQuery)
-    val s = f.get.fromBytes(Array())
-    s match {
-      case EndMessageQueryObj => println("got it")
-      case _: Int => println(":(")
-    }
-
-  }
 }

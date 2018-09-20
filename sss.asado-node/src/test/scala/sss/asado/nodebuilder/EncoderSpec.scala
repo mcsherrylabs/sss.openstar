@@ -2,7 +2,7 @@ package sss.asado.nodebuilder
 
 
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.{DummySeedBytes, MessageKeys}
+import sss.asado.{DummySeedBytes, MessageKeys, Send}
 import sss.asado.block.GetTxPage
 import sss.asado.eventbus.StringMessage
 import sss.asado.ledger.LedgerItem
@@ -19,15 +19,14 @@ import sss.asado.util.ByteArrayComparisonOps
 class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
 
-  object sut extends EncoderBuilder with RequireGlobalChainId
-  import sut.globalChainId
+  val sut = Send.ToSerializedMessageImpl
 
-  val chainId = sut.globalChainId
+  implicit val chainId = 0.toByte
 
   "A Encoder " should " prevent an encoding without corresponding object" in {
 
     intercept[AssertionError](
-      sut.encode(MessageKeys.GetPageTx)
+      sut(MessageKeys.GetPageTx)
     )
 
   }
@@ -35,7 +34,7 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   it should "allow encoding and decoding " in {
     val byte = MessageKeys.GetPageTx
     val test = GetTxPage(1,2,3)
-    val SerializedMessage(`chainId`, `byte`, data) = sut.encode(MessageKeys.GetPageTx, test)
+    val SerializedMessage(`chainId`, `byte`, data) = sut(MessageKeys.GetPageTx, test)
     import sss.asado.block._
     val backAgain = data.toGetTxPage
     assert(backAgain === test)
@@ -44,14 +43,14 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   it should "prevent encoding the wrong object " in {
 
     intercept[AssertionError](
-      sut.encode(MessageKeys.BlockSig, GetTxPage(1,2,3))
+      sut(MessageKeys.BlockSig, GetTxPage(1,2,3))
     )
 
   }
 
   it should "allow encoding case objects " in {
 
-    val sMsg = sut.encode(MessageKeys.EndMessageQuery, EndMessageQuery)
+    val sMsg = sut(MessageKeys.EndMessageQuery, EndMessageQuery)
     assert(sMsg.data === Array())
     assert(sMsg.chainId === chainId)
     assert(sMsg.msgCode === MessageKeys.EndMessageQuery)
@@ -59,7 +58,7 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
   it should "work with String messages" in {
     val sm = StringMessage("Some string ")
-    val sMsg = sut.encode(MessageKeys.MalformedMessage, sm)
+    val sMsg = sut(MessageKeys.MalformedMessage, sm)
     val backAgain = MessageKeys.messages.find(MessageKeys.MalformedMessage).get.fromBytes(sMsg.data)
     assert(backAgain === sm)
   }
@@ -71,7 +70,7 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     assert(l1 === l1)
     assert(l2 === l2)
     val seqStx: Seq[LedgerItem] = Seq(l1,l2)
-    val sMsg = sut.encode(MessageKeys.SeqSignedTx, seqStx)
+    val sMsg = sut(MessageKeys.SeqSignedTx, seqStx)
     val backAgain = MessageKeys.messages.find(MessageKeys.SeqSignedTx).get.fromBytes(sMsg.data)
     assert(seqStx === backAgain)
 

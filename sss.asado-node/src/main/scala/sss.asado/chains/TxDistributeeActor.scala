@@ -10,7 +10,7 @@ import sss.asado.chains.QuorumMonitor.Quorum
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, Send}
 import sss.asado.account.NodeIdentity
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
@@ -25,12 +25,14 @@ object TxDistributeeActor {
   case class CheckedProp(value:Props) extends AnyVal
 
   def props(
-            messageEventBus: MessageEventBus,
-            send: NetSendTo,
             bc: BlockChain with BlockChainSignatures,
             nodeIdentity: NodeIdentity
            )
-           (implicit db: Db, chainId: GlobalChainIdMask): CheckedProp =
+           (implicit db: Db,
+            chainId: GlobalChainIdMask,
+            send: Send,
+            messageEventBus: MessageEventBus
+           ): CheckedProp =
     CheckedProp(Props(classOf[TxDistributeeActor], messageEventBus, send, bc, nodeIdentity, db, chainId))
 
 
@@ -41,7 +43,7 @@ object TxDistributeeActor {
 
 private class TxDistributeeActor(
                                  messageEventBus: MessageEventBus,
-                                 send: NetSendTo,
+                                 send: Send,
                                  bc: BlockChain with BlockChainSignatures,
                                  nodeIdentity: NodeIdentity
                     )(implicit db: Db, chainId: GlobalChainIdMask)
@@ -122,7 +124,7 @@ private class TxDistributeeActor(
           nodeIdentity.publicKey,
           sig)
 
-        send(SerializedMessage(MessageKeys.BlockNewSig,newSig), nodeId)
+        send(MessageKeys.BlockNewSig,newSig, nodeId)
       }
       //val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
 

@@ -12,9 +12,12 @@ trait WalletPersistenceBuilder {
   lazy val walletPersistence = new WalletPersistence(nodeIdentity.id, db)
 }
 
-trait WalletBuilder {
+trait RequireWallet {
+  val wallet: Wallet
+}
+trait WalletBuilder extends RequireWallet {
 
-  self: NodeIdentityBuilder with
+  self: RequireNodeIdentity with
     BalanceLedgerBuilder with
     IdentityServiceBuilder with
     WalletPersistenceBuilder with

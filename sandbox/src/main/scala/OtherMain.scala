@@ -12,20 +12,29 @@ trait CodeType {
 
 object OtherMain {
 
-  val m : Map[Int, CodeType] = Map()
+  def doIt(s: Serailse)(str: String)(implicit int: Int) = ???
 
-  object Serailse {
+  implicit def f(b:Byte, a: Any): Serailse = ???
 
-    def apply[T <% ToBytes](t: T): Serailse = {
-      new Serailse(t.toBytes)
-    }
+  implicit val i: Int = 9
+
+  doIt(1.toByte, "")( "")
+
+  type SENDIT = (Byte, Any, Seq[String]) => Unit
+
+  object Impl extends  SENDIT {
+    override def apply(v1: Byte, v2: Any, v3: Seq[String]): Unit = ()
+    def apply(v1: Byte, v2: Any, v3: String): Unit = apply(v1,v2,Seq(v3))
+    //def apply(s: String): String = s
+  }
+
+  Impl(1.toByte, "", "")
+
+  def doit (i: SENDIT): Unit = {
+    //i(1.toByte, "", "")
+    i(1.toByte, "", Seq(""))
+    //val s: String = i("")
   }
 
 
-  def main(args: Array[String]): Unit = {
-    Serailse("")
-    Serailse(4)
-    Serailse(new Date())
-
-  }
 }

@@ -8,9 +8,6 @@ import sss.asado.util.Serialize.ToBytes
 
 package object network {
 
-  type NetSendTo = (SerializedMessage, UniqueNodeIdentifier) => Unit
-  type NetSendToMany = (SerializedMessage, Set[UniqueNodeIdentifier]) => Unit
-
   type ReconnectionStrategy = Stream[Int]
 
   val NoReconnectionStrategy: ReconnectionStrategy = Stream.Empty

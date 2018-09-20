@@ -3,16 +3,13 @@ package sss.asado.chains
 import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props, ReceiveTimeout, Terminated}
 import sss.asado.common.block._
 import sss.asado.actor.AsadoEventSubscribedActor
-
-
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.QuorumMonitor.Quorum
-
 import sss.asado.chains.TxDistributorActor.{TxConfirmed, TxReplicated}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.db.Db
 
 import scala.language.postfixOps
@@ -42,10 +39,13 @@ object TxDistributorActor {
 
   def props(bTx: BlockChainTx,
             q: Quorum,
-            messageEventBus: MessageEventBus,
-            send: NetSendToMany
            )
-           (implicit db: Db, chainId: GlobalChainIdMask): CheckedProp =
+           (implicit db: Db,
+            chainId: GlobalChainIdMask,
+            send: Send,
+            messageEventBus: MessageEventBus
+            ): CheckedProp =
+
     CheckedProp(Props(classOf[TxDistributeeActor], bTx, q))
 
 
@@ -56,9 +56,11 @@ object TxDistributorActor {
 
 private class TxDistributorActor(bTx: BlockChainTx,
                                  q: Quorum,
-                                 messageEventBus: MessageEventBus,
-                                 send: NetSendToMany
-                    )(implicit db: Db, chainId: GlobalChainIdMask)
+
+                    )(implicit db: Db,
+                      chainId: GlobalChainIdMask,
+                      messageEventBus: MessageEventBus,
+                      send: Send)
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
@@ -79,7 +81,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
   private def finishSendingConfirms(q: Quorum) : Receive = {
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
-      send(SerializedMessage(MessageKeys.ConfirmTx, bTx), Set(mem))
+      send(MessageKeys.ConfirmTx, bTx, mem)
 
       if(confirms.size + badConfirms.size == q.members.size)
         context stop self
@@ -88,7 +90,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
   private def withQuorum(q: Quorum): Receive = onQuorum orElse {
 
     case TxConfirmed(bTx, confirmers) =>
-      send(SerializedMessage(MessageKeys.ConfirmTx, bTx), confirmers)
+      send(MessageKeys.ConfirmTx, bTx, confirmers)
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
@@ -107,7 +109,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
     case quorum: Quorum =>
       context become withQuorum(quorum)
       val remainingMembers = q.members.filterNot(confirms.contains(_))
-      send(SerializedMessage(MessageKeys.DistributeTx, bTx), remainingMembers)
+      send(MessageKeys.DistributeTx, bTx, remainingMembers)
 
   }
 

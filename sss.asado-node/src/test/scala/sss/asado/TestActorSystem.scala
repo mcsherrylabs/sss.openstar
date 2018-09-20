@@ -6,12 +6,10 @@ import sss.ancillary.{Configure, Logging}
 import sss.asado.account.{NodeIdentity, PrivateKeyAccount, PublicKeyAccount}
 import sss.asado.balanceledger.{BalanceLedger, StandardTx, TxIndex, TxInput, TxOutput}
 import sss.asado.block.BlockChain
-import sss.asado.common.block.BlockId
-import sss.asado.contract.{NullEncumbrance, PrivateKeySig}
 import sss.asado.identityledger.Claim
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.ledger._
-import sss.asado.network.{IncomingSerializedMessage, NetSendTo, SerializedMessage}
+import sss.asado.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
 import sss.asado.nodebuilder._
 import sss.asado.network.TestMessageEventBusOps._
 
@@ -96,6 +94,7 @@ trait BaseTestSystem extends MessageEventBusBuilder
   with Logging
   with RequireActorSystem
   with NodeIdentityBuilder
+  with RequireNetSend
   with RequirePhrase {
 
   override val phrase = Option("password")
@@ -110,7 +109,7 @@ trait TestSystem1 extends BaseTestSystem {
   val nodeId: UniqueNodeIdentifier = "testSystem1"
   lazy override val conf: Config = config(nodeId.toString)
 
-  def send: NetSendTo = (msg, node) => {
+  def sendF: NetSend = (msg, node) => {
     msg match {
 
       case SerializedMessage(chainId, msgCode, data) =>
@@ -119,6 +118,8 @@ trait TestSystem1 extends BaseTestSystem {
 
     }
   }
+
+  implicit override val send: Send = Send(sendF)
 
   val testSystem2: BaseTestSystem
 }
@@ -129,7 +130,7 @@ trait TestSystem2 extends BaseTestSystem {
   val nodeId: UniqueNodeIdentifier = "testSystem2"
   lazy override val conf: Config = config(nodeId.toString)
 
-  def send: NetSendTo = (msg, node) => {
+  def sendF: NetSend = (msg, node) => {
     msg match {
 
       case SerializedMessage(chainId, msgCode, data) =>
@@ -138,6 +139,8 @@ trait TestSystem2 extends BaseTestSystem {
 
     }
   }
+
+  implicit override val send: Send = Send(sendF)
 
   val testSystem1: BaseTestSystem
 
