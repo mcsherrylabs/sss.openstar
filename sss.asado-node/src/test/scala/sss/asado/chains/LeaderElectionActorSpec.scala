@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.block.serialize.VoteLeaderSerializer
 import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.block.{FindLeader, Leader, VoteLeader}
-import sss.asado.chains.LeaderElectionActor.{LeaderFound, MakeFindLeader, WeAreLeader}
+import sss.asado.chains.LeaderElectionActor.{RemoteLeader, MakeFindLeader, LocalLeader}
 import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
 import sss.asado.network.TestMessageEventBusOps._
 import sss.asado.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
@@ -70,18 +70,18 @@ class LeaderElectionActorSpec extends FlatSpec with Matchers {
 
   private val otherNodeId = "test"
 
-  TestSystem.messageEventBus.subscribe(classOf[LeaderFound])(observer1)
-  TestSystem.messageEventBus.subscribe(classOf[WeAreLeader])(observer1)
+  TestSystem.messageEventBus.subscribe(classOf[RemoteLeader])(observer1)
+  TestSystem.messageEventBus.subscribe(classOf[LocalLeader])(observer1)
 
   "LeaderActor" should "produce leader if no quorum candidates exist " in {
     TestSystem.messageEventBus.publish(Quorum(chainId, Set(), 0))
-    probe1.expectMsg(WeAreLeader(chainId, 0,0, Seq()))
+    probe1.expectMsg(LocalLeader(chainId, myNodeId, 0,0, Seq()))
   }
 
   it should " produce a leader (us) if another candidate with less credentials is connected" in {
     TestSystem.messageEventBus.publish(Quorum(chainId, Set(otherNodeId), 0))
     TestSystem.messageEventBus.publish(PeerConnection(otherNodeId, Capabilities(chainId)))
-    probe1.expectMsg(WeAreLeader(chainId, 9,5, Seq(VoteLeader(myNodeId, 0,0)))) //TODO FIX this test to be meaningful.
+    probe1.expectMsg(LocalLeader(chainId, myNodeId, 9,5, Seq(VoteLeader(myNodeId, 0,0)))) //TODO FIX this test to be meaningful.
   }
 
   it should " produce a leader (them) if another candidate with more credentials is connected after Quorum is lost " in {
@@ -89,7 +89,7 @@ class LeaderElectionActorSpec extends FlatSpec with Matchers {
     TestSystem.messageEventBus.publish(Quorum(chainId, Set(betterNode, otherNodeId), 0))
     // assume otherNodeId is connected as QuorumMonitor takes care of that.
     TestSystem.messageEventBus.publish(PeerConnection(betterNode, Capabilities(chainId)))
-    probe1.expectMsg(LeaderFound(chainId, betterNode, Set(betterNode, otherNodeId)))
+    probe1.expectMsg(RemoteLeader(chainId, betterNode, Set(betterNode, otherNodeId)))
   }
 
 }

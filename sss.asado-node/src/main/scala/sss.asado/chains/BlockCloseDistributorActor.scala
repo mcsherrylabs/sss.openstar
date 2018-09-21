@@ -17,12 +17,13 @@ import sss.db.Db
 
 import scala.language.postfixOps
 import scala.language.implicitConversions
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 
 object BlockCloseDistributorActor {
 
-  type ProcessCoinBaseHook = BlockHeader => Unit
+  type ProcessCoinBaseHook = BlockHeader => Try[Unit]
 
   case class CloseBlock(height: Long)
 
@@ -30,12 +31,29 @@ object BlockCloseDistributorActor {
 
   def props(ledger: BlockChainLedger,
             q: Quorum,
-            messageEventBus: MessageEventBus,
-            send: Send,
-            processCoinBaseHook: ProcessCoinBaseHook
+            processCoinBaseHook: ProcessCoinBaseHook,
+            bc: BlockChain with BlockChainSignatures,
+            blockChainSettings: BlockChainSettings,
+            nodeIdentity: NodeIdentity
            )
-           (implicit db: Db, chainId: GlobalChainIdMask): CheckedProp =
-    CheckedProp(Props(classOf[TxDistributeeActor], ledger, q))
+           (implicit db: Db,
+            chainId: GlobalChainIdMask,
+            send: Send,
+            messageEventBus: MessageEventBus
+           ): CheckedProp =
+
+    CheckedProp(Props(classOf[BlockCloseDistributorActor],
+      ledger,
+      q,
+      processCoinBaseHook,
+      bc,
+      blockChainSettings,
+      nodeIdentity,
+      db,
+      chainId,
+      send,
+      messageEventBus
+    ))
 
 
   def apply(p:CheckedProp)(implicit context: ActorContext): ActorRef = {
@@ -45,15 +63,16 @@ object BlockCloseDistributorActor {
 
 private class BlockCloseDistributorActor(ledger: BlockChainLedger,
                                          q: Quorum,
+                                         processCoinBaseHook: ProcessCoinBaseHook,
                                          bc: BlockChain with BlockChainSignatures,
                                          blockChainSettings: BlockChainSettings,
-                                         nodeIdentity: NodeIdentity,
-                                         processCoinBaseHook: ProcessCoinBaseHook,
+                                         nodeIdentity: NodeIdentity
 
                     )(implicit db: Db,
                       chainId: GlobalChainIdMask,
-                      messageEventBus: MessageEventBus,
-                      send: Send)
+                      send: Send,
+                      messageEventBus: MessageEventBus
+                      )
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
@@ -86,7 +105,8 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
 
     case CloseBlock(height) =>
 
-      Try(bc.closeBlock(bc.lastBlockHeader)) match {
+      val lastBlock = bc.lastBlockHeader
+      Try(bc.closeBlock(lastBlock)) match {
 
         case Success(newLastBlock) =>
 
@@ -99,7 +119,11 @@ private class BlockCloseDistributorActor(ledger: BlockChainLedger,
             currentQuorum.members)
 
           log.info(s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs")
-          processCoinBaseHook(newLastBlock)
+          processCoinBaseHook(lastBlock).recover {
+            case NonFatal(e) =>
+              log.error(s"Coinbase has failed to process for {}", lastBlock)
+              log.error(e.getMessage)
+          }
 
         case Failure(e) =>
           log.error("FAILED TO CLOSE BLOCK! {} {}", height, e)

@@ -104,7 +104,6 @@ object IdentityService {
       }
     }
 
-
     override def list(startIndex: Long, pageSize: Int): Seq[String] = {
       identityTable.page(startIndex, pageSize).map(r => r[String](identityCol))
     }

@@ -29,7 +29,7 @@ trait PublishedMessageKeys {
   val NackConfirmTx: Byte = 106
   val TempNack: Byte = 107
 
-  val DistributeTx: Byte = 108
+  val CommittedTx: Byte = 108
   val SignedTxConfirm: Byte = 109 //logically belongs with SignedTx, is a client confirm
 
   val MalformedMessage: Byte = 20
@@ -46,7 +46,7 @@ trait PublishedMessageKeys {
     MessageInfoComposite[Seq[LedgerItem]](SeqSignedTx, classOf[Seq[LedgerItem]], SeqSerializer.fromBytes(_) map (_.toLedgerItem)) +:
     MessageInfoComposite[BlockChainTx](ConfirmTx, classOf[BlockChainTx], _.toBlockChainTx) +: //todo should be toBlockChainTxId?
     MessageInfoComposite[BlockChainTxId](SignedTxConfirm, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[BlockChainTx](DistributeTx, classOf[BlockChainTx], _.toBlockChainTx) +:
+    MessageInfoComposite[BlockChainTxId](CommittedTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[BlockChainTxId](AckConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[BlockChainTxId](NackConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
     MessageInfoComposite[TxMessage](TempNack, classOf[TxMessage], _.toTxMessage) +:

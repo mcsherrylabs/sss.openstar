@@ -49,27 +49,27 @@ class QuorumMonitorSpec extends FlatSpec with Matchers {
 
   "QuorumMonitor " should " have a quorum if none in membership " in {
 
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(Quorum(chainId, Set(), 0))
   }
 
   it should " have a quorum if only this node is a member" in {
     TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(myNodeId)))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(Quorum(chainId, Set(), 0))
   }
 
   it should " not have a quorum if only another node is a member and not connected " in {
     TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(myNodeId, otherNodeId)))
     probe1.expectMsg(QuorumLost(chainId))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(QuorumLost(chainId))
   }
 
   it should " indicate we are out of the quorum if we query when not a member " in {
     TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(otherNodeId)))
     probe1.expectMsg(NotQuorumCandidate(chainId, myNodeId))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(NotQuorumCandidate(chainId, myNodeId))
   }
 
@@ -77,20 +77,20 @@ class QuorumMonitorSpec extends FlatSpec with Matchers {
     TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(otherNodeId, myNodeId)))
     TestSystem.messageEventBus.publish(PeerConnection(otherNodeId, Capabilities(chainId)))
     probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
   }
 
   it should " maintain a quorum if non member gets disconnected " in {
     TestSystem.messageEventBus.publish(ConnectionLost(otherNodeId + "random"))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
   }
 
   it should " indicate we have lost quorum if member gets disconnected " in {
     TestSystem.messageEventBus.publish(ConnectionLost(otherNodeId))
     probe1.expectMsg(QuorumLost(chainId))
-    TestSystem.quorumMonitor.queryQuorum
+    TestSystem.quorumMonitor.queryStatus
     probe1.expectMsg(QuorumLost(chainId))
   }
 }

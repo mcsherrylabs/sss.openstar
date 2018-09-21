@@ -8,6 +8,8 @@ import sss.asado.util.ByteArrayComparisonOps._
 import sss.asado.ledger._
 import sss.db.Db
 
+import scala.util.Try
+
 
 
 object BlockChainLedger {
@@ -87,4 +89,6 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
       val index = block.write(stx)
       BlockChainTx(block.height, BlockTx(index, stx))
   }
+
+  def validate(stx: LedgerItem): Try[BlockChainTx] = block.validateTx(apply(stx))
 }

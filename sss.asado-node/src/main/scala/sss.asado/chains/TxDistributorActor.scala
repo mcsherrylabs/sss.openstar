@@ -1,11 +1,11 @@
 package sss.asado.chains
 
-import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props, ReceiveTimeout, Terminated}
+import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props, SupervisorStrategy}
 import sss.asado.common.block._
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.chains.QuorumMonitor.Quorum
-import sss.asado.chains.TxDistributorActor.{TxConfirmed, TxReplicated}
+import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
+import sss.asado.chains.TxDistributorActor.{TxCommitted, TxReplicated}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
@@ -33,7 +33,7 @@ import scala.language.postfixOps
 object TxDistributorActor {
 
   case class TxReplicated(bTx: BlockChainTx, confirmers: Set[UniqueNodeIdentifier])
-  case class TxConfirmed(bTx: BlockChainTx, confirmers: Set[UniqueNodeIdentifier])
+  case class TxCommitted(bTx: BlockChainTxId, confirmers: Set[UniqueNodeIdentifier])
 
   case class CheckedProp(value:Props)
 
@@ -46,7 +46,7 @@ object TxDistributorActor {
             messageEventBus: MessageEventBus
             ): CheckedProp =
 
-    CheckedProp(Props(classOf[TxDistributeeActor], bTx, q))
+    CheckedProp(Props(classOf[TxDistributorActor], bTx, q, db, chainId, messageEventBus, send))
 
 
   def apply(p:CheckedProp)(implicit context: ActorContext): ActorRef = {
@@ -68,20 +68,24 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   self ! q
 
+  override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
   private var confirms: Set[UniqueNodeIdentifier] = Set()
   private var badConfirms: Set[UniqueNodeIdentifier] = Set()
 
+  messageEventBus.subscribe(classOf[QuorumLost])
   messageEventBus.subscribe(classOf[Quorum])
   messageEventBus.subscribe(MessageKeys.AckConfirmTx)
   messageEventBus.subscribe(MessageKeys.NackConfirmTx)
 
   log.info("TxDistributor actor has started...")
 
-  private def finishSendingConfirms(q: Quorum) : Receive = {
+  override def postStop(): Unit = { log.debug("TxDistributor {} actor stopped ", bTx.toId)}
+
+  private def finishSendingCommits(q: Quorum) : Receive = {
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
-      send(MessageKeys.ConfirmTx, bTx, mem)
+      send(MessageKeys.CommittedTx, bTx.toId, mem)
 
       if(confirms.size + badConfirms.size == q.members.size)
         context stop self
@@ -89,14 +93,16 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   private def withQuorum(q: Quorum): Receive = onQuorum orElse {
 
-    case TxConfirmed(bTx, confirmers) =>
-      send(MessageKeys.ConfirmTx, bTx, confirmers)
+    case TxCommitted(bTxId, confirmers) =>
+      context become finishSendingCommits(q)
+      send(MessageKeys.CommittedTx, bTxId, confirmers)
+      if(confirms.size + badConfirms.size == q.members.size)
+        context stop self
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
       if(confirms.size >= q.minConfirms) {
         context.parent ! TxReplicated(bTx, confirms)
-        context become finishSendingConfirms(q)
       }
 
     case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, bTx) =>
@@ -106,10 +112,20 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   private def onQuorum: Receive = {
 
+    case QuorumLost(leader) =>
+      log.info("QuorumLost ({}) during Distribution of tx {}", leader, bTx)
+      context stop self
+
     case quorum: Quorum =>
-      context become withQuorum(quorum)
       val remainingMembers = q.members.filterNot(confirms.contains(_))
-      send(MessageKeys.DistributeTx, bTx, remainingMembers)
+      if(remainingMembers.isEmpty) {
+        // don't need more confirms, we are done!
+        context.parent ! TxReplicated(bTx, remainingMembers)
+        context become withQuorum(quorum)
+      } else {
+        context become withQuorum(quorum)
+        send(MessageKeys.ConfirmTx, bTx, remainingMembers)
+      }
 
   }
 

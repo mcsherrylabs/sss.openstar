@@ -11,6 +11,8 @@ import sss.asado.util.Serialize.ToBytes
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.asado.util.{ByteArrayEncodedStrOps, SeqSerializer}
 
+import scala.util.Try
+
 
 /**
   * Created by alan on 5/24/16.
@@ -95,14 +97,16 @@ package object ledger {
 
   trait Ledger {
     @throws[LedgerException]
-    def apply(ledgerItem: LedgerItem, blockheight: Long)
+    def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit
     def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId, ledgerId: Byte): Option[LedgerItem] = None
   }
 
   case class LedgerException(ledgerId: Byte, msg: String) extends Exception(msg)
 
   class Ledgers(ledgers: Map[Byte, Ledger]) {
+
     def apply(ledgerItem: LedgerItem, blockHeight: Long) = ledgers(ledgerItem.ledgerId)(ledgerItem, blockHeight)
+
     def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId): Iterable[LedgerItem] = {
       val opts = ledgers map {case (k,v) => v.coinbase(nodeIdentity, blockId, k)}
       opts collect { case Some(le) => le}

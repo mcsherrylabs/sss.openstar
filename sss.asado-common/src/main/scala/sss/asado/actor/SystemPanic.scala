@@ -15,6 +15,11 @@ trait SystemPanic  {
       .subscribe(self, classTag[AllStop.type].runtimeClass)
   }
 
+  def systemPanic(e: Throwable): Unit = {
+    log.error("System panic {} ", e)
+    systemPanic()
+  }
+
   def systemPanic(): Unit = {
     log.error(s"***** Game over man, game over *****")
     context.system.eventStream.publish(AllStop)

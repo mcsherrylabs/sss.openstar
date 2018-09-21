@@ -5,6 +5,8 @@ import java.nio.charset.StandardCharsets.UTF_8
 import sss.ancillary.Logging
 import sss.asado.ledger._
 
+import scala.util.Try
+
 /**
   * Created by alan on 5/30/16.
   */
@@ -66,4 +68,5 @@ class IdentityLedger(ledgerId: Byte, idLedgerService: IdentityService) extends  
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")
     require(accOpt.get.verify(sig, msg.txId), "The signature does not match the txId")
   }
+
 }

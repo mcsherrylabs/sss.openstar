@@ -32,6 +32,8 @@ private class PeerManagerActor( ncRef: NetworkRef,
   messageEventBus.subscribe(MessageKeys.QueryCapabilities)
   messageEventBus.subscribe(classOf[ConnectionLost])
   messageEventBus.subscribe(classOf[Connection])
+  messageEventBus.subscribe(classOf[ConnectionFailed])
+  messageEventBus.subscribe(classOf[ConnectionHandshakeTimeout])
 
   bootstrapNodes foreach (ncRef.connect(_, indefiniteReconnectionStrategy(30)))
 

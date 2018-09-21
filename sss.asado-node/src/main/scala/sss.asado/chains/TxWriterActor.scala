@@ -4,13 +4,15 @@ package sss.asado.chains
 import scala.concurrent.duration._
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Cancellable, Props, Terminated}
 import sss.ancillary.Logging
-import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
+import sss.asado._
+import sss.asado.account.NodeIdentity
+import sss.asado.actor.SystemPanic
 import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainTxConfirms}
 import sss.asado.chains.BlockCloseDistributorActor.{CloseBlock, ProcessCoinBaseHook}
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.chains.QuorumFollowersSyncedMonitor.LocalBlockChainUp
+import sss.asado.chains.QuorumFollowersSyncedMonitor.BlockChainReady
 import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
-import sss.asado.chains.TxDistributorActor.{TxConfirmed, TxReplicated}
+import sss.asado.chains.TxDistributorActor.{TxCommitted, TxReplicated}
 import sss.asado.chains.TxWriterActor._
 import sss.asado.common.block._
 import sss.asado.ledger.{LedgerItem, _}
@@ -21,6 +23,7 @@ import sss.db.Db
 import scala.collection.SortedSet
 import scala.util.{Failure, Success, Try}
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 
 /**
   * Created by alan on 3/18/16.
@@ -34,7 +37,7 @@ object TxWriterActor {
                                 responseListener: Option[ActorRef])
       extends AsadoEvent
 
-  case class InternalConfirm(chainId: GlobalChainIdMask, blTxId: BlockChainTxId)
+  case class InternalCommit(chainId: GlobalChainIdMask, blTxId: BlockChainTxId)
     extends AsadoEvent
   case class InternalAck(chainId: GlobalChainIdMask, blTxId: BlockChainTxId)
       extends AsadoEvent
@@ -65,7 +68,7 @@ object TxWriterActor {
       listener foreach (_ ! InternalAck(chainId, bTx))
 
     override def confirm(bTx: BlockChainTxId): Unit =
-      listener foreach (_ ! InternalConfirm(chainId, bTx))
+      listener foreach (_ ! InternalCommit(chainId, bTx))
   }
 
   private case class NetResponse(nodeId: UniqueNodeIdentifier, send: Send)(
@@ -91,7 +94,7 @@ object TxWriterActor {
   def props(blockChainSettings: BlockChainSettings,
             thisNodeId: UniqueNodeIdentifier,
             bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-            processCoinBaseHook: ProcessCoinBaseHook)(implicit db: Db,
+            processCoinBaseHook: ProcessCoinBaseHook, nodeIdentity: NodeIdentity)(implicit db: Db,
                                                                   chainId: GlobalChainIdMask,
                                                                   send: Send,
                                                                   messageEventBus: MessageEventBus,
@@ -103,6 +106,7 @@ object TxWriterActor {
         thisNodeId,
         bc,
         processCoinBaseHook,
+        nodeIdentity,
         db,
         chainId,
         send,
@@ -117,20 +121,24 @@ object TxWriterActor {
 private class TxWriterActor(blockChainSettings: BlockChainSettings,
                             thisNodeId: UniqueNodeIdentifier,
                             bc: BlockChain with BlockChainTxConfirms with BlockChainSignatures,
-                            processCoinBaseHook: ProcessCoinBaseHook)(implicit val db: Db,
-                                                                      chainId: GlobalChainIdMask,
-                                                                      send: Send,
-                                                                      messageEventBus: MessageEventBus,
-                                                                      ledgers: Ledgers)
+                            processCoinBaseHook: ProcessCoinBaseHook,
+                            nodeIdentity: NodeIdentity
+                           )(implicit val db: Db,
+                                                        chainId: GlobalChainIdMask,
+                                                        send: Send,
+                                                        messageEventBus: MessageEventBus,
+                                                        ledgers: Ledgers)
     extends Actor
+    with SystemPanic
     with ActorLogging {
 
   log.info("TxWriter actor has started...")
 
   import context.dispatcher
 
+  messageEventBus.subscribe(classOf[Quorum])
   messageEventBus.subscribe(classOf[QuorumLost])
-  messageEventBus.subscribe(classOf[LocalBlockChainUp])
+  messageEventBus.subscribe(classOf[BlockChainReady])
 
   private var responseMap = Map[BlockId, Response]()
 
@@ -138,6 +146,8 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
     Map().withDefaultValue(Seq())
 
   private var blockCloseTimer: Option[Cancellable] = None
+
+  private var blocksToClose: SortedSet[Long] = SortedSet[Long]()
 
   private def createLedger(blockHeightIncrement: Int = 1): BlockChainLedger = {
     val newBlockheight = bc.lastBlockHeader.height + blockHeightIncrement
@@ -159,7 +169,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   private def waitForUp(q: Quorum): Receive = reset orElse {
 
-    case LocalBlockChainUp(`chainId`, `thisNodeId`) =>
+    case BlockChainReady(`chainId`, `thisNodeId`) =>
       //start listening for
       log.info(s"The leader is $thisNodeId (me)")
 
@@ -170,6 +180,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       setTimer()
 
       context become acceptTxs(createLedger(), q)
+
   }
 
   private def reset: Receive = {
@@ -193,15 +204,15 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   def createBlockCloseDistributingActor(
                                          q: Quorum,
-                                         send: Send,
                                          ledger: BlockChainLedger): ActorRef =
     BlockCloseDistributorActor(
       BlockCloseDistributorActor.props(
         ledger,
         q,
-        messageEventBus,
-        send,
-        processCoinBaseHook
+        processCoinBaseHook,
+        bc,
+        blockChainSettings,
+        nodeIdentity
       )
     )
 
@@ -213,28 +224,27 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       TxDistributorActor.props(bTx, q)
     )
 
-  private var allBlockTxsDistributed: SortedSet[Long] = SortedSet[Long]()
-  private var blocksToClose: SortedSet[Long] = SortedSet[Long]()
-
   private def checkConditionsForBlockClose(): Unit = {
+    blocksToClose
+      .headOption
+      .map (checkConditionsForBlockClose _)
+  }
 
-    (allBlockTxsDistributed.headOption, blocksToClose.headOption) match {
+  private def checkConditionsForBlockClose(heightOfBlockToClose: Long): Unit = {
 
-      case (Some(allDistributed),Some(closeTriggered)) if allDistributed == closeTriggered =>
-        //remove both and fire close message
-        allBlockTxsDistributed = allBlockTxsDistributed.tail
+    if(blockHeightsToDistribute(heightOfBlockToClose).isEmpty) {
         blocksToClose = blocksToClose.tail
-        self ! CloseBlock(closeTriggered)
+        self ! CloseBlock(heightOfBlockToClose)
 
-      case (h1, h2) => log.debug(s"checkConditionsForBlockClose failed with $h1 $h2")
+    } else {
+      log.debug(s"checkConditionsForBlockClose failed for $heightOfBlockToClose")
     }
   }
 
-  private def acceptTxs(blockLedger: BlockChainLedger, q: Quorum): Receive = {
-
+  private def acceptTxs(blockLedger: BlockChainLedger, q: Quorum): Receive = stopOnAllStop orElse {
 
     case c @ CloseBlock(height) =>
-      createBlockCloseDistributingActor(q, send, blockLedger) ! c
+      createBlockCloseDistributingActor(q, blockLedger) ! c
 
     case BlockCloseTrigger =>
       blockCloseTimer map (_.cancel())
@@ -262,6 +272,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
                          clientNodeId,
                          stx: LedgerItem) =>
 
+      //TODO don't write it straight away, apply, then journal
       writeSignedTx(blockChainSettings.maxTxPerBlock,
         blockLedger,
         stx,
@@ -280,23 +291,27 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       )
 
     case Terminated(ref) =>
-      blockHeightsToDistribute = blockHeightsToDistribute(blockLedger.blockHeight) match {
-        case Seq(ref) =>
-          allBlockTxsDistributed += blockLedger.blockHeight
+      blockHeightsToDistribute(blockLedger.blockHeight) match {
+        case Seq(`ref`) =>
           // A block has all it's TXs distributed to the quorum, it may be waiting on this to close.
+          blockHeightsToDistribute -= blockLedger.blockHeight
           checkConditionsForBlockClose()
-          blockHeightsToDistribute - blockLedger.blockHeight
 
         case others =>
-          blockHeightsToDistribute + (blockLedger.blockHeight -> (others filterNot (_ == ref)))
+          blockHeightsToDistribute += (blockLedger.blockHeight -> (others filterNot (_ == ref)))
       }
 
 
     case TxReplicated(bTx, c) =>
-      //TODO skipping the cancel rollback point in the DB, it should be able to rollback if the Tx
-      //TODO is never confirmed
-      sender() ! TxConfirmed(bTx, c)
-      responseMap(BlockId(bTx.height, bTx.blockTx.index)).confirm(bTx.toId)
+
+      Try(blockLedger(bTx.blockTx.ledgerItem)) match {
+        case Failure(e) =>
+          log.error("Could not apply tx after confirm")
+          systemPanic(e)
+        case Success(_) =>
+          sender() ! TxCommitted(bTx.toId, c)
+          responseMap(BlockId(bTx.height, bTx.blockTx.index)).confirm(bTx.toId)
+      }
 
   }
 
@@ -309,19 +324,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
                             createConfirmingActor: BlockChainTx => ActorRef,
                             responder: Response): Unit = {
 
-    Try(blockLedger(signedTx)) match {
-      case Success(btx @ BlockChainTx(height, BlockTx(index, signedTx))) =>
-        responder.ack(btx.toId)
-        val confirmingRefs = blockHeightsToDistribute(height)
-        val confirmingActor = createConfirmingActor(btx)
-        context watch confirmingActor
-        blockHeightsToDistribute += height -> (confirmingActor +: confirmingRefs)
-        responseMap += BlockId(height, index) -> responder
-
-        if(index >= maxTxPerBlock) {
-          self ! BlockCloseTrigger
-        }
-
+    blockLedger.validate(signedTx) match {
       case Failure(e) =>
         val id = e match {
           case LedgerException(ledgerId, _) => ledgerId
@@ -329,7 +332,22 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
         }
         log.info(s"Failed to ledger tx! ${signedTx.txIdHexStr} ${e.getMessage}")
         responder.nack(id, e.getMessage, signedTx.txId)
+
+      case Success(bcTx @BlockChainTx(height, bTx@BlockTx(index, signedTx))) =>
+
+        blockLedger.journal(bTx)
+        responder.ack(bcTx.toId)
+        val confirmingRefs = blockHeightsToDistribute(height)
+        val confirmingActor = createConfirmingActor(bcTx)
+        context watch confirmingActor
+        blockHeightsToDistribute += height -> (confirmingActor +: confirmingRefs)
+        responseMap += BlockId(height, index) -> responder
+
+        if(index >= maxTxPerBlock) {
+          self ! BlockCloseTrigger
+        }
     }
+
   }
 
 

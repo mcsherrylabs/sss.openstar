@@ -10,6 +10,8 @@ import sss.asado.identityledger.TaggedPublicKeyAccount
 import sss.asado.ledger._
 import sss.asado.quorumledger.QuorumLedger.NewQuorumCandidates
 
+import scala.util.Try
+
 
 object QuorumLedger {
   case class NewQuorumCandidates(uniqueId: GlobalChainIdMask, candidates: Set[UniqueNodeIdentifier]) extends AsadoEvent
@@ -24,6 +26,7 @@ class QuorumLedger(chainId: GlobalChainIdMask,
 
   require(chainId == quorumService.uniqueChainId,
     s"Mismatched chain Id is quorum service (${quorumService.uniqueChainId}) and ledger {$chainId}")
+
 
   override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
 

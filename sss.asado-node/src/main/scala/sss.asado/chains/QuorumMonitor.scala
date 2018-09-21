@@ -1,9 +1,9 @@
 package sss.asado.chains
 
-import akka.actor.{Actor, ActorSystem, Props, SupervisorStrategy}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props, SupervisorStrategy}
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
-import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost, QuorumQuery}
+import sss.asado._
+import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost}
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerQuery
 import sss.asado.peers.PeerManager.{IdQuery, PeerConnection}
@@ -11,10 +11,15 @@ import sss.asado.quorumledger.QuorumLedger.NewQuorumCandidates
 
 
 object QuorumMonitor {
-  case class QuorumQuery(chainId: GlobalChainIdMask) extends AsadoEvent
+
+  object QuorumLost {
+    def apply(chainId: GlobalChainIdMask): QuorumLost = new QuorumLost(chainId)
+    def unapply(arg: QuorumLost): Option[GlobalChainIdMask] = Option(arg.chainId)
+  }
+
   case class Quorum(chainId: GlobalChainIdMask, members: Set[UniqueNodeIdentifier], minConfirms: Int) extends AsadoEvent
-  case class QuorumLost(chainId: GlobalChainIdMask) extends AsadoEvent
-  case class NotQuorumCandidate(chainId: GlobalChainIdMask, nodeId: UniqueNodeIdentifier) extends AsadoEvent
+  class QuorumLost(val chainId: GlobalChainIdMask) extends AsadoEvent
+  case class NotQuorumCandidate(override val chainId: GlobalChainIdMask, nodeId: UniqueNodeIdentifier) extends QuorumLost(chainId)
 
   def apply(eventMessageBus: MessageEventBus,
             chainId: GlobalChainIdMask,
@@ -35,16 +40,20 @@ class QuorumMonitor private (eventMessageBus: MessageEventBus,
                              myNodeId: UniqueNodeIdentifier,
                              initialCandidates: Set[UniqueNodeIdentifier],
                              peerQuery: PeerQuery
-                   )(implicit actorSystem: ActorSystem) {
+                   )(implicit actorSystem: ActorSystem)  {
 
-  private val ref = actorSystem.actorOf(Props(QuorumMonitorActor))
+  private val ref: ActorRef = actorSystem.actorOf(Props(QuorumMonitorActor))
+
+  private case object CheckInitialStatus
+
+  def queryStatus = ref ! CheckInitialStatus //TODO add side efect brackets ()
+
+  queryStatus
 
   private def removeThisNodeId(nodes: Set[UniqueNodeIdentifier]) =
     nodes.filterNot(_ == myNodeId)
 
   peerQuery.addQuery(IdQuery(removeThisNodeId(initialCandidates)))
-
-  def queryQuorum: Unit = ref ! QuorumQuery(chainId)
 
   private object QuorumMonitorActor extends Actor {
 
@@ -53,7 +62,6 @@ class QuorumMonitor private (eventMessageBus: MessageEventBus,
     eventMessageBus.subscribe(classOf[PeerConnection])
     eventMessageBus.subscribe(classOf[ConnectionLost])
     eventMessageBus.subscribe(classOf[NewQuorumCandidates])
-    eventMessageBus.subscribe(classOf[QuorumQuery])
 
 
     private def minConfirms(): Int = candidates.size / 2 + 1
@@ -67,7 +75,7 @@ class QuorumMonitor private (eventMessageBus: MessageEventBus,
 
     override def receive: Receive = {
 
-      case QuorumQuery(`chainId`) =>
+      case CheckInitialStatus =>
         if(weAreMember) {
           val resp = if (isQuorum) Quorum(chainId, connectedCandidates, minConfirms())
           else QuorumLost(chainId)

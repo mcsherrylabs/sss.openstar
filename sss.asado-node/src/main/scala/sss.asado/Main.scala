@@ -71,27 +71,27 @@ object Main {
 
       import chain.ledgers
 
-
-      startHttpServer
       startUnsubscribedHandler
 
-
-      val qm = QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
       val synchronization = ChainSynchronizer(chain.quorumCandidates(), nodeIdentity.id, startSyncer)
+
 
       LeaderElectionActor(nodeIdentity.id, bc)
 
       ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
 
-      QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
-
-      TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id,bc, processCoinBaseHook))
+      TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id,bc, processCoinBaseHook, nodeIdentity))
 
       TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
 
+      QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
+
+      val qm = QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
+
       synchronization.startSync
-      synchronization.queryStatus
-      qm.queryQuorum
+
+      startHttpServer
+
 
     }
 

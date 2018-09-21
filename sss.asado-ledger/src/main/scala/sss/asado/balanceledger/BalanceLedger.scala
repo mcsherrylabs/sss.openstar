@@ -34,6 +34,7 @@ class BalanceLedger(storage: UTXODBStorage,
 
   override def entry(inIndex: TxIndex): Option[TxOutput] = storage.get(inIndex)
 
+
   /**
     * Used for debug only.
     *
@@ -45,7 +46,7 @@ class BalanceLedger(storage: UTXODBStorage,
 
   def keys: Seq[TxIndex] = storage.keys
 
-  def apply(stx: SignedTxEntry, blockHeight: Long) {
+  private[balanceledger] def apply(stx: SignedTxEntry, blockHeight: Long) {
 
     val tx = stx.txEntryBytes.toTx
     storage.inTransaction {

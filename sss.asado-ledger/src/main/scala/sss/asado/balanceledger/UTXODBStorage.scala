@@ -5,6 +5,8 @@ import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.StringCheck.SimpleTag
 import sss.db._
 
+import scala.util.Try
+
 private[balanceledger] class UTXODBStorage(tag:SimpleTag)(implicit db: Db) extends Logging {
 
   private val tableName = s"utxo_$tag"

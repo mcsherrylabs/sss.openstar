@@ -12,29 +12,21 @@ trait CodeType {
 
 object OtherMain {
 
-  def doIt(s: Serailse)(str: String)(implicit int: Int) = ???
+  object Base {
+    def unapply(arg: Base): Option[String] = Option(arg.s)
+  }
+  class Base(val s: String = "")
 
-  implicit def f(b:Byte, a: Any): Serailse = ???
+  case class Derivde(override val s: String) extends Base(s)
 
-  implicit val i: Int = 9
-
-  doIt(1.toByte, "")( "")
-
-  type SENDIT = (Byte, Any, Seq[String]) => Unit
-
-  object Impl extends  SENDIT {
-    override def apply(v1: Byte, v2: Any, v3: Seq[String]): Unit = ()
-    def apply(v1: Byte, v2: Any, v3: String): Unit = apply(v1,v2,Seq(v3))
-    //def apply(s: String): String = s
+  def doit(a: Any) = a match {
+    case Derivde("sdfdf") => println("empty")
+    case Base(s) => println(s)
   }
 
-  Impl(1.toByte, "", "")
+  def main(args: Array[String]): Unit = {
+    doit(Derivde("asdas"))
+    //doit(Derivde("sdfdf"))
 
-  def doit (i: SENDIT): Unit = {
-    //i(1.toByte, "", "")
-    i(1.toByte, "", Seq(""))
-    //val s: String = i("")
   }
-
-
 }

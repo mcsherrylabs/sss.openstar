@@ -6,7 +6,7 @@ import sss.asado.chains.ChainSynchronizer.{NotSynchronized, StartSyncer}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
-import sss.asado.{AsadoEvent, QueryStatus, Status, UniqueNodeIdentifier}
+import sss.asado._
 
 import scala.util.Random
 
@@ -31,14 +31,14 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
                     )(implicit actorSystem: ActorSystem,
                       chainId: GlobalChainIdMask,
                       eventMessageBus: MessageEventBus
-) {
+) extends QueryStatusSupport {
 
-  private val ref = actorSystem.actorOf(Props(SynchronizationActor),
+  final protected val ref = actorSystem.actorOf(Props(SynchronizationActor),
     s"Synchronization_${chainId}_${Random.nextLong()}")
 
   private case object StartSync
 
-  def queryStatus: Unit = ref ! QueryStatus
+
   def startSync: Unit = ref ! StartSync
 
   private object SynchronizationActor extends Actor {

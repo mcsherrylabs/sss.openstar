@@ -57,7 +57,7 @@ private class TxDistributeeActor(
   messageEventBus.subscribe(MessageKeys.Leader)
   messageEventBus.subscribe(MessageKeys.Synchronized)
   messageEventBus.subscribe(MessageKeys.ConfirmTx)
-  messageEventBus.subscribe(MessageKeys.DistributeTx)
+  messageEventBus.subscribe(MessageKeys.CommittedTx)
 
   log.info("TxDistributee actor has started...")
 
@@ -96,11 +96,12 @@ private class TxDistributeeActor(
 
     case IncomingMessage(`chainId`, MessageKeys.ConfirmTx, leader, bTx: BlockChainTx) =>
       bc.block(bTx.height).write(bTx.blockTx.ledgerItem)
+      context become withCursor(frame.copy(writeCandidates = frame.writeCandidates + bTx))
+      send(MessageKeys.AckConfirmTx, bTx.toId, leader)
 
-    case IncomingMessage(`chainId`, MessageKeys.DistributeTx, leader,
-                      bTx: BlockChainTx) =>
-
-      val newFrame = writeWhileSequential(frame.copy(writeCandidates = frame.writeCandidates + bTx))
+    case IncomingMessage(`chainId`, MessageKeys.CommittedTx, leader,
+                      bTx: BlockChainTxId) =>
+      val newFrame = writeWhileSequential(frame)
       context become withCursor(newFrame)
 
 

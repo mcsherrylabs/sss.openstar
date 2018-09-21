@@ -25,7 +25,7 @@ class GenerateCoinBaseTxs(
                 messageEventBus:MessageEventBus,
                 ledgers: Ledgers) extends ProcessCoinBaseHook with Logging {
 
-  override def apply(newLastBlock: BlockHeader): Unit = {
+  override def apply(newLastBlock: BlockHeader): Try[Unit] = Try {
     val txs = ledgers.coinbase(nodeIdentity, BlockId(newLastBlock.height, newLastBlock.numTxs))
     if (txs.nonEmpty) {
 

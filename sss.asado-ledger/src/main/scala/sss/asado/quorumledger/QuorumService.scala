@@ -6,6 +6,7 @@ import java.sql.SQLIntegrityConstraintViolationException
 import sss.ancillary.Logging
 import sss.asado.UniqueNodeIdentifier
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.ledger.LedgerItem
 import sss.db._
 
 import scala.util.{Failure, Success, Try}
@@ -36,6 +37,7 @@ class QuorumService(private [quorumledger] val uniqueChainId: GlobalChainIdMask)
        |""".stripMargin
 
   db.executeSql(createQuorumTableSql)
+
 
   private lazy val table = db.table(quorumTableName)
 

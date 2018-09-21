@@ -3,11 +3,11 @@ package sss.asado.chains
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, ReceiveTimeout}
 import sss.asado.block._
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.chains.LeaderElectionActor.{FindTheLeader, LeaderFound, MakeFindLeader, WeAreLeader}
+import sss.asado.chains.LeaderElectionActor._
 import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network.{MessageEventBus, _}
-import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
+import sss.asado._
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -21,14 +21,23 @@ object LeaderElectionActor {
   type MakeFindLeader = () => FindLeader
 
 
-  case class WeAreLeader(chainId: GlobalChainIdMask,
+  trait LeaderFound extends AsadoEvent {
+    val chainId: GlobalChainIdMask
+    val leader: UniqueNodeIdentifier
+  }
+
+  case class LocalLeader(chainId: GlobalChainIdMask,
+                         leader: UniqueNodeIdentifier,
                          height: Long,
                          index:Long,
-                         followers: Seq[VoteLeader]) extends AsadoEvent
+                         followers: Seq[VoteLeader]) extends LeaderFound
 
-  case class LeaderFound(chainId: GlobalChainIdMask,
-                         leader: String,
-                         members: Set[UniqueNodeIdentifier]) extends AsadoEvent
+  case class RemoteLeader(chainId: GlobalChainIdMask,
+                          leader: String,
+                          members: Set[UniqueNodeIdentifier]) extends LeaderFound
+
+  case class LeaderLost(chainId: GlobalChainIdMask,
+                         leader: String)  extends AsadoEvent
 
   private case object FindTheLeader
 
@@ -106,7 +115,7 @@ private class LeaderElectionActor(
     case Quorum(`chainId`, members, _)
       if(members.size == 0 || members == Set(thisNodeId)) =>
       //Special case where there is a quorum and it's just us or no one.
-      messageBus publish WeAreLeader(chainId, 0, 0, Seq())
+      messageBus publish LocalLeader(chainId, thisNodeId, 0, 0, Seq())
 
     case Quorum(`chainId`, members, _) =>
       context become findLeader(members)
@@ -114,15 +123,21 @@ private class LeaderElectionActor(
 
   }
 
+
   private def quorumLost:Receive = {
 
     case QuorumLost(`chainId`) =>
       leaderVotes = Seq.empty
       context become waitForQuorum
+  }
 
-    case NotQuorumCandidate(`chainId`, `thisNodeId`) =>
+  private def quorumLost(leader: UniqueNodeIdentifier):Receive = {
+
+    case QuorumLost(`chainId`) =>
       leaderVotes = Seq.empty
       context become waitForQuorum
+      messageBus.publish(LeaderLost(chainId, leader))
+
   }
 
 
@@ -201,7 +216,8 @@ private class LeaderElectionActor(
             useToGetBlockIndexDetails.height,
             useToGetBlockIndexDetails.commitedTxIndex)
 
-          messageBus publish WeAreLeader(chainId,
+          messageBus publish LocalLeader(chainId,
+            thisNodeId,
             useToGetBlockIndexDetails.height,
             useToGetBlockIndexDetails.commitedTxIndex,
             leaderVotes)
@@ -215,15 +231,16 @@ private class LeaderElectionActor(
       context.setReceiveTimeout(Duration.Undefined)
       context.become(handle(leader, connectedMembers))
       log.info(s"The leader is ${leader}")
-      messageBus publish LeaderFound(`chainId`, leader, connectedMembers)
+      messageBus publish RemoteLeader(`chainId`, leader, connectedMembers)
 
   }
 
-  private def handle(leader: UniqueNodeIdentifier, members: Set[UniqueNodeIdentifier]): Receive = quorumLost orElse {
+  private def handle(leader: UniqueNodeIdentifier, members: Set[UniqueNodeIdentifier]): Receive = quorumLost(leader) orElse {
 
     case ConnectionLost(`leader`) =>
       context become findLeader(members - leader)
       self ! FindTheLeader
+      messageBus.publish(LeaderLost(chainId, leader))
 
     case IncomingMessage(`chainId`, MessageKeys.FindLeader, from, _) =>
       if (leader == thisNodeId)

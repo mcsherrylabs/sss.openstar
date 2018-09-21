@@ -23,27 +23,7 @@ import scala.language.postfixOps
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-/**
-  * This actor's job is to bring the local blockchain up to date with
-  * the leaders blockchain and keep it there.
-  *
-  * When it's asked to SynchroniseWith with 'who' it pages down the
-  * tx's and the block sig's and closes the blocks (commiting the tx's to
-  * the ledger in the process) until it gets 'Synced'
-  *
-  * It raises the 'Synced' event to the stateMachine.
-  *
-  * Then it continues to download tx's more slowly through the 'ConfimTx' message
-  * but continues to close blocks through the 'CloseBlock' message
-  *
-  * @param nodeIdentity
-  * @param send
-  * @param messageEventBus
-  * @param stateMachine
-  * @param bc
-  * @param db
-  * @param ledgers
-  */
+
 object ChainDownloadRequestActor {
 
 

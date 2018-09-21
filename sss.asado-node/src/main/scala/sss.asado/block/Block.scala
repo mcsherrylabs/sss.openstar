@@ -93,6 +93,8 @@ class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extend
 
   def count = blockTxTable.count
 
+  def validateTx[T](f: => T): Try[T] = blockTxTable.validateTx(f)
+
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
   def get(id: TxId): Option[BlockTx] =
