@@ -76,12 +76,12 @@ class LeaderElectionActorSpec extends FlatSpec with Matchers {
   TestSystem.messageEventBus.subscribe(classOf[RemoteLeader])(observer1)
   TestSystem.messageEventBus.subscribe(classOf[LocalLeader])(observer1)
 
-  "LeaderActor" should "produce leader if no quorum candidates exist " in {
+  /*"LeaderActor" should "produce leader if no quorum candidates exist " in {
     TestSystem.messageEventBus.publish(Quorum(chainId, Set(), 0))
     probe1.expectMsg(LocalLeader(chainId, myNodeId, 9,5, Seq()))
   }
 
-  /*it should " produce a leader (us) if another candidate with less credentials is connected" in {
+  it should " produce a leader (us) if another candidate with less credentials is connected" in {
     TestSystem.messageEventBus.publish(Quorum(chainId, Set(otherNodeId), 0))
     TestSystem.messageEventBus.publish(PeerConnection(otherNodeId, Capabilities(chainId)))
     probe1.expectMsg(LocalLeader(chainId, myNodeId, 9,5, Seq(VoteLeader(myNodeId, 0,0)))) //TODO FIX this test to be meaningful.
