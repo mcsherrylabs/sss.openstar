@@ -98,8 +98,8 @@ class MessageEventBusSpec extends FlatSpec with Matchers {
 
     msgBus.unsubscribe(observer1)
     msgBus.subscribe(classOf[SuperClass])( observer1)
-    msgBus.publish(incomingSerializedNetworkMessage)
-    probe1.expectMsg(networkMessageAsApplicationTestMessage)
+    msgBus.publish(myEvent)
+    probe1.expectMsg(myEvent)
 
   }
 

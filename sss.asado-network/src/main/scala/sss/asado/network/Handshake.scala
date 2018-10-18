@@ -14,6 +14,8 @@ case class Handshake(applicationName: String,
                      sig: ByteString,
                      time: Long) {
 
+  require(nodeId.nonEmpty, "Handshake node id cannot be an empty string.")
+
   lazy val byteString: ByteString = ByteString(bytes)
 
   lazy val bytes: Array[Byte] = {
@@ -30,23 +32,16 @@ case class Handshake(applicationName: String,
 object Handshake extends Logging {
   def parse(bytes: Array[Byte]): Try[Handshake] =
     Try {
-      val extracted = bytes.extract(
-        StringDeSerialize,
-        ByteArrayDeSerialize,
-        StringDeSerialize,
-        StringDeSerialize,
-        LongDeSerialize,
-        ByteStringDeSerialize,
-        LongDeSerialize
-      )
-      Handshake(
-        extracted._1,
-        ApplicationVersion.parse(extracted._2),
-        extracted._3,
-        extracted._4,
-        extracted._5,
-        extracted._6,
-        extracted._7
+      (Handshake.apply _).tupled(
+        bytes.extract(
+          StringDeSerialize,
+          ByteArrayDeSerialize(ApplicationVersion.parse),
+          StringDeSerialize,
+          StringDeSerialize,
+          LongDeSerialize,
+          ByteStringDeSerialize,
+          LongDeSerialize
+        )
       )
     }
 }

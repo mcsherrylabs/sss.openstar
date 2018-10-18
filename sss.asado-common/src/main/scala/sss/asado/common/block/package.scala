@@ -74,17 +74,23 @@ package object block {
     }
   }
 
-  implicit object BlockChainTxOrdering extends Ordering[BlockChainTx] {
-    override def compare(x: BlockChainTx, y: BlockChainTx): Int = {
+  implicit object BlockChainTxIdOrdering extends Ordering[BlockChainTxId] {
+    override def compare(x: BlockChainTxId, y: BlockChainTxId): Int = {
       //if x < y negative
       if(x.height < y.height) -1
       else if (x.height == y.height) {
-        if(x.blockTx.index < y.blockTx.index) -1
-        else if(x.blockTx.index == y.blockTx.index) 0
+        if(x.blockTxId.index < y.blockTxId.index) -1
+        else if(x.blockTxId.index == y.blockTxId.index) 0
         else 1
       } else 1
     }
   }
+
+  implicit object BlockChainTxOrdering extends Ordering[BlockChainTx] {
+    override def compare(x: BlockChainTx, y: BlockChainTx): Int =
+      BlockChainTxIdOrdering.compare(x.toId, y.toId)
+  }
+
 
   implicit class BlockChainIdTxTo(t: BlockChainTxId) extends ToBytes {
     override def toBytes: Array[Byte] = BlockChainTxIdSerializer.toBytes(t)

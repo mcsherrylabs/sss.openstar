@@ -30,7 +30,7 @@ trait UnsubscribedMessageHandlerBuilder {
           send,
           thisNodeId,
           messageEventBus)
-      )
+      , "DefaultMessageHandlerActor")
 
     }
   }

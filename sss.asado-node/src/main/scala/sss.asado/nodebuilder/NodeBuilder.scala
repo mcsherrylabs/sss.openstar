@@ -9,9 +9,9 @@ import sss.ancillary.{DynConfig, _}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
-import sss.asado.chains.BlockCloseDistributorActor.ProcessCoinBaseHook
+
 import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
-import sss.asado.chains.{BlockChainSettings, GenerateCoinBaseTxs, QuorumMonitor, TxWriterActor}
+import sss.asado.chains.BlockChainSettings
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
 import sss.asado.eventbus.{MessageInfo, PureEvent}
@@ -24,9 +24,9 @@ import sss.asado.peers.{PeerManager, PeerQuery}
 import sss.asado.peers.PeerManager.{Capabilities, Query}
 import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
-import sss.asado.util.Serialize.ToBytes
-
 import sss.asado._
+import sss.asado.tools.SendTxSupport
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.db.Db
 import sss.db.datasource.DataSource
 
@@ -85,7 +85,7 @@ trait RequireConfig {
 
 trait ConfigBuilder extends RequireConfig with Configure {
   val configName: String
-  lazy val conf: Config = config(configName)
+  override lazy val conf: Config = config(configName)
 }
 
 trait RequireNodeConfig {
@@ -168,50 +168,6 @@ trait RequireActorSystem {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
-trait RequireQuorumMonitor {
-  val quorumMonitor: QuorumMonitor
-}
-
-trait QuorumMonitorBuilder extends RequireQuorumMonitor {
-    self: RequireChain with
-      RequireActorSystem with
-      RequireNodeIdentity with
-      RequirePeerManager with
-      RequireMessageEventBus =>
-
-    lazy val quorumMonitor: QuorumMonitor = QuorumMonitor(
-      messageEventBus,
-      chain.id,
-      nodeIdentity.id,
-      chain.quorumCandidates(),
-      peerManager
-    )
-}
-
-trait RequireCoinbaseGenerator {
-  val processCoinBaseHook: ProcessCoinBaseHook
-}
-
-trait CoinbaseGeneratorBuilder
-  extends RequireCoinbaseGenerator {
-
-  self: RequireMessageEventBus with
-    RequireDb with
-    RequireChain with
-    RequireGlobalChainId with
-    RequireNodeIdentity with
-    RequireWallet with
-    RequireNetSend =>
-
-  import chain.ledgers
-
-  lazy override val processCoinBaseHook: ProcessCoinBaseHook =
-    new GenerateCoinBaseTxs(
-      nodeIdentity,
-      wallet
-    )
-}
-
 trait ShutdownHookBuilder {
 
   def shutdown(): Unit
@@ -225,7 +181,6 @@ trait ShutdownHookBuilder {
 
 trait RequireChain {
   val chain: Chain
-  val quorumService: QuorumService
 }
 
 trait ChainBuilder extends RequireChain {
@@ -238,7 +193,7 @@ trait ChainBuilder extends RequireChain {
     with RequireGlobalChainId
     with RequireDb =>
 
-  lazy val quorumService = new QuorumService(globalChainId)
+  private lazy val quorumService = new QuorumService(globalChainId)
 
   lazy val chain: Chain = new Chain {
     implicit override val id: GlobalChainIdMask = globalChainId
@@ -346,7 +301,7 @@ trait BalanceLedgerBuilder {
     with IdentityServiceBuilder =>
 
   def publicKeyOfFirstSigner(height: Long): Option[PublicKey] =
-    bc.signatures(height, 1).map(_.publicKey).headOption
+    bc.quorumSigs(height).signatures(1).map(_.publicKey).headOption
 
   lazy val balanceLedger: BalanceLedger = BalanceLedger(
     new CoinbaseValidator(publicKeyOfFirstSigner,
@@ -366,7 +321,7 @@ trait IdentityServiceBuilder {
 import sss.asado.util.ByteArrayEncodedStrOps._
 
 case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
-  private lazy val pKey: PublicKey = pKeyStr.toByteArray
+  lazy val pKey: PublicKey = pKeyStr.toByteArray
   private lazy val pKeyAccount = PublicKeyAccount(pKey)
   def verify(sig: Signature, msg: Array[Byte]): Boolean =
     pKeyAccount.verify(sig, msg)
@@ -435,9 +390,8 @@ trait MessageDownloadServiceBuilder {
 }
 
 trait RequireBlockChain {
-  val bc: BlockChain with BlockChainSignatures
+  val bc: BlockChain with BlockChainSignaturesAccessor
     with BlockChainGenesis
-    with BlockChainTxConfirms
 
   def currentBlockHeight: Long
 }
@@ -447,11 +401,10 @@ trait BlockChainBuilder extends RequireBlockChain {
   self: RequireDb with RequireGlobalChainId =>
 
   lazy val bc: BlockChain
-    with BlockChainSignatures
-    with BlockChainGenesis
-    with BlockChainTxConfirms = new BlockChainImpl()
+    with BlockChainSignaturesAccessor
+    with BlockChainGenesis = new BlockChainImpl()
 
-  def currentBlockHeight: Long = bc.lastBlockHeader.height + 1
+  def currentBlockHeight(): Long = bc.lastBlockHeader.height + 1
 }
 
 
@@ -468,6 +421,15 @@ trait HandshakeGeneratorBuilder {
 
 trait RequireNetSend {
   implicit val send: Send
+}
+
+trait SendTxBuilder {
+
+  self : MessageEventBusBuilder
+    with RequireActorSystem
+    with RequireGlobalChainId =>
+
+  implicit val sendTx: SendTx = SendTxSupport(actorSystem, globalChainId, messageEventBus)
 }
 
 trait NetSendBuilder extends RequireNetSend {
@@ -514,7 +476,9 @@ trait MinimumNode
     with ChainBuilder
     with WalletPersistenceBuilder
     with WalletBuilder
+    with PublicKeyTrackerBuilder
     with IntegratedWalletBuilder
+    with SendTxBuilder
     with HttpServerBuilder {
 
   def shutdown: Unit = {

@@ -1,6 +1,6 @@
 package sss.asado.nodebuilder
 
-import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
+import sss.asado.wallet.{IntegratedWallet, PublicKeyTracker, Wallet, WalletPersistence}
 
 /**
   * Created by alan on 6/30/16.
@@ -15,6 +15,14 @@ trait WalletPersistenceBuilder {
 trait RequireWallet {
   val wallet: Wallet
 }
+
+trait PublicKeyTrackerBuilder {
+  self: RequireNodeIdentity with
+    RequireDb =>
+
+  lazy val pKTracker: PublicKeyTracker = new PublicKeyTracker(nodeIdentity.id)
+}
+
 trait WalletBuilder extends RequireWallet {
 
   self: RequireNodeIdentity with
@@ -22,13 +30,16 @@ trait WalletBuilder extends RequireWallet {
     IdentityServiceBuilder with
     WalletPersistenceBuilder with
     BlockChainBuilder with
-    RequireDb =>
+    RequireDb with
+    PublicKeyTrackerBuilder =>
 
   lazy val wallet = new Wallet(nodeIdentity,
     balanceLedger,
     identityService,
     walletPersistence,
-    currentBlockHeight _)
+    currentBlockHeight _,
+    pKTracker.isTracked
+  )
 
 }
 

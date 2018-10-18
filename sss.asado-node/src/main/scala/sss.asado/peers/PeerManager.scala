@@ -58,7 +58,7 @@ class PeerManager(networkRef: NetworkRef,
     bootstrapNodes,
     ourCapabilities,
     eventMessageBus
-    ))
+    ), "PeerManagerActor")
 
   // register for connections
   // on connection get the supported chains

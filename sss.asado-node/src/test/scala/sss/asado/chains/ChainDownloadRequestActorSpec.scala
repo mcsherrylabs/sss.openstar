@@ -3,8 +3,7 @@ package sss.asado.chains
 
 import akka.testkit.{TestActorRef, TestProbe}
 import org.scalatest.{FlatSpec, Matchers}
-import sss.asado.block.{Block, Synchronized}
-import sss.asado.chains.ChainSynchronizer.NotSynchronized
+import sss.asado.block.{Block, NotSynchronized, Synchronized}
 import sss.asado.{TestSystem2, _}
 import sss.asado.nodebuilder._
 import sss.asado.peers.PeerManager.{Capabilities, PeerConnection}
@@ -63,12 +62,11 @@ class ChainDownloadRequestActorSpec extends FlatSpec with Matchers {
 
     import chain.ledgers
     val reqProps = ChainDownloadRequestActor.props(
-      peerConnection,
       nodeIdentity,
       bc)
 
 
-    TestActorRef(reqProps.p, observer1, "ChildActor")
+    TestActorRef(reqProps.p, observer1, "ChildActor") ! peerConnection
   }
 
 
@@ -79,11 +77,12 @@ class ChainDownloadRequestActorSpec extends FlatSpec with Matchers {
 
   "ChainDownloaderActor" should " emit NotSynchronized after downloading 3 blocks" in {
 
+
     TestUtils.addOneBlock(t1.balanceLedger, t1.nodeIdentity, t1.bc)
     TestUtils.addOneBlock(t1.balanceLedger, t1.nodeIdentity, t1.bc)
     TestUtils.addOneBlock(t1.balanceLedger, t1.nodeIdentity, t1.bc)
 
-    probe1.expectMsg(NotSynchronized(t2.globalChainId, t2.peerConnection.nodeId))
+    probe1.expectMsg(NotSynchronized(t2.globalChainId))
     val lastHeader = t2.bc.lastBlockHeader
     assert(lastHeader.height == 1, "Should have downloaded 3 blocks (plus genesis was always there)")
     assert(lastHeader.numTxs == 0, "Should have downloaded 10 txs' in last block")

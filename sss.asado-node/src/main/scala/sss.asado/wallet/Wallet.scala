@@ -1,11 +1,13 @@
 package sss.asado.wallet
 
+import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
+import sss.asado.wallet.Wallet.PublicKeyFilter
 import sss.asado.wallet.WalletPersistence.Lodgement
 
 
@@ -14,6 +16,8 @@ import sss.asado.wallet.WalletPersistence.Lodgement
   *
   */
 object Wallet {
+  type PublicKeyFilter = PublicKey => Boolean
+
   case class UnSpent(txIndex: TxIndex, out: TxOutput)
 }
 
@@ -21,12 +25,18 @@ class Wallet(identity: NodeIdentity,
              balanceLedger: BalanceLedgerQuery,
              identityServiceQuery: IdentityServiceQuery,
              walletPersistence: WalletPersistence,
-             currentBlockHeight: () => Long) extends Logging {
+             currentBlockHeight: () => Long,
+             nodeControlsPublicKey: PublicKeyFilter
+            ) extends Logging {
 
   import Wallet._
 
   def credit(lodgement: Lodgement): Unit = {
     walletPersistence.track(lodgement)
+  }
+
+  def trackPublicKey(pKey: PublicKey): Unit = {
+
   }
 
   def markSpent(spentIns: Seq[TxInput]): Unit = {
@@ -131,10 +141,15 @@ class Wallet(identity: NodeIdentity,
         case SinglePrivateKey(pKey, minBlockHeight) =>
           //log.info(s"${lodgement.txIndex.txId.toBase64Str} is a SinglePrivateKey with minBlkH $minBlockHeight")
           //if(identityServiceQuery.identify(pKey).isDefined) log.info("Identitified ")
-          identityServiceQuery.identify(pKey).flatMap { acc =>
-            if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
-            else None
+          if(nodeControlsPublicKey(pKey)) {
+            Option(UnSpent(lodgement.txIndex, txOut))
+          } else {
+            identityServiceQuery.identify(pKey).flatMap { acc =>
+              if (acc.identity == identity.id && minBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
+              else None
+            }
           }
+
 
         case SingleIdentityEnc(id, blockHeight) =>
           if (id == identity.id && blockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))

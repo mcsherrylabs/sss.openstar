@@ -34,24 +34,36 @@ object Main {
 
   def createMin(): Min[_] = Min("asdasd")
 
+
   def main(args: Array[String]): Unit = {
     println("Hello world")
-
-    val actorSystem = ActorSystem()
-
-    val ref = actorSystem.actorOf(Props(classOf[Example]))
-    ref ! createMin()
-    ref ! Min(4)
-    ref ! Min(Min(3))
-
-    val m = Min(1, "", Option(Min(2, "", Option(Min(3, "", Option(Min(4, "", None)))))))
-
-    println(m)
-    println(m.findEnd())
-
-
-    val source: Source[Int, NotUsed] = Source(1 to 100)
-
+//
+//    val maxWaitInterval: Long = 30 * 1000
+//
+//    lazy val stream: Stream[Long] = {
+//      (10l) #:: (10l) #:: stream.zip(stream.tail).map { n =>
+//        val fib = n._1 + n._2
+//        if (fib > maxWaitInterval) maxWaitInterval
+//        else fib
+//      }
+//    }
+//
+//    stream.take(100).foreach(println)
+//    val actorSystem = ActorSystem()
+//
+//    val ref = actorSystem.actorOf(Props(classOf[Example]))
+//    ref ! createMin()
+//    ref ! Min(4)
+//    ref ! Min(Min(3))
+//
+//    val m = Min(1, "", Option(Min(2, "", Option(Min(3, "", Option(Min(4, "", None)))))))
+//
+//    println(m)
+//    println(m.findEnd())
+//
+//
+//    val source: Source[Int, NotUsed] = Source(1 to 100)
+//
 
   }
 }

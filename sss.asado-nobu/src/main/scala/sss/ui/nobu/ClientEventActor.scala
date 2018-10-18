@@ -1,22 +1,14 @@
 package sss.ui.nobu
 
 import akka.actor.Actor
-
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.common.block._
-
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.SerializedMessage
-import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{
-  NotOrderedEvent,
-  RemoteLeaderEvent,
-  StateMachineInitialised
-}
+import sss.asado.nodebuilder.MinimumNode
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
-
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.reactor.UIReactor
 
@@ -26,7 +18,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 /**
   * Created by alan on 11/9/16.
   */
-class ClientEventActor(clientNode: ClientNode)
+class ClientEventActor(clientNode: MinimumNode)
     extends Actor
     with AsadoEventSubscribedActor {
 

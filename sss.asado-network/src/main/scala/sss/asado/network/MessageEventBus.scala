@@ -45,7 +45,7 @@ object MessageEventBus {
         else if (newCount <= 0) {
           context unwatch newRef
           refs -= newRef
-          msgBus unsubscribe newRef
+          //msgBus unsubscribe newRef
         }
 
       case IncWatch(newRef) =>
@@ -67,6 +67,26 @@ object MessageEventBus {
     def subscribe(msgCode: Byte)(implicit ref: ActorRef)
     def subscribe(clazz: Class[_])(implicit ref: ActorRef)
 
+  }
+
+  implicit class EventSubscriptionsClassOps(val seq :Seq[Class[_]])(implicit bus:EventSubscriptions) {
+    def subscribe(implicit ref: ActorRef): Unit = {
+      seq foreach (bus.subscribe(_))
+    }
+
+    def unsubscribe(implicit ref: ActorRef): Unit = {
+      seq foreach (bus.unsubscribe(_))
+    }
+  }
+
+  implicit class EventSubscriptionsByteOps(val seq :Seq[Byte])(implicit bus:EventSubscriptions) {
+    def subscribe(implicit ref: ActorRef): Unit = {
+      seq foreach (bus.subscribe(_))
+    }
+
+    def unsubscribe(implicit ref: ActorRef): Unit = {
+      seq foreach (bus.unsubscribe(_))
+    }
   }
 }
 
@@ -97,6 +117,11 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
   private def removeRefFromMap[E](refToRemove: ActorRef)(
       acc: MapToRefs[E],
       e: (E, Set[ActorRef])): MapToRefs[E] = {
+
+    log.whenDebugEnabled(
+      e._2.find(_ == refToRemove)
+      .map(found => log.debug(s"Unsubscribe Ref - ${found.path.name} unsubscribed from ${e._1}"))
+    )
 
     acc + (e._1 -> e._2.filterNot(_ == refToRemove))
 
@@ -134,6 +159,12 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
 
     val refList = map(e)
     val newList = refList - ref
+
+    log.whenDebugEnabled ({
+      val wasSubscribed = if (refList.contains(ref)) "" else "again"
+      log.debug(s"${ref.path.name} unsubscribes from $e $wasSubscribed")
+    })
+
     map + (e -> newList)
 
   }
@@ -162,12 +193,16 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
     }
   }
 
-  private def subscribeImpl[E](msgCode: E,
+  private def subscribeImpl[E](e: E,
                                ref: ActorRef,
                                map: MapToRefs[E]): MapToRefs[E] = {
-    val setOfRefs = map(msgCode)
+    val setOfRefs = map(e)
     val newSetOfRefs = setOfRefs + ref
-    map + (msgCode -> newSetOfRefs)
+    log.whenDebugEnabled ({
+      val wasSubscribed = if (setOfRefs.contains(ref)) "again" else ""
+      log.debug(s"${ref.path.name} subscribes to $e $wasSubscribed")
+    })
+    map + (e -> newSetOfRefs)
   }
 
   def subscribe(msgCode: Byte)(implicit ref: ActorRef): Unit = {
@@ -201,18 +236,14 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
 
     val subs = msgClassSubscriptions.get()
 
-    /*log.whenDebugEnabled(
-      subs.foreach { sub =>
-        log.debug(s"Ref: ${sub._1} to ... ")
-        sub._2 foreach { c =>
-          log.debug(c.toString())
-        }
-        log.debug(s"-----------------")
-      }
-    )*/
 
     val eventWasFired = subs.foldLeft[Boolean](false) {
       case (acc: Boolean, (k: Class[_], subs: Set[ActorRef])) if k.isAssignableFrom(clazz) =>
+
+        log.whenDebugEnabled({
+          subs.foreach(sub => log.debug(s"$event -> ${sub.path.name}"))
+        })
+
         subs foreach (_ ! event)
         acc | subs.nonEmpty
       case (acc: Boolean, e) => acc
@@ -225,11 +256,7 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
             v foreach (_ ! UnsubscribedEvent(event))
       }
     }
-    /*subs foreach {
-      case (k, v) if (k.isAssignableFrom(clazz)) =>
-          v foreach (_ ! event)
-      case _ =>
-    }*/
+
   }
 
   private[network] override def publish(networkMessage: IncomingSerializedMessage): Unit = {
@@ -252,16 +279,31 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
         }
 
         val subs = msgCodeSubs(msgCode)
+
+        log.whenDebugEnabled {
+          log.debug(s"IncomingMessage: ${incomingMessage.msg}")
+          subs.foreach(sub => log.debug(s"Chain:${incomingMessage.chainCode} " +
+            s"(${incomingMessage.code} " +
+            s"${info.clazz.getSimpleName.padTo(20, ' ')}) " +
+            s"from:${incomingMessage.nodeId} -> ${sub.path.name}"))
+        }
+
         subs foreach (_ ! incomingMessage)
 
-        val eventWasFired = msgClassSubs.foldLeft[Boolean](false) {
+        /*val eventWasFired = msgClassSubs.foldLeft[Boolean](false) {
           case (acc: Boolean, (k: Class[_], subs: Set[ActorRef])) if k.isAssignableFrom(info.clazz) =>
+
+
+            log.whenDebugEnabled({
+              subs.foreach(sub => log.debug(s"${incomingMessage.msg} -> ${sub.path.name}"))
+            })
+
             subs foreach (_ ! incomingMessage.msg)
             acc | subs.nonEmpty
           case (acc: Boolean, e) => acc
-        }
+        }*/
 
-        if(subs.size == 0 && !eventWasFired) {
+        if(subs.isEmpty /*&& !eventWasFired*/) {
           unsubscribedHandlers.get() foreach {
             case (k,v) =>
               if (k.isAssignableFrom(classOf[UnsubscribedIncomingMessage]))

@@ -17,20 +17,16 @@ trait PublishedMessageKeys {
   val SignedTxAck: Byte = 101
   val SignedTxNack: Byte = 102
   val SeqSignedTx: Byte = 103
-  /**
-    * TODO When asking a node to Confirm a tx
-    * Sign the tx so that the network can reject malicious
-    * attempts to bring down the network. ie confirm tx's will be
-    * unquestionally journalled and if a partial block is committed when
-    * it becomes leader, those bad txs will kill the network.
-    */
-  val ConfirmTx: Byte = 104
+  val SignedTxConfirm: Byte = 104 //logically belongs with SignedTx, is a client confirm
+
   val AckConfirmTx: Byte = 105
   val NackConfirmTx: Byte = 106
   val TempNack: Byte = 107
+  val ConfirmTx: Byte = 108
+  val CommittedTxId: Byte = 109
+  val CommittedTx: Byte = 110
+  val QuorumRejectedTx: Byte = 111
 
-  val CommittedTx: Byte = 108
-  val SignedTxConfirm: Byte = 109 //logically belongs with SignedTx, is a client confirm
 
   val MalformedMessage: Byte = 20
   val GenericErrorMessage: Byte = 21
@@ -40,18 +36,20 @@ trait PublishedMessageKeys {
   val QuorumLedger: Byte = 72
 
   protected val publishedMsgs: MessageInfos =
-    MessageInfoComposite[LedgerItem](SignedTx, classOf[LedgerItem], _.toLedgerItem) +:
-    MessageInfoComposite[BlockChainTxId](SignedTxAck, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[TxMessage](SignedTxNack, classOf[TxMessage], _.toTxMessage) :+
-    MessageInfoComposite[Seq[LedgerItem]](SeqSignedTx, classOf[Seq[LedgerItem]], SeqSerializer.fromBytes(_) map (_.toLedgerItem)) +:
-    MessageInfoComposite[BlockChainTx](ConfirmTx, classOf[BlockChainTx], _.toBlockChainTx) +: //todo should be toBlockChainTxId?
-    MessageInfoComposite[BlockChainTxId](SignedTxConfirm, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[BlockChainTxId](CommittedTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[BlockChainTxId](AckConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[BlockChainTxId](NackConfirmTx, classOf[BlockChainTxId], _.toBlockChainTxId) +:
-    MessageInfoComposite[TxMessage](TempNack, classOf[TxMessage], _.toTxMessage) +:
-    MessageInfoComposite[StringMessage](MalformedMessage, classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8))) +:
-    MessageInfoComposite[StringMessage](GenericErrorMessage, classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8)))
+    MessageInfoComposite[LedgerItem]    (SignedTx,            classOf[LedgerItem], _.toLedgerItem) +:
+    MessageInfoComposite[BlockChainTxId](SignedTxAck,         classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[TxMessage]     (SignedTxNack,        classOf[TxMessage], _.toTxMessage) :+
+    MessageInfoComposite[SeqLedgerItem] (SeqSignedTx,         classOf[SeqLedgerItem], _.toSeqLedgerItem) +:
+    MessageInfoComposite[BlockChainTx]  (ConfirmTx,           classOf[BlockChainTx], _.toBlockChainTx) +:
+    MessageInfoComposite[BlockChainTxId](SignedTxConfirm,     classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTxId](CommittedTxId,       classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTxId](QuorumRejectedTx,    classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTx]  (CommittedTx,         classOf[BlockChainTx], _.toBlockChainTx) +:
+    MessageInfoComposite[BlockChainTxId](AckConfirmTx,        classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[BlockChainTxId](NackConfirmTx,       classOf[BlockChainTxId], _.toBlockChainTxId) +:
+    MessageInfoComposite[TxMessage]     (TempNack,            classOf[TxMessage], _.toTxMessage) +:
+    MessageInfoComposite[StringMessage] (MalformedMessage,    classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8))) +:
+    MessageInfoComposite[StringMessage] (GenericErrorMessage, classOf[StringMessage], b => StringMessage(new String(b, StandardCharsets.UTF_8)))
 
 
 }

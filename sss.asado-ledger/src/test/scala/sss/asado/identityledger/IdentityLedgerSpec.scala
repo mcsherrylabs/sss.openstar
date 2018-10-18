@@ -4,6 +4,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.asado.DummySeedBytes
 import sss.asado.account.PrivateKeyAccount
+import sss.asado.common.block.BlockId
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.util.ByteArrayComparisonOps
 import sss.db.Db
@@ -28,7 +29,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
   "The identity ledger " should " be able to claim an identity to a key" in {
 
     val le = makeClaim()
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
 
     assert(idService.account(myIdentity).publicKey isSame key1)
   }
@@ -36,7 +37,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
   it should " prevent a second claim to the same identity " in {
 
     val le = makeClaim()
-    intercept[IllegalArgumentException](identityLedger(le, 0))
+    intercept[IllegalArgumentException](identityLedger(le, BlockId(0, 0)).get)
 
   }
 
@@ -54,7 +55,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(link.toBytes, sigs)
     val le = LedgerItem(ledgerId, link.txId, ste.toBytes)
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
 
     val pKey = idService.account(myIdentity, tagForKey2)
     assert(pKey.publicKey isSame key2)
@@ -68,7 +69,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(unlink.toBytes, sigs)
     val le = LedgerItem(ledgerId, unlink.txId, ste.toBytes)
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
 
     assert(idService.accountOpt(myIdentity).isEmpty)
     assert(idService.accountOpt(myIdentity, tagForKey2).isDefined)
@@ -83,7 +84,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(unlink.toBytes, sigs)
     val le = LedgerItem(ledgerId, unlink.txId, ste.toBytes)
-    intercept[IllegalArgumentException] {identityLedger(le, 0)}
+    intercept[IllegalArgumentException] {identityLedger(le, BlockId(0, 0)).get}
   }
 
   it should " allow unlink from a valid key " in {
@@ -93,27 +94,27 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(tagForKey2.getBytes, sig))
     val ste = SignedTxEntry(unlink.toBytes, sigs)
     val le = LedgerItem(ledgerId, unlink.txId, ste.toBytes)
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
     assert(idService.accountOpt(myIdentity, tagForKey2).isEmpty)
   }
 
   it should " allow reclaiming an identity with no linked keys " in {
 
     val le  = makeClaim()
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
     assert(idService.account(myIdentity).publicKey isSame key1)
   }
 
   it should " allow adding a rescuer " in {
 
-    identityLedger(makeClaim(rescuerIdentity, key2), 0)
+    identityLedger(makeClaim(rescuerIdentity, key2), BlockId(0, 0))
     assert(idService.accountOpt(rescuerIdentity).isDefined)
     val link = LinkRescuer(rescuerIdentity, myIdentity)
     val sig = privateAcc1.sign(link.txId)
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(link.toBytes, sigs)
     val le = LedgerItem(ledgerId, link.txId, ste.toBytes)
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
 
     assert(idService.rescuers(myIdentity).contains(rescuerIdentity))
   }
@@ -125,7 +126,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(link.toBytes, sigs)
     val le = LedgerItem(ledgerId, link.txId, ste.toBytes)
-    intercept[IllegalArgumentException](identityLedger(le, 0))
+    intercept[IllegalArgumentException](identityLedger(le, BlockId(0, 0)).get)
   }
 
 
@@ -136,7 +137,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(rescue.toBytes, sigs)
     val le = LedgerItem(ledgerId, rescue.txId, ste.toBytes)
-    identityLedger(le, 0)
+    identityLedger(le, BlockId(0, 0))
 
     {
       // Now check it by removing the rescuer with the new rescue key :D
@@ -146,7 +147,7 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
       val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq("rescued".getBytes, sig))
       val ste = SignedTxEntry(unLink.toBytes, sigs)
       val le = LedgerItem(ledgerId, unLink.txId, ste.toBytes)
-      identityLedger(le, 0)
+      identityLedger(le, BlockId(0, 0))
     }
     assert(!idService.rescuers(myIdentity).contains(rescuerIdentity))
   }
@@ -157,13 +158,13 @@ class IdentityLedgerSpec extends FlatSpec with Matchers with ByteArrayComparison
 
     val randomerIdentity = "randomer"
     val newKeyAcc = PrivateKeyAccount(DummySeedBytes)
-    identityLedger(makeClaim(randomerIdentity, key2), 0)
+    identityLedger(makeClaim(randomerIdentity, key2), BlockId(0, 0))
     val rescue = Rescue(randomerIdentity, myIdentity, newKeyAcc.publicKey, "rescued")
     val sig = privateAcc2.sign(rescue.txId)
     val sigs: Seq[Seq[Array[Byte]]] = Seq(Seq(idService.defaultTag.getBytes, sig))
     val ste = SignedTxEntry(rescue.toBytes, sigs)
     val le = LedgerItem(ledgerId, rescue.txId, ste.toBytes)
-    intercept[IllegalArgumentException](identityLedger(le, 0))
+    intercept[IllegalArgumentException](identityLedger(le, BlockId(0, 0)).get)
   }
 
 }

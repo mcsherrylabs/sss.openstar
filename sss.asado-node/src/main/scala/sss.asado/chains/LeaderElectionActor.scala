@@ -4,10 +4,12 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props, ReceiveTim
 import sss.asado.block._
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor._
-import sss.asado.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost}
+import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network.{MessageEventBus, _}
 import sss.asado._
+import sss.asado.common.block.BlockId
+import math.Ordered.orderingToOrdered
 import sss.db.Db
 
 import scala.concurrent.duration._
@@ -41,26 +43,29 @@ object LeaderElectionActor {
 
   private case object FindTheLeader
 
-
   private def createFindLeaderMsg(thisNodeId: UniqueNodeIdentifier,
-                                   bc: BlockChain with BlockChainSignatures)(implicit db: Db): FindLeader = {
+                                   bc: BlockChain with BlockChainSignaturesAccessor)(implicit db: Db): FindLeader = {
 
-    val blockHeader = bc.lastBlockHeader
-    val biggestCommittedTxIndex =
-      bc.block(blockHeader.height + 1).maxMonotonicCommittedIndex
+    val recordedId = bc.getLatestRecordedBlockId()
+    val committedId = bc.getLatestCommittedBlockId()
 
-    val sigIndex = bc.indexOfBlockSignature(blockHeader.height, thisNodeId)
+    assert(recordedId.blockHeight == committedId.blockHeight,
+      s"Cannot have an uncommitted tx ${recordedId} in a different block (committed${committedId})")
+
+
+    val sigIndex = bc.quorumSigs(recordedId.blockHeight).indexOfBlockSignature(thisNodeId)
       .getOrElse(Int.MaxValue)
 
-    FindLeader(blockHeader.height,
-      biggestCommittedTxIndex,
+    FindLeader(recordedId.blockHeight,
+      recordedId.txIndex,
+      committedId.txIndex,
       sigIndex,
       thisNodeId)
   }
 
   def apply(thisNodeId: UniqueNodeIdentifier,
-
-            createFindLeader: MakeFindLeader)
+            createFindLeader: MakeFindLeader,
+            getLatestCommittedBlockId: GetLatestCommittedBlockId)
            (implicit  chainId: GlobalChainIdMask,
             messageBus: MessageEventBus,
             send: Send,
@@ -71,12 +76,13 @@ object LeaderElectionActor {
       messageBus,
       send,
       createFindLeader,
-      chainId), s"LeaderActor_$chainId")
+      getLatestCommittedBlockId,
+      chainId), s"LeaderElectionActor_$chainId")
   }
 
 
     def apply(thisNodeId: UniqueNodeIdentifier,
-            bc: BlockChain with BlockChainSignatures)
+            bc: BlockChain with BlockChainSignaturesAccessor)
            (implicit db: Db,
             chainId: GlobalChainIdMask,
             send: Send,
@@ -84,24 +90,22 @@ object LeaderElectionActor {
             actorSystem: ActorSystem): ActorRef = {
 
     def createFindLeader: MakeFindLeader = () => createFindLeaderMsg(thisNodeId, bc)
-    apply(thisNodeId, createFindLeader)
+
+
+    apply(thisNodeId, createFindLeader, () => bc.getLatestCommittedBlockId)
   }
 }
 
 private class LeaderElectionActor(
-                  thisNodeId: UniqueNodeIdentifier,
-                  messageBus: MessageEventBus,
-                  send: Send,
-                  createFindLeader: MakeFindLeader)(implicit chainId: GlobalChainIdMask)
+                                   thisNodeId: UniqueNodeIdentifier,
+                                   messageBus: MessageEventBus,
+                                   send: Send,
+                                   createFindLeader: MakeFindLeader,
+                                   getLatestCommittedBlockId: GetLatestCommittedBlockId)(implicit chainId: GlobalChainIdMask)
     extends Actor
     with ActorLogging {
 
   messageBus.subscribe(classOf[Quorum])
-  messageBus.subscribe(classOf[QuorumLost])
-  messageBus.subscribe(classOf[ConnectionLost])
-  messageBus.subscribe(MessageKeys.FindLeader)
-  messageBus.subscribe(MessageKeys.Leader)
-  messageBus.subscribe(MessageKeys.VoteLeader)
 
   log.info("Leader actor has started...")
 
@@ -112,22 +116,36 @@ private class LeaderElectionActor(
 
   private def waitForQuorum: Receive = {
 
-    case Quorum(`chainId`, members, _)
-      if(members.size == 0 || members == Set(thisNodeId)) =>
-      //Special case where there is a quorum and it's just us or no one.
-      messageBus publish LocalLeader(chainId, thisNodeId, 0, 0, Seq())
+    case Quorum(`chainId`, connectedMembers, _) =>
 
-    case Quorum(`chainId`, members, _) =>
-      context become findLeader(members)
-      self ! FindTheLeader
+      messageBus.subscribe(classOf[QuorumLost])
+      messageBus.subscribe(classOf[ConnectionLost])
+      messageBus.subscribe(MessageKeys.FindLeader)
+      messageBus.subscribe(MessageKeys.Leader)
+      messageBus.subscribe(MessageKeys.VoteLeader)
+
+      if(connectedMembers.isEmpty) {
+        //Special case where there is a quorum and it's just us.
+        context.become(handle(thisNodeId, connectedMembers))
+        publishLeaderEvents(getLatestCommittedBlockId())
+      } else {
+        context become findLeader(connectedMembers)
+        self ! FindTheLeader
+      }
 
   }
 
 
-  private def quorumLost:Receive = {
+  private def quorumLostNoLeader:Receive = {
 
     case QuorumLost(`chainId`) =>
       leaderVotes = Seq.empty
+      messageBus.unsubscribe(classOf[QuorumLost])
+      messageBus.unsubscribe(classOf[ConnectionLost])
+      messageBus.unsubscribe(MessageKeys.FindLeader)
+      messageBus.unsubscribe(MessageKeys.Leader)
+      messageBus.unsubscribe(MessageKeys.VoteLeader)
+
       context become waitForQuorum
   }
 
@@ -141,11 +159,11 @@ private class LeaderElectionActor(
   }
 
 
-  private def findLeader(connectedMembers: Set[UniqueNodeIdentifier]): Receive =  quorumLost orElse {
+  private def findLeader(connectedMembers: Set[UniqueNodeIdentifier]): Receive =  quorumLostNoLeader orElse {
 
     case FindTheLeader =>
       val findMsg = createFindLeader()
-      log.info("Sending FindLeader to network ")
+      log.info(s"Sending FindLeader to network ${findMsg}")
       //TODO PARAM TIMEOUT
       context.setReceiveTimeout(10 seconds)
       send(MessageKeys.FindLeader, findMsg, connectedMembers)
@@ -153,46 +171,18 @@ private class LeaderElectionActor(
     case ReceiveTimeout => self ! FindTheLeader
 
     case IncomingMessage(`chainId`, MessageKeys.FindLeader, qMember,
-              FindLeader(hisBlkHeight, hisCommittedTxIndex, hisSigIndx, hisId)) =>
+              his@FindLeader(hisBlkHeight, hisRecordedTxIndex, hisCommittedTxIndex, hisSigIndx, hisId)) =>
 
-      log.info("Someone asked us to vote on a leader (FindLeader)")
-      val FindLeader(myBlockHeight, myCommittedTxIndex, mySigIndex, nodeId) = createFindLeader()
+      val ours@FindLeader(myBlockHeight, myRecordedTxIndex, myCommittedTxIndex, mySigIndex, nodeId) = createFindLeader()
+      log.info("{} asked us to vote on a leader (FindLeader)", qMember)
+      log.info("His  - {} ", his)
+      log.info("Ours - {} ", ours)
 
-      if (hisBlkHeight > myBlockHeight) {
-        // I vote for him
+      if(his > ours) {
+        //TODO use hashes of (prevBlock,nodeId) and hash of (prevBlock,hisId) to rotate the leadership
         log.info(s"My name is $nodeId and I'm voting for $hisId")
         send(MessageKeys.VoteLeader, VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
-
-      } else if ((hisBlkHeight == myBlockHeight) && (hisCommittedTxIndex > myCommittedTxIndex)) {
-        // I vote for him
-        log.info(s"My name is $nodeId and I'm voting for $hisId")
-        send(MessageKeys.VoteLeader, VoteLeader(nodeId,myBlockHeight, myCommittedTxIndex), Set(qMember))
-
-      } else if ((hisBlkHeight == myBlockHeight) &&
-              (hisCommittedTxIndex == myCommittedTxIndex) &&
-              (mySigIndex > hisSigIndx)) {
-        // I vote for him
-        log.info(s"My name is $nodeId and I'm voting for $hisId")
-
-        send(MessageKeys.VoteLeader,
-          VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
-
-      } else  if ((hisBlkHeight == myBlockHeight) &&
-              (hisCommittedTxIndex == myCommittedTxIndex) &&
-              (mySigIndex == hisSigIndx)) {
-        // This can only happen when there are no txs in the chain. Very special case.
-        // the sigs Must have an order. They can't be the same unless there are none.
-        def makeLong(str: String) =
-          str.foldLeft(0l)((acc, e) => acc + e.toLong)
-
-        if (makeLong(nodeId) > makeLong(hisId)) {
-          log.info(
-            s"My name is $nodeId and I'm voting for $hisId in order to get started up.")
-          send(MessageKeys.VoteLeader,
-            VoteLeader(nodeId, myBlockHeight, myCommittedTxIndex), Set(qMember))
-        }
       }
-
 
     case IncomingMessage(`chainId`, MessageKeys.VoteLeader, qMember, vl:VoteLeader) =>
 
@@ -210,17 +200,9 @@ private class LeaderElectionActor(
 
           send(MessageKeys.Leader, Leader(thisNodeId), connectedMembers)
 
-          val useToGetBlockIndexDetails = createFindLeader()
+          val latestBlockId = getLatestCommittedBlockId()
 
-          messageBus publish Synchronized(chainId,
-            useToGetBlockIndexDetails.height,
-            useToGetBlockIndexDetails.commitedTxIndex)
-
-          messageBus publish LocalLeader(chainId,
-            thisNodeId,
-            useToGetBlockIndexDetails.height,
-            useToGetBlockIndexDetails.commitedTxIndex,
-            leaderVotes)
+          publishLeaderEvents(latestBlockId)
 
         }
       } else log.info(s"Strangely $thisNodeId got a duplicate vote from ${vl.nodeId}")
@@ -233,6 +215,15 @@ private class LeaderElectionActor(
       log.info(s"The leader is ${leader}")
       messageBus publish RemoteLeader(`chainId`, leader, connectedMembers)
 
+  }
+
+  private def publishLeaderEvents(latestBlockId: BlockId) = {
+
+    messageBus publish LocalLeader(chainId,
+      thisNodeId,
+      latestBlockId.blockHeight,
+      latestBlockId.txIndex,
+      leaderVotes)
   }
 
   private def handle(leader: UniqueNodeIdentifier, members: Set[UniqueNodeIdentifier]): Receive = quorumLost(leader) orElse {
@@ -250,9 +241,9 @@ private class LeaderElectionActor(
       log.info(
         s"Got an surplus vote from ${from}, leader is $leader")
 
-    case IncomingMessage(`chainId`, MessageKeys.Leader, from, _) =>
+    case IncomingMessage(`chainId`, MessageKeys.Leader, from, saying) =>
       log.info(
-        s"Got an unneeded leader indicator ${from}, leader is $leader")
+        s"Got an unneeded leader indicator from ${from}, saying $saying but leader is $leader")
 
 
   }

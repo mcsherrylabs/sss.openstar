@@ -75,9 +75,8 @@ private class PeerManagerActor( ncRef: NetworkRef,
     case IncomingMessage(_, MessageKeys.Capabilities, nodeId, otherNodesCaps: Capabilities) =>
       knownConns += nodeId -> otherNodesCaps
 
-      queries
-        .find (matchWithCapabilities(nodeId, otherNodesCaps))
-        .foreach (_ => messageEventBus.publish(PeerConnection(nodeId, otherNodesCaps)))
-
+      if(queries.exists (matchWithCapabilities(nodeId, otherNodesCaps))) {
+        messageEventBus.publish(PeerConnection(nodeId, otherNodesCaps))
+      }
   }
 }

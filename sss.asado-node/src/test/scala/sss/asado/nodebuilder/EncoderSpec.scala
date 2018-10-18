@@ -5,8 +5,8 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.{DummySeedBytes, MessageKeys, Send}
 import sss.asado.block.GetTxPage
 import sss.asado.eventbus.StringMessage
-import sss.asado.ledger.LedgerItem
-import sss.asado.util.SeqSerializer.SeqToBytes
+import sss.asado.ledger._
+
 import sss.asado.message.EndMessageQuery
 import sss.asado.network.SerializedMessage
 import sss.asado.util.ByteArrayComparisonOps
@@ -70,9 +70,9 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     assert(l1 === l1)
     assert(l2 === l2)
     val seqStx: Seq[LedgerItem] = Seq(l1,l2)
-    val sMsg = sut(MessageKeys.SeqSignedTx, seqStx)
+    val sMsg = sut(MessageKeys.SeqSignedTx, SeqLedgerItem(seqStx))
     val backAgain = MessageKeys.messages.find(MessageKeys.SeqSignedTx).get.fromBytes(sMsg.data)
-    assert(seqStx === backAgain)
+    assert(SeqLedgerItem(seqStx) === backAgain)
 
   }
 

@@ -46,7 +46,7 @@ class WalletSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   identityService.claim(nId.id, pKey.publicKey, nId.tag)
   identityService.claim(otherNodeId.id, otherPKey.publicKey, otherNodeId.tag)
 
-  val wallet = new Wallet(nId, TestBalanceLedgerQuery, identityService, wp, () => 0)
+  val wallet = new Wallet(nId, TestBalanceLedgerQuery, identityService, wp, () => 0, _ => false)
 
   val txId0 = DummySeedBytes(32)
   val txId1 = DummySeedBytes(32)

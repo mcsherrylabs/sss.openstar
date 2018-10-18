@@ -5,8 +5,6 @@ import akka.actor.Actor
 import org.joda.time.LocalDateTime
 import sss.ui.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{NotOrderedEvent, RemoteLeaderEvent, StateMachineInitialised}
 import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global

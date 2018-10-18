@@ -14,7 +14,7 @@ object VoteLeaderSerializer extends Serializer[VoteLeader]{
   override def toBytes(l: VoteLeader): Array[Byte] =
     StringSerializer(l.nodeId) ++
       LongSerializer(l.height) ++
-      LongSerializer(l.txIndex)
+      LongSerializer(l.committedTxIndex)
         .toBytes
 
   override def fromBytes(b: Array[Byte]): VoteLeader =

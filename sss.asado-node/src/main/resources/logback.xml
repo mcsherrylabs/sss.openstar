@@ -15,7 +15,7 @@
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <target>System.out</target>
         <encoder>
-            <pattern>[%thread] >> [%-5level] %logger{36} >> %d{HH:mm:ss.SSS} %msg%n</pattern>
+            <pattern>[%.-1level %-28logger{0} %d{HH:mm:ss.SSS}] %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -25,6 +25,18 @@
     </root>
     <logger name="com.zaxxer.hikari">
         <level value="off"/>
+    </logger>
+    <logger name="sss.asado.balanceledger.BalanceLedger">
+        <level value="WARN"/>
+    </logger>
+    <logger name="sss.asado.contract.CoinbaseValidator">
+        <level value="WARN"/>
+    </logger>
+    <logger name="sss.asado.chains.BlockCloseDistributorActor">
+        <level value="DEBUG"/>
+    </logger>
+    <logger name="sss.asado.network.MessageEventBus">
+        <level value="DEBUG"/>
     </logger>
     <logger name="sss.db">
         <level value="WARN"/>

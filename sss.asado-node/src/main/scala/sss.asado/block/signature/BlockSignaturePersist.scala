@@ -6,16 +6,16 @@ import java.util
 
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions._
+import sss.ancillary.Logging
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db.{Db, OrderAsc, Row}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Created by alan on 4/1/16.
-  */
+
 trait BlockSignatures {
+  val height: Long
   import BlockSignatures._
   def signatures(maxToReturn: Int): Seq[BlockSignature]
   def write(blkSigs: Seq[BlockSignature]): Seq[BlockSignature]
@@ -27,6 +27,18 @@ trait BlockSignatures {
 object BlockSignatures {
 
   import sss.asado.util.ByteArrayComparisonOps._
+
+  object QuorumSigs {
+    def apply(height: Long)
+             (implicit db: Db,chainId: GlobalChainIdMask): BlockSignatures =
+      new BlockSignaturePersister("quorum", height)
+  }
+
+  object NonQuorumSigs {
+    def apply(height: Long)
+             (implicit db: Db,chainId: GlobalChainIdMask): BlockSignatures =
+      new BlockSignaturePersister("non_quorum", height)
+  }
 
   case class BlockSignature(index: Int,
                             savedAt: DateTime,
@@ -73,11 +85,13 @@ object BlockSignatures {
   private val public_key_str = "public_key"
 
 
-  def apply(height: Long)(implicit db: Db,chainId: GlobalChainIdMask): BlockSignatures = new BlockSignaturePersister(height)
+  private class BlockSignaturePersister(tableTag: String,
+                                        val height: Long)
+                                       (implicit db: Db,
+                                        chainId: GlobalChainIdMask)
+    extends BlockSignatures with Logging{
 
-  private class BlockSignaturePersister(height: Long)(implicit db: Db, chainId: GlobalChainIdMask) extends BlockSignatures {
-
-    private lazy val tableName = s"block_sigs_${chainId}_$height"
+    private lazy val tableName = s"block_sigs_${tableTag}_${chainId}_$height"
 
     private def createTableSql =
       s"""CREATE TABLE IF NOT EXISTS $tableName
@@ -113,6 +127,7 @@ object BlockSignatures {
     }
 
     override def add(signature: Signature, signersPublicKey: PublicKey, nodeId: String) = {
+
       apply(table.insert(Map(nodeId_str -> nodeId,
         created_dt_str -> DateTime.now.getMillis,
         signature_str -> signature,

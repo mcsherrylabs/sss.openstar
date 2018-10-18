@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.block.VoteLeader
-import sss.asado.eventbus.PureEvent
+import sss.asado.eventbus.{PureEvent, StringMessage}
 import sss.asado.message.EndMessageQuery
 
 
@@ -41,17 +41,17 @@ class MessageInfosSpec extends FlatSpec with Matchers  {
 
   "A messageInfo for a pure event " should " be found " in {
 
-    val info = MessageKeys.messages.find(MessageKeys.SimpleEndPageTx)
+    val info = MessageKeys.messages.find(MessageKeys.QueryCapabilities)
     val found = info.get
     val event = found.fromBytes(Array())
-    assert(event === PureEvent(MessageKeys.SimpleEndPageTx), "Serialized not same as deserialised")
+    assert(event === PureEvent(MessageKeys.QueryCapabilities), "Serialized not same as deserialised")
   }
 
   "A messageInfo for string event " should " be found " in {
 
     val info = MessageKeys.messages.find(MessageKeys.MalformedMessage)
     val deserialized = info.map(_.fromBytes("Hello from the otherside".getBytes(StandardCharsets.UTF_8))).get
-    assert("Hello from the otherside" === deserialized, "Serialized not same as deserialised")
+    assert(StringMessage("Hello from the otherside") === deserialized, "Serialized not same as deserialised")
   }
 
   "A case object event " should " be returned " in {

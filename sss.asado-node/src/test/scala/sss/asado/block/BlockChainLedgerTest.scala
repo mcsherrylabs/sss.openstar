@@ -9,7 +9,7 @@ import sss.asado.common.block.{BlockId, BlockTx}
 import sss.asado.ledger._
 import sss.db.Db
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 2/15/16.
@@ -17,10 +17,8 @@ import scala.util.{Failure, Try}
 
 object TestLedger extends Ledger {
 
-  override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
-
-  }
-  override def coinbase(nodeIdentity: NodeIdentity, blockId: BlockId, ledgerId: Byte): Option[LedgerItem] = ???
+  override def apply(ledgerItem: LedgerItem, blockId: BlockId): LedgerResult = Success(Seq.empty)
+  override def coinbase(nodeIdentity: NodeIdentity, height: Long, ledgerId: Byte): Option[LedgerItem] = ???
 }
 class BlockChainLedgerTest extends FlatSpec with Matchers {
 
@@ -67,7 +65,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val ledger = BlockChainLedger(2)
     val blkChnTx = ledger.journal(BlockTx(34, stx))
     ledger.commit(BlockId(2, 1))
-    intercept[Exception] {ledger(stx) }
+    assert(ledger(stx).isFailure)
   }
 
   it should "allow a tx to be committed (only once) " in {
@@ -75,7 +73,7 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val ledger = BlockChainLedger(2)
     val blkChnTx = ledger.journal(BlockTx(34, stx))
     ledger.commit
-    intercept[Exception] {ledger(stx) }
+    assert(ledger(stx).isFailure)
   }
 
 
@@ -85,10 +83,10 @@ class BlockChainLedgerTest extends FlatSpec with Matchers {
     val stx = resetUTXOBlockAndCreateTx(2)
 
     val nonExistentBlockOrNumTxs = 999
-    expectIllegalArgument( ledger.commit(BlockId(nonExistentBlockOrNumTxs, 5)))
+    expectIllegalArgument( ledger.commit(BlockId(nonExistentBlockOrNumTxs, 5)).get)
 
     val blkChnTx = ledger.journal(BlockTx(34, stx))
-    expectIllegalArgument( ledger.commit(BlockId(2, nonExistentBlockOrNumTxs)))
+    expectIllegalArgument( ledger.commit(BlockId(2, nonExistentBlockOrNumTxs)).get)
   }
 
 }

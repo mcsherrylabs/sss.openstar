@@ -1,142 +1,214 @@
 package sss.asado.chains
 
-import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, ActorSystem, Props, ReceiveTimeout, Terminated}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.joda.time.DateTime
 import sss.asado.common.block._
-import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.actor.{AsadoEventSubscribedActor, SystemPanic}
 import sss.asado.block._
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.chains.QuorumMonitor.Quorum
-import sss.asado.network.MessageEventBus.IncomingMessage
+import sss.asado.network.MessageEventBus._
 import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.{MessageKeys, Send}
-import sss.asado.account.NodeIdentity
+import sss.asado.account.{NodeIdentity, PublicKeyAccount}
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
+import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
+import sss.asado.chains.SouthboundTxDistributorActor.{QuorumCandidates, SouthboundClose, SouthboundRejectedTx, SouthboundTx}
+import sss.asado.ledger.{LedgerException, LedgerItem, Ledgers}
 import sss.db.Db
 
 import scala.collection.SortedSet
 import scala.language.postfixOps
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
+/*
 
+https://stackoverflow.com/questions/1691179/is-tcp-guaranteed-to-arrive-in-order
+
+ */
 object TxDistributeeActor {
 
-  case class CheckedProp(value:Props) extends AnyVal
+  case class CheckedProp(value:Props, name: String)
 
   def props(
-            bc: BlockChain with BlockChainSignatures,
+            bc: BlockChain with BlockChainSignaturesAccessor,
             nodeIdentity: NodeIdentity
            )
            (implicit db: Db,
             chainId: GlobalChainIdMask,
             send: Send,
-            messageEventBus: MessageEventBus
+            messageEventBus: MessageEventBus,
+            ledgers:Ledgers
            ): CheckedProp =
-    CheckedProp(Props(classOf[TxDistributeeActor], messageEventBus, send, bc, nodeIdentity, db, chainId))
+    CheckedProp(Props(classOf[TxDistributeeActor],
+      bc,
+      nodeIdentity,
+      db,
+      chainId,
+      send,
+      messageEventBus,
+      ledgers),
+      s"TxDistributeeActor_$chainId"
+    )
 
 
   def apply(p:CheckedProp)(implicit actorSystem: ActorSystem): Unit = {
-    actorSystem.actorOf(p.value)
+    actorSystem.actorOf(p.value.withDispatcher("blocking-dispatcher"), p.name)
   }
 }
 
 private class TxDistributeeActor(
-                                 messageEventBus: MessageEventBus,
-                                 send: Send,
-                                 bc: BlockChain with BlockChainSignatures,
+                                 bc: BlockChain with BlockChainSignaturesAccessor,
                                  nodeIdentity: NodeIdentity
-                    )(implicit db: Db, chainId: GlobalChainIdMask)
+                    )(implicit db: Db,
+                      chainId: GlobalChainIdMask,
+                      send: Send,
+                      messageEventBus: MessageEventBus,
+                      ledgers:Ledgers
+                                )
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
+    with SystemPanic
     with AsadoEventSubscribedActor {
 
-  messageEventBus.subscribe(MessageKeys.CloseBlock)
-  messageEventBus.subscribe(MessageKeys.BlockSig)
-  messageEventBus.subscribe(MessageKeys.Leader)
-  messageEventBus.subscribe(MessageKeys.Synchronized)
-  messageEventBus.subscribe(MessageKeys.ConfirmTx)
-  messageEventBus.subscribe(MessageKeys.CommittedTx)
+  messageEventBus.subscribe(classOf[IsSynced])
+  messageEventBus.subscribe(classOf[LocalLeader])
+  messageEventBus.subscribe(classOf[LeaderLost])
+
+  val distributeeNetMsgCodes = Seq(
+    MessageKeys.CloseBlock,
+    MessageKeys.BlockSig,
+    MessageKeys.ConfirmTx,
+    MessageKeys.CommittedTxId,
+    MessageKeys.QuorumRejectedTx
+  )
 
   log.info("TxDistributee actor has started...")
 
-  var txCache: SortedSet[BlockChainTx] = SortedSet[BlockChainTx]()
-
-  private case class WriteCursor(writeCandidates: SortedSet[BlockChainTx],
-                                 height: Long, index: Long)
-
-  private def writeWhileSequential(writeFrame: WriteCursor): WriteCursor = {
-
-    val writeCandidate = writeFrame.writeCandidates.head
-
-    if(writeCandidate.height  == writeFrame.height
-      && writeCandidate.blockTx.index == writeFrame.index) {
-      //journal to ledger, change the index.
-
-      bc.block(writeCandidate.height)
-        .journal(writeFrame.index,
-          writeCandidate.blockTx.ledgerItem
-        )
-
-      writeWhileSequential(
-        WriteCursor(txCache.tail, writeFrame.height, writeFrame.index + 1)
-      )
-
-    } else {
-      writeFrame
-    }
-  }
-
-  private def withCursor(frame:WriteCursor): Receive = {
-
-    case IncomingMessage(`chainId`, MessageKeys.BlockSig, leader, blkSig: BlockSignature) =>
-      //assert(leader == frame., "BlockSig did not come from leader")
-      BlockSignatures(blkSig.height).write(blkSig)
-
-    case IncomingMessage(`chainId`, MessageKeys.ConfirmTx, leader, bTx: BlockChainTx) =>
-      bc.block(bTx.height).write(bTx.blockTx.ledgerItem)
-      context become withCursor(frame.copy(writeCandidates = frame.writeCandidates + bTx))
-      send(MessageKeys.AckConfirmTx, bTx.toId, leader)
-
-    case IncomingMessage(`chainId`, MessageKeys.CommittedTx, leader,
-                      bTx: BlockChainTxId) =>
-      val newFrame = writeWhileSequential(frame)
-      context become withCursor(newFrame)
+  var txCache: Map[BlockId, LedgerItem] = Map()
 
 
-    case IncomingMessage(`chainId`, MessageKeys.CloseBlock, nodeId, DistributeClose(blockSigs, blockId)) =>
-
-      bc.closeBlock(bc.lastBlockHeader)
-
-      val blockSignatures = BlockSignatures(blockId.blockHeight)
-
-      blockSignatures.write(blockSigs)
-
-      if (blockSignatures
-        .indexOfBlockSignature(nodeIdentity.id)
-        .isEmpty) {
-        val blockHeader = bc.blockHeader(blockId.blockHeight)
-        val sig = nodeIdentity.sign(blockHeader.hash)
-        val newSig = BlockSignature(0,
-          new DateTime(),
-          blockHeader.height,
-          nodeIdentity.id,
-          nodeIdentity.publicKey,
-          sig)
-
-        send(MessageKeys.BlockNewSig,newSig, nodeId)
-      }
-      //val newSig = bc.addSignature(blkSig.height, blkSig.signature, blkSig.publicKey, blkSig.nodeId)
-
-  }
-
-  private def onSync: Receive = {
+  override def receive: Receive = {
 
     case Synchronized(`chainId`, height, index) =>
-      context become withCursor(WriteCursor(SortedSet[BlockChainTx](), height, index + 1))
+      distributeeNetMsgCodes.subscribe
+
+    case NotSynchronized(`chainId`) =>
+      distributeeNetMsgCodes.unsubscribe
+
+    case _ : LocalLeader =>
+      distributeeNetMsgCodes.unsubscribe
+
+    case _ : LeaderLost =>
+      distributeeNetMsgCodes.subscribe
+
+    case IncomingMessage(`chainId`, MessageKeys.BlockSig, leader, blkSig: BlockSignature) =>
+      bc.blockHeaderOpt(blkSig.height) match {
+        case None => log.error("Got a BlockSig for a non existent header .... {}", blkSig)
+        case Some(header) =>
+          val isOk = PublicKeyAccount(blkSig.publicKey).verify(blkSig.signature, header.hash)
+          log.info("In BlockSig, verify sig from {} is {}", blkSig.nodeId, isOk)
+          BlockSignatures.QuorumSigs(blkSig.height).write(blkSig)
+      }
+
+
+    case IncomingMessage(`chainId`, MessageKeys.ConfirmTx, leader, bTx: BlockChainTx) =>
+      val blockLedger = BlockChainLedger(bTx.height)
+      blockLedger.validate(bTx.blockTx.ledgerItem) match {
+        case Failure(e) =>
+          val id = e match {
+            case LedgerException(ledgerId, _) => ledgerId
+            case _ => 0.toByte
+          }
+          log.info(s"Failed to validate tx! ${bTx} ${e.getMessage}")
+          send(MessageKeys.NackConfirmTx, bTx.toId, leader)
+
+        case Success((bcTx@BlockChainTx(height, bTx@BlockTx(index, signedTx)), _)) =>
+          blockLedger.journal(bTx)
+          log.info("Journal tx h: {} i: {}", height, bTx.index)
+          txCache += BlockId(height, index) -> signedTx
+          send(MessageKeys.AckConfirmTx, bcTx.toId, leader)
+      }
+
+
+    case IncomingMessage(`chainId`, MessageKeys.QuorumRejectedTx, leader, bTx: BlockChainTxId) =>
+
+      BlockChainLedger(bTx.height).rejected(bTx) match {
+        case Failure(e) => systemPanic(e)
+
+        case Success(_) =>
+          log.info("Rejected tx h: {} i: {}", bTx.height, bTx.blockTxId.index)
+          messageEventBus publish SouthboundRejectedTx(bTx)
+      }
+
+      txCache -= BlockId(bTx.height, bTx.blockTxId.index)
+
+    case IncomingMessage(`chainId`, MessageKeys.CommittedTxId, leader,
+                      bTx: BlockChainTxId) =>
+      val bId = BlockId(bTx.height, bTx.blockTxId.index)
+      val retrieved = txCache(bId)
+      val blockTx = BlockTx(bId.txIndex, retrieved)
+
+      BlockChainLedger(bId.blockHeight).commit(blockTx) match {
+        case Failure(e) => systemPanic(e)
+
+        case Success(events) =>
+          log.info("Commit tx h: {} i: {}", bId.blockHeight, blockTx.index)
+          messageEventBus publish SouthboundTx(BlockChainTx(bTx.height, blockTx))
+          events foreach messageEventBus.publish
+      }
+
+      txCache -= bId
+
+
+    case c @ IncomingMessage(`chainId`, MessageKeys.CloseBlock, nodeId, dc@DistributeClose(blockSigs, blockId)) =>
+
+      bc.blockHeaderOpt(blockId.blockHeight) match {
+        case None =>
+          bc.closeBlock(blockId) match {
+
+            case Failure(e) => log.error("Couldn't close block {} {}", blockId, e)
+
+            case Success(header) =>
+              log.info("Close block h:{} numTxs: {}", header.height, header.numTxs)
+              val sigsOk = blockSigs.forall {
+                sig =>
+                  val isOk = PublicKeyAccount(sig.publicKey).verify(sig.signature, header.hash)
+                  log.info("Post close block, verify sig from {} is {}", sig.nodeId, isOk)
+                  isOk
+              }
+
+              require(sigsOk, "Cannot continue block sig from quorum doesn't match that of local header hash")
+
+              val blockSignatures = BlockSignatures.QuorumSigs(blockId.blockHeight)
+              blockSignatures.write(blockSigs)
+
+              if (blockSignatures
+                .indexOfBlockSignature(nodeIdentity.id)
+                .isEmpty) {
+                val blockHeader = bc.blockHeader(blockId.blockHeight)
+                val sig = nodeIdentity.sign(blockHeader.hash)
+
+                val newSig = BlockSignature(0,
+                  new DateTime(),
+                  blockHeader.height,
+                  nodeIdentity.id,
+                  nodeIdentity.publicKey,
+                  sig)
+
+                send(MessageKeys.BlockNewSig,newSig, nodeId)
+              }
+              messageEventBus.publish(SouthboundClose(dc))
+          }
+
+
+        case Some(header) =>
+          log.info("Already Closed!! block h:{} numTxs: {}", header.height, header.numTxs)
+
+      }
 
   }
-
-  override def receive: Receive = onSync
 }

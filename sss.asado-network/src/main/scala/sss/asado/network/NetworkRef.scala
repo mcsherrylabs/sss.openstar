@@ -19,7 +19,6 @@ import scala.concurrent.{Future, Promise}
   * @param stopFuture
   */
 class NetworkRef private[network] (networkController: ActorRef,
-                                   connectionsRef: AtomicReference[Set[Connection]],
                                    stopFuture: Promise[Unit]) extends NetSend with Logging {
 
 
@@ -67,7 +66,4 @@ class NetworkRef private[network] (networkController: ActorRef,
     stopFuture.future
   }
 
-  def connections(): Set[Connection] = {
-    connectionsRef.get()
-  }
 }

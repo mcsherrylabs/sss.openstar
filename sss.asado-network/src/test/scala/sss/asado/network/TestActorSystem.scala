@@ -3,6 +3,7 @@ package sss.asado.network
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.util.ByteString
 import sss.asado.eventbus.MessageInfo
+import sss.asado.network.TestActorSystem.SuperClass
 import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 
 
@@ -10,13 +11,13 @@ object TestActorSystem {
 
   implicit val actorSystem: ActorSystem = ActorSystem()
 
-  case class MyEvent(i: Int) extends AsadoEvent
+  case class MyEvent(i: Int) extends AsadoEvent with SuperClass
   case class MyOtherEvent(i: Int) extends AsadoEvent
 
   trait SuperClass
   case class TestMessage(
 
-                         data: ByteString) extends SuperClass
+                         data: ByteString)
 
 
   object TestMessageInfo extends MessageInfo {

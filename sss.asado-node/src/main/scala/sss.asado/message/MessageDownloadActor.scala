@@ -67,9 +67,9 @@ class MessageDownloadActor(who: String,
                                             CheckForMessages)
 
     case SerializedMessage(_, MessageKeys.MessageMsg, bytes) =>
-      decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
+      /*decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
         inBox.addNew(msg)
-      }
+      }*/
 
   }
 }

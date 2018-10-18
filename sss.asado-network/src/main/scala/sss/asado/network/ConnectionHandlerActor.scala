@@ -3,7 +3,7 @@ package sss.asado.network
 import java.net.InetSocketAddress
 
 import language.postfixOps
-import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, SupervisorStrategy}
+import akka.actor.{Actor, ActorLogging, ActorRef, Cancellable, SupervisorStrategy, Terminated}
 import akka.io.Tcp
 import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
@@ -60,6 +60,8 @@ class ConnectionHandlerActor(
   // there is not recovery for broken connections
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
+  override def unhandled(message: Any): Unit = log.warning("ConnectionHandler unhandled {}", message)
+
   private def processErrors: Receive = {
 
     case CommandFailed(w: Write) =>
@@ -70,13 +72,15 @@ class ConnectionHandlerActor(
       log.debug(s"Connection closed to : $remote ${Option(cc.getErrorCause)}")
       context.stop(self)
 
+    case Terminated(ref) =>
+      log.debug(s"Connection actorref terminated: $ref ($remote)")
+      context.stop(self)
+
     case CommandFailed(cmd: Tcp.Command) =>
       log.warning(s"Failed to execute command : $cmd ")
       connection ! ResumeReading
       connection ! ResumeWriting
 
-    case nonsense: Any =>
-      log.warning(s"Strange input for ConnectionHandler: $nonsense")
   }
 
   private def process(step: HandshakeStep): Unit = {
@@ -94,6 +98,7 @@ class ConnectionHandlerActor(
         context.parent ! ConnectionRef(nodeId, self)
 
       case RejectConnection =>
+        cancellable map (_.cancel())
         log.debug(s"Programmer enforced connection close with: $remote")
         connection ! Close // this will cause this actor to stop via ConnectionClosed.
     }
@@ -108,7 +113,7 @@ class ConnectionHandlerActor(
       eventBus.publish(ConnectionHandshakeTimeout(remote))
   }
 
-  override def receive: Receive = closeOnTimeout orElse {
+  override def receive: Receive = closeOnTimeout orElse processErrors orElse {
     case Begin(initialConnectionHandler, totalAllowedHandshakeTimeMs: Int) =>
       cancellable = Option(
         context.system.scheduler.scheduleOnce(
@@ -122,7 +127,7 @@ class ConnectionHandlerActor(
     case r: Received => self ! r
   }
 
-  private def handshake(w: WaitForBytes): Receive = closeOnTimeout orElse {
+  private def handshake(w: WaitForBytes): Receive = closeOnTimeout orElse processErrors orElse {
 
     case Received(data) =>
       process(w.handleBytes(data))

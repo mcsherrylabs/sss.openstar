@@ -2,24 +2,24 @@ package sss.asado.console
 
 import java.net.InetSocketAddress
 
-import sss.asado.MessageKeys
-import sss.asado.account.{NodeIdentity, PublicKeyAccount}
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.Block
-import sss.asado.block.signature.BlockSignatures
-import sss.asado.chains.TxWriterActor.InternalLedgerItem
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.eventbus.EventPublish
-import sss.asado.identityledger.IdentityService
+import sss.asado.identityledger.{Claim, IdentityService}
 import sss.asado.network.{NetworkRef, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
-
 import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.asado.wallet.WalletPersistence
+import sss.asado.wallet.{WalletPersistence}
 import sss.db._
+import sss.asado.util.FutureOps._
 import sss.asado.ledger._
-import sss.asado.quorumledger.{AddNodeId, QuorumService, QuorumServiceQuery}
+import sss.asado.quorumledger.{AddNodeId, RemoveNodeId}
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
+
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
@@ -29,10 +29,11 @@ class ConsoleServlet(
                       ncRef: NetworkRef,
                       publisher: EventPublish,
                       nodeIdentity: NodeIdentity,
-                      quorumQuery: QuorumServiceQuery,
+                      quorumQuery: () => Set[UniqueNodeIdentifier],
                       identityService: IdentityService,
-                      /*wallet: Wallet,*/
-                      implicit val db: Db)
+                      sendTx: SendTx
+                      )
+                    (implicit val db: Db)
     extends BaseConsoleServlet {
 
   lazy val utxosTable = db.table("utxo")
@@ -41,7 +42,7 @@ class ConsoleServlet(
   val cmds: Map[String, Cmd] = Map(
     "peers" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] =
-        ncRef.connections().map(_.nodeId.toString).toSeq
+        Seq("Not implememvted")
     },
     /*"signatures" -> new Cmd {
       override def help: String = s"signatures <blockheight> <num_sigs>"
@@ -98,12 +99,13 @@ class ConsoleServlet(
     "claim" -> new Cmd {
       override def help: String = s"Claim an identity with public key "
       override def apply(params: Seq[String]): Seq[String] = {
-        val p = nodeIdentity.publicKey.toBase64Str
-        p.toString
         val claim = params(0)
         val pKey = params(1).toByteArray
-        identityService.claim(claim, pKey)
-        Seq(s"Seems ok ... $claim")
+        val tx = Claim(claim, pKey)
+        //val sig = nodeIdentity.sign(tx.txId)
+        val ste = SignedTxEntry(tx.toBytes, Seq())
+        val le = LedgerItem(MessageKeys.IdentityLedger, tx.txId, ste.toBytes)
+        Seq(sendTx(le).await().toString)
       }
     },
     "connectpeer" -> new Cmd {
@@ -134,6 +136,18 @@ class ConsoleServlet(
         else result
       }
     },
+    "removequorum" -> new Cmd {
+      override def apply(params: Seq[String]): Seq[String] = {
+        val chainId = params.tail.head.toByte
+        val tx = RemoveNodeId(params.head)
+        val sig = nodeIdentity.sign(tx.txId)
+        val sigs = Seq(nodeIdentity.idBytes, nodeIdentity.tagBytes, sig)
+        val ste = SignedTxEntry(tx.toBytes, Seq(sigs))
+        val le = LedgerItem(MessageKeys.QuorumLedger, tx.txId, ste.toBytes)
+        Seq(sendTx(le).await().toString)
+        //Seq("LedgerItem Message published")
+      }
+    },
     "addquorum" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] = {
         val chainId = params.tail.head.toByte
@@ -142,13 +156,13 @@ class ConsoleServlet(
         val sigs = Seq(nodeIdentity.idBytes, nodeIdentity.tagBytes, sig)
         val ste = SignedTxEntry(tx.toBytes, Seq(sigs))
         val le = LedgerItem(MessageKeys.QuorumLedger, tx.txId, ste.toBytes)
-        publisher.publish(InternalLedgerItem(chainId, le, None))
-        Seq("LedgerItem Message published")
+        Seq(sendTx(le).await().toString)
+        //Seq("LedgerItem Message published")
       }
     },
     "showquorum" -> new Cmd {
     override def apply(params: Seq[String]): Seq[String] = {
-      quorumQuery.candidates().toSeq
+      quorumQuery().toSeq
     }
   }
   )

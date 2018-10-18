@@ -38,61 +38,33 @@ class BlockTestSpec extends FlatSpec with Matchers {
   }
 
   it should "allow an uncommitted tx to be written " in {
-      val index = 0
+      val index = 1
       val block = block999
       assert(block999.entries.size === 0)
-      assert(block999.page(0,100) == Seq())
+      assert(block999.page(1,100) == Seq())
       val writtenIndex = block999.journal(index, dumbSignedTx)
+      block999.commit(index)
       assert(writtenIndex === index)
       assert(block999.entries.size === 1)
-      assert(block999.page(0,100).size == 1)
-      assert(block999.page(0,100).head === dumbSignedTx.toBytes, "Signed tx comparison failed?")
+      assert(block999.page(1,100).size == 1)
+      assert(block999.page(1,100).head.swap.getOrElse(Array()) === dumbSignedTx.toBytes, "Signed tx comparison failed?")
       assert(block999.entries === Seq(BlockTx(index, dumbSignedTx)))
       assert(block999.entries === Seq(BlockTx(index, dumbSignedTx)))
-      assert(block999.getUnCommitted === Seq(BlockTx(index, dumbSignedTx)))
-      assert(block999.getUnconfirmed(1) === Seq((0, BlockTx(index, dumbSignedTx))))
-      assert(block999.maxMonotonicCommittedIndex === -1)
+      assert(block999.getUnCommitted === Seq())
+
   }
 
   it should "allow an uncommitted tx to be committed" in {
 
-    block999.commit(0)
-    assert(block999.maxMonotonicCommittedIndex === 0)
+    block999.commit(1)
     assert(block999.getUnCommitted.size === 0)
-    assert(block999.getUnconfirmed(1) === Seq((0, BlockTx(0, dumbSignedTx))))
-  }
-
-  it should "allow an unconfirmed tx to be confirmed" in {
-
-    block999.confirm(BlockTxId(dumbSignedTx.txId, 0))
-    assert(block999.getUnCommitted.size === 0)
-    assert(block999.getUnconfirmed(1).size === 0)
-    assert(block999.getUnconfirmed(2) === Seq((1, BlockTx(0, dumbSignedTx))))
-
-    block999.confirm(BlockTxId(dumbSignedTx.txId, 0))
-    assert(block999.getUnCommitted.size === 0)
-
-    assert(block999.getUnconfirmed(2).size === 0)
 
   }
 
-
-  it should "allow a tx written, retrieved and confirmed " in {
+  it should "allow a tx written, and retrieved " in {
     val index = block999.write( dumbSignedTx2 )
     assert(block999(dumbSignedTx2.txId) ===  BlockTx(index, dumbSignedTx2))
     assert(block999.getUnCommitted.size === 0)
-    assert(block999.getUnconfirmed(1).size === 1)
-
-    block999.confirm(BlockTxId(dumbSignedTx2.txId, index))
-    assert(block999.getUnconfirmed(1).size === 0)
-    assert(block999.maxMonotonicCommittedIndex === 1)
-
-  }
-
-  "Max monotonic index " should " ignore a gap in indexes" in {
-
-    val writtenIndex = block999.journal(9999, dumbSignedTx3)
-    assert(block999.maxMonotonicCommittedIndex === 1)
 
   }
 
@@ -116,31 +88,16 @@ class BlockTestSpec extends FlatSpec with Matchers {
 
 
   it should "prevent the same tx being written a second time  " in {
-    intercept[SQLException] {
-      block999.write(dumbSignedTx)
-    }
+
+    val index = block999.write(dumbSignedTx3)
 
     // After running this test, the next db index is 24!!!
     // WARNING!!!!
     intercept[SQLException] {
-      block999.journal(23, dumbSignedTx)
+      block999.journal(index, dumbSignedTx3)
     }
   }
 
+  //TODO test validate and reject.
 
-  "FindSmallest " should "find the smallest missing  " in {
-
-    var seq = Seq[Long]()
-    assert(Block.findSmallestMissing(seq) == -1)
-    seq = Seq[Long](0)
-    assert(Block.findSmallestMissing(seq) == 0)
-    seq = Seq[Long](1,2)
-    assert(Block.findSmallestMissing(seq) == -1)
-    seq = Seq[Long](0,1,2)
-    assert(Block.findSmallestMissing(seq) == 2)
-    seq = Seq[Long](0, 1,2, 4, 5, 6)
-    assert(Block.findSmallestMissing(seq) == 2)
-    seq = Seq[Long](0, 1,2, 3, 4, 6)
-    assert(Block.findSmallestMissing(seq) == 4)
-  }
 }

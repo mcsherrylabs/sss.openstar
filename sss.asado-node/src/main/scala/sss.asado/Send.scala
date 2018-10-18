@@ -15,8 +15,8 @@ object Send {
 
 
   trait ToSerializedMessage {
-    def apply[T <% ToBytes](msgCode: Byte, t: T)
-                             (implicit chainId: GlobalChainIdMask): SerializedMessage
+    def apply[T](msgCode: Byte, t: T)
+                             (implicit chainId: GlobalChainIdMask, view: T => ToBytes): SerializedMessage
 
     def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage
   }
@@ -29,8 +29,8 @@ object Send {
     } ensuring (messages.find(msgCode).get.clazz == classOf[PureEvent],
       s"No bytes were provided but code $msgCode does not map to a PureEvent class")
 
-    def apply[T <% ToBytes](msgCode: Byte, t: T)
-                             (implicit chainId: GlobalChainIdMask): SerializedMessage = {
+    def apply[T](msgCode: Byte, t: T)
+                             (implicit chainId: GlobalChainIdMask, view: T => ToBytes): SerializedMessage = {
       SerializedMessage(msgCode, t)
     } ensuring(messages.find(msgCode).get.clazz.isAssignableFrom(t.getClass),
       s"The class to encode doesn't match the msgCode type ${t.getClass} $msgCode ")
@@ -41,28 +41,6 @@ object Send {
 
 class Send private (ns: NetSend, makeSerializedMessage: ToSerializedMessage = Send.ToSerializedMessageImpl) {
 
-
-  /*def apply(chainId: GlobalChainIdMask, msgCode: Byte, nId: UniqueNodeIdentifier)
-           : Unit = {
-    apply(msgCode, Set(nId))(chainId)
-  }
-
-  def apply(chainId: GlobalChainIdMask, msgCode: Byte, nIds: Set[UniqueNodeIdentifier])
-           : Unit = {
-
-    ns(makeSerializedMessage(msgCode), nIds)
-  }
-
-  def apply[T <% ToBytes](chainId: GlobalChainIdMask, msgCode: Byte, a: T, nId: UniqueNodeIdentifier)
-                         = {
-    apply(msgCode, a, Set(nId))
-  }
-
-  def apply[T <% ToBytes](chainId: GlobalChainIdMask, msgCode: Byte, a: T, nIds: Set[UniqueNodeIdentifier])
-                         : Unit = {
-
-    ns(makeSerializedMessage[T](msgCode, a), nIds)
-  }*/
 
   def apply(msgCode: Byte, nId: UniqueNodeIdentifier)
            (implicit chainId: GlobalChainIdMask): Unit = {
@@ -75,13 +53,13 @@ class Send private (ns: NetSend, makeSerializedMessage: ToSerializedMessage = Se
     ns(makeSerializedMessage(msgCode), nIds)
   }
 
-  def apply[T <% ToBytes](msgCode: Byte, a: T, nId: UniqueNodeIdentifier)
-                         (implicit chainId: GlobalChainIdMask): Unit = {
+  def apply[T](msgCode: Byte, a: T, nId: UniqueNodeIdentifier)
+                         (implicit chainId: GlobalChainIdMask, view: T => ToBytes): Unit = {
     apply(msgCode, a, Set(nId))
   }
 
-  def apply[T <% ToBytes](msgCode: Byte, a: T, nIds: Set[UniqueNodeIdentifier])
-                         (implicit chainId: GlobalChainIdMask): Unit = {
+  def apply[T](msgCode: Byte, a: T, nIds: Set[UniqueNodeIdentifier])
+                         (implicit chainId: GlobalChainIdMask, view: T => ToBytes): Unit = {
 
     ns(makeSerializedMessage[T](msgCode, a), nIds)
   }

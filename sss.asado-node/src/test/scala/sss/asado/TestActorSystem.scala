@@ -30,7 +30,7 @@ object TestUtils {
     val b = bc.block(bHeader.height + 1)
 
     bc.closeBlock(bHeader)
-    bc.sign(nodeIdentity, bHeader)
+    //bc.sign(nodeIdentity, bHeader)
 
   }
 

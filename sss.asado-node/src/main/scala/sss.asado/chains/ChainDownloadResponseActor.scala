@@ -3,10 +3,10 @@ package sss.asado.chains
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.MessageKeys._
-import sss.asado.block.{BlockChain, BlockChainSignatures, DistributeClose, GetTxPage, Synchronized}
+import sss.asado.block.{BlockChain, BlockChainSignatures, BlockChainSignaturesAccessor, DistributeClose, GetTxPage, IsSynced, NotSynchronized, Synchronized}
 import sss.asado.block.signature.BlockSignatures
-import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.chains.SouthboundTxDistributorActor.SynchronizedConnection
 import sss.asado.common.block._
 import sss.asado.ledger._
 import sss.asado.network.MessageEventBus.IncomingMessage
@@ -26,7 +26,7 @@ object ChainDownloadResponseActor {
 
   def apply(
             maxSignatures: Int,
-            bc: BlockChain with BlockChainSignatures)
+            bc: BlockChain with BlockChainSignaturesAccessor)
            (implicit actorSystem: ActorSystem,
             db:Db,
             chainId: GlobalChainIdMask,
@@ -43,78 +43,86 @@ object ChainDownloadResponseActor {
         chainId,
         send,
         messageEventBus)
-    )
+        .withDispatcher("blocking-dispatcher")
+    , s"ChainDownloadResponseActor_$chainId")
   }
 }
 
 private class ChainDownloadResponseActor(
                                          maxSignatures: Int,
-                                         bc: BlockChain with BlockChainSignatures)
+                                         bc: BlockChain with BlockChainSignaturesAccessor)
                                         (implicit db: Db,
                                          chainId: GlobalChainIdMask,
                                          send: Send,
                                          messageEventBus: MessageEventBus) extends Actor with ActorLogging {
 
-  messageEventBus.subscribe(classOf[Synchronized])
+  messageEventBus.subscribe(classOf[IsSynced])
   messageEventBus.subscribe(MessageKeys.GetPageTx)
-  messageEventBus.subscribe(MessageKeys.BlockNewSig)
 
-  private case class GetTxPageWithRef(ref: ActorRef, servicePaused: Boolean, getTxPage: GetTxPage)
+
   private case class EndOfBlock(nodeId: UniqueNodeIdentifier, blockId: BlockId)
   private var canIssueSyncs = false
 
-  log.info("ChainTxPageServerActor actor has started...")
+  log.info("ChainDownloadResponse actor has started...")
 
   override def receive: Receive = {
     case Synchronized(`chainId`, _, _) =>
       canIssueSyncs = true
 
+
+    case NotSynchronized(`chainId`) =>
+      canIssueSyncs = false
+
     case EndOfBlock(someNodeId, blockId) =>
 
       val closeBytes = DistributeClose(
-        BlockSignatures(blockId.blockHeight)
+        BlockSignatures.QuorumSigs(blockId.blockHeight)
           .signatures(maxSignatures), blockId)
 
-
-      send(CloseBlock, closeBytes, someNodeId)
+      send(PagedCloseBlock, closeBytes, someNodeId)
 
     case IncomingMessage(`chainId`, GetPageTx, someClientNode, getTxPage @ GetTxPage(blockHeight, index, pageSize)) =>
 
       log.info(s"${someClientNode} asking me for $getTxPage")
 
       lazy val nextPage = bc.block(blockHeight).page(index, pageSize)
-      lazy val lastBlockHeader = bc.lastBlockHeader
+      val lastBlockHeader = bc.lastBlockHeader
 
-      val maxHeight = lastBlockHeader.height + 1
+      val localCurrentBlockHeight = lastBlockHeader.height + 1
 
-      if (maxHeight >= blockHeight) {
+      if (localCurrentBlockHeight >= blockHeight) {
 
         val pageIncremented = GetTxPage(blockHeight, index + nextPage.size, pageSize)
 
         for (i <- nextPage.indices) {
-          val stxBytes: Array[Byte] = nextPage(i)
-          val bctx = BlockChainTx(blockHeight, BlockTx(index + i, stxBytes.toLedgerItem))
-          send(MessageKeys.PagedTx, bctx, someClientNode)
+          nextPage(i) match {
+            case Left(bytes) =>
+              val le = bytes.toLedgerItem
+              val bctx = BlockChainTx(blockHeight, BlockTx(index + i, le))
+              send(MessageKeys.PagedTx, bctx, someClientNode)
+            case Right(txId) =>
+              send(MessageKeys.RejectedPagedTx, BlockChainTxId(blockHeight, BlockTxId(txId, index + 1)), someClientNode)
+          }
         }
 
         if (nextPage.size == pageSize) {
           send(MessageKeys.EndPageTx, pageIncremented, someClientNode)
-        } else if (maxHeight == blockHeight) {
+        } else if (localCurrentBlockHeight == blockHeight) {
           if(canIssueSyncs) {
             send(MessageKeys.Synced, pageIncremented, someClientNode)
+            messageEventBus.publish(SynchronizedConnection(chainId, someClientNode))
           } else {
             send(MessageKeys.NotSynced, pageIncremented, someClientNode)
           }
         } else {
-          self ! EndOfBlock(someClientNode, BlockId(blockHeight, index + nextPage.size))
+          self ! EndOfBlock(someClientNode, BlockId(blockHeight, index + nextPage.size - 1))
         }
 
-      } else log.warning(s"${someClientNode} asking for block height of $getTxPage, current block height is $maxHeight")
+      } else {
+        log.info(s"${someClientNode} asking for block height of $getTxPage, but current block height is $localCurrentBlockHeight")
+        send(MessageKeys.NotSynced, getTxPage, someClientNode)
+      }
 
-
-    case IncomingMessage(`chainId`, BlockNewSig, someClient, BlockSignature(_, _, height, nodeId, publicKey, signature)) =>
-      val newSig = bc.addSignature(height, signature, publicKey, nodeId)
-      // TODO figure this out -> context.parent ! DistributeSig(newSig)
 
   }
 }

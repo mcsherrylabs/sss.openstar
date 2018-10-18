@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import sss.ancillary.Logging
 import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block.BlockId
 import sss.asado.eventbus.EventPublish
 import sss.asado.identityledger.TaggedPublicKeyAccount
 import sss.asado.ledger._
@@ -28,7 +29,7 @@ class QuorumLedger(chainId: GlobalChainIdMask,
     s"Mismatched chain Id is quorum service (${quorumService.uniqueChainId}) and ledger {$chainId}")
 
 
-  override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
+  override def apply(ledgerItem: LedgerItem, blockId: BlockId): LedgerResult = Try {
 
     require(ledgerItem.ledgerId == ledgerId, s"The ledger id for this (Quorum) ledger is $ledgerId but " +
       s"the ledgerItem passed has an id of ${ledgerItem.ledgerId}")
@@ -43,7 +44,7 @@ class QuorumLedger(chainId: GlobalChainIdMask,
         val verified = verifyMembersSignatures(currentSet.toSeq, msg.txId, seqDeserialized)
         require(verified, s"To add an id to the quorum all current members must correctly sign the tx")
         val m = quorumService.add(nodeId)
-        eventPublish.publish(NewQuorumCandidates(chainId, m))
+        Seq(NewQuorumCandidates(chainId, m))
 
       case msg @ RemoveNodeId(nodeId) =>
         val currentMembers = quorumService.candidates()
@@ -58,7 +59,7 @@ class QuorumLedger(chainId: GlobalChainIdMask,
         val verified = verifyMembersSignatures(currentSetMinusNodeToBeRemoved.toSeq, msg.txId, seqDeserialized)
         require(verified, s"To remove an id from the quorum all (other) current members must correctly sign the tx")
         val m = quorumService.remove(nodeId)
-        eventPublish.publish(NewQuorumCandidates(chainId, m))
+        Seq(NewQuorumCandidates(chainId, m))
 
     }
   }

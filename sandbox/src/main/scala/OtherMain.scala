@@ -26,7 +26,20 @@ object OtherMain {
 
   def main(args: Array[String]): Unit = {
     doit(Derivde("asdas"))
-    //doit(Derivde("sdfdf"))
+      val maxWaitInterval: Long = 30 * 1000
+
+      lazy val stream: Stream[Long] = {
+        (10l) #:: (20l) #:: stream.zip(stream.tail).map { n =>
+          val fib = n._1 + n._2
+          if (fib > maxWaitInterval) maxWaitInterval
+          else fib
+        }
+      }
+
+    println(stream(0))
+    println(stream(1))
+    println(stream(2))
+
 
   }
 }

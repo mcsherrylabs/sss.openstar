@@ -4,11 +4,11 @@ import akka.actor.{Actor, ActorContext, ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.{Status, UniqueNodeIdentifier}
-import sss.asado.block.Synchronized
-import sss.asado.chains.ChainSynchronizer.NotSynchronized
+import sss.asado.block.{NotSynchronized, Synchronized}
+import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
+import sss.asado.common.block.BlockId
+import sss.asado.network.ConnectionLost
 
-
-import scala.concurrent.duration._
 import sss.asado.nodebuilder.{DecoderBuilder, MessageEventBusBuilder, RequireActorSystem}
 import sss.asado.peers.PeerManager.{Capabilities, PeerConnection}
 
@@ -25,17 +25,12 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
     with RequireActorSystem {
     lazy implicit override val actorSystem: ActorSystem = sss.asado.TestUtils.actorSystem
 
-    def startSyncer(context: ActorContext, peerConnection: PeerConnection): Unit = {
+    def startSyncer(context: ActorContext): ActorRef = {
 
       class TestSyncer extends Actor {
 
-        if(peerConnection.nodeId == "synced") {
-          context.parent ! Synchronized(chainId, 0,0)
-        } else {
-          context.parent ! NotSynchronized(chainId, peerConnection.nodeId)
-        }
+        context.parent ! Synchronized(chainId, 0,0)
 
-        context stop self
         override def receive: Receive = {
           case x =>
         }
@@ -44,7 +39,14 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
       context.actorOf(Props(new TestSyncer))
     }
 
-    def synchronization(candidates: Set[UniqueNodeIdentifier]) = ChainSynchronizer(candidates, myNodeId, startSyncer)
+    def synchronization(candidates: Set[UniqueNodeIdentifier], name: String) = ChainSynchronizer(
+      candidates,
+      myNodeId,
+      startSyncer,
+      () => BlockId(0,0),
+      () => BlockId(0,0),
+      name
+    )
   }
 
   private val probe1 = TestProbe()
@@ -56,38 +58,35 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
   TestSystem.messageEventBus.subscribe(classOf[NotSynchronized])(observer1)
   TestSystem.messageEventBus.subscribe(classOf[Status])(observer1)
 
-  val syncWhenNoQuorumNeeded = TestSystem.synchronization(Set())
-  val syncWhenNoQuorumNeededWeAreOwner = TestSystem.synchronization(Set(myNodeId))
-  val syncInTheNormalCase = TestSystem.synchronization(Set(myNodeId, otherNodeId))
+
+  val syncWhenNoQuorumNeededWeAreOwner = TestSystem.synchronization(Set(myNodeId), "ChainsyncTest1")
+  //val syncInTheNormalCase = TestSystem.synchronization(Set(myNodeId, otherNodeId), "ChainsyncTest2")
 
   "Synchronization" should "be synchronised when quorum is empty" in {
-    syncWhenNoQuorumNeeded.queryStatus
-    probe1.expectMsg(Status(Some(Synchronized(chainId, 0, 0))))
+    syncWhenNoQuorumNeededWeAreOwner.startSync
+    probe1.expectMsg(Synchronized(chainId, 0, 0))
+    syncWhenNoQuorumNeededWeAreOwner.shutdown
   }
 
-  it should "be synchronised when quorum is only this node" in {
-    syncWhenNoQuorumNeededWeAreOwner.queryStatus
-    probe1.expectMsg(Status(Some(Synchronized(chainId, 0, 0))))
-  }
-
-  it should "be not synchronised when quorum contains other unconnected nodes" in {
-    syncInTheNormalCase.queryStatus
-    probe1.expectMsg(Status(None))
-  }
-
-  it should "be not synchronised after connecting to not synchronised peer and downloading partial chain" in {
-
-    TestSystem.messageEventBus.publish(PeerConnection("notsynced", Capabilities(chainId)))
-    syncInTheNormalCase.queryStatus
-    probe1.expectMsg(Status(None))
-  }
-
-  it should "be synchronised after connecting to a second peer should the first fail" in {
-
-    TestSystem.messageEventBus.publish(PeerConnection("failing", Capabilities(chainId)))
-    TestSystem.messageEventBus.publish(PeerConnection("synced", Capabilities(chainId)))
+  /*it should "be synchronized from a peer " in {
+    syncInTheNormalCase.startSync
+    TestSystem.messageEventBus.publish(PeerConnection("someNode", Capabilities(chainId)))
     probe1.expectMsg(Synchronized(chainId, 0, 0))
   }
 
+  it should "be not synchronized when we lose connection" in {
+    TestSystem.messageEventBus.publish(ConnectionLost("someNode"))
+    probe1.expectMsg(NotSynchronized(chainId))
+  }
+
+  it should "be synchronized after becoming local leader" in {
+    TestSystem.messageEventBus.publish(LocalLeader(chainId, "leader", 10, 10, Seq()))
+    probe1.expectMsg(Synchronized(chainId, 10, 10))
+  }
+
+  it should "be not synchronized losing local leader ship" in {
+    TestSystem.messageEventBus.publish(LeaderLost(chainId, "leader"))
+    probe1.expectMsg(NotSynchronized(chainId))
+  }*/
 
 }

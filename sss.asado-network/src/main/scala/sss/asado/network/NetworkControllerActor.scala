@@ -41,7 +41,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   import context.system
   import context.dispatcher
 
-  private val connectionsRef: AtomicReference[Set[Connection]]= new AtomicReference[Set[Connection]](Set())
+  //private val connectionsRef: AtomicReference[Set[Connection]]= new AtomicReference[Set[Connection]](Set())
 
   private val stopPromise: Promise[Unit] = Promise()
   private var connections = Set[ConnectionRef]()
@@ -50,13 +50,13 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   private var blackList = Map[InetAddress, Long]()
   private var blackListByIdentity = Map[UniqueNodeIdentifier, Long]()
 
-  context.actorOf(
+  /*context.actorOf(
     Props(
       classOf[ConnectionTracker],
       connectionsRef,
       messageEventBus
     )
-  )
+  )*/
 
   IO(Tcp) ! Bind(self, netInf.localAddress)
 
@@ -66,7 +66,6 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       context.become(manageNetwork(sender()))
       startPromise.success(new NetworkRef(
         self,
-        connectionsRef,
         stopPromise
       ))
 
@@ -243,7 +242,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       Props(classOf[ConnectionHandlerActor],
             connection,
             remoteAddress,
-            messageEventBus))
+            messageEventBus).withDispatcher("blocking-dispatcher"))
   }
 
   override def postStop: Unit = {

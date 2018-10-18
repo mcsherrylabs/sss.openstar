@@ -82,8 +82,8 @@ class ValidateHandshake(remote: InetSocketAddress,
           BytesToSend(signedHandshakeBytes, nextStep)
         }
 
-      case Failure(t) =>
-        log.info(s"Error parsing a handshake: $t")
+      case Failure(e) =>
+        log.info(s"Error parsing a handshake: $e")
         RejectConnection
     }
   }

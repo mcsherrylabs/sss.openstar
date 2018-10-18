@@ -18,11 +18,6 @@ import sss.asado.util.Serialize.ToBytes
 import scala.reflect.ClassTag
 import scala.util._
 
-/**
-  * Created by alan on 3/18/16.
-  */
-
-
 object MessageKeys extends PublishedMessageKeys with Logging {
 
   val FindLeader: Byte = 30
@@ -37,15 +32,15 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val GetPageTx: Byte = 40
   val PagedTx: Byte = 41
   val EndPageTx: Byte = 42
-  val CloseBlock: Byte = 43
-  val Synced: Byte = 44
-  val BlockSig: Byte = 45
-  val BlockNewSig: Byte = 46
-  val SimpleGetPageTx: Byte = 47
-  val SimpleGetPageTxEnd: Byte = 48
-  val SimplePagedTx: Byte = 49
-  val SimpleEndPageTx: Byte = 50
-  val SimpleCloseBlock: Byte = 51
+  val PagedCloseBlock: Byte = 43
+  val CloseBlock: Byte = 44
+  val Synced: Byte = 45
+  val BlockSig: Byte = 46
+  val BlockNewSig: Byte = 47
+  val NonQuorumBlockNewSig: Byte = 48
+  val NonQuorumCloseBlock: Byte = 49
+  val RejectedPagedTx: Byte = 50
+
   val NotSynced: Byte = 52
 
   val MessageQuery: Byte = 60
@@ -63,22 +58,21 @@ object MessageKeys extends PublishedMessageKeys with Logging {
         MessageInfoComposite[AddressedMessage](MessageAddressed, classOf[AddressedMessage],_.toMessageAddressed) :+
         MessageInfoComposite[Message](MessageMsg, classOf[Message] , _.toMessage) :+
         MessageInfoComposite[MessageQuery](MessageQuery, classOf[MessageQuery] , _.toMessageQuery) :+
-        MessageInfoComposite[DistributeClose](SimpleCloseBlock, classOf[DistributeClose], _.toDistributeClose) :+
-        MessageInfoComposite[PureEvent](SimpleEndPageTx, classOf[PureEvent], PureEvent(SimpleEndPageTx, _)) :+
-        MessageInfoComposite[BlockChainTx](SimplePagedTx, classOf[BlockChainTx], _.toBlockChainTx ) :+
-        MessageInfoComposite[GetTxPage](SimpleGetPageTxEnd, classOf[GetTxPage] , _.toGetTxPage) :+
         MessageInfoComposite[GetTxPage](NotSynced, classOf[GetTxPage] , _.toGetTxPage) :+
-        MessageInfoComposite[GetTxPage](SimpleGetPageTx, classOf[GetTxPage] , _.toGetTxPage) :+
         MessageInfoComposite[BlockSignature](BlockNewSig, classOf[BlockSignature], _.toBlockSignature) :+
+        MessageInfoComposite[BlockSignature](NonQuorumBlockNewSig, classOf[BlockSignature], _.toBlockSignature) :+
         MessageInfoComposite[BlockSignature](BlockSig, classOf[BlockSignature], _.toBlockSignature) :+
         MessageInfoComposite[GetTxPage](Synced, classOf[GetTxPage], _.toGetTxPage) :+
+        MessageInfoComposite[DistributeClose](PagedCloseBlock, classOf[DistributeClose], _.toDistributeClose) :+
         MessageInfoComposite[DistributeClose](CloseBlock, classOf[DistributeClose], _.toDistributeClose) :+
+        MessageInfoComposite[DistributeClose](NonQuorumCloseBlock, classOf[DistributeClose], _.toDistributeClose) :+
         MessageInfoComposite[GetTxPage](EndPageTx, classOf[GetTxPage], _.toGetTxPage) :+
         MessageInfoComposite[GetTxPage](GetPageTx, classOf[GetTxPage], _.toGetTxPage) :+
+        MessageInfoComposite[BlockChainTxId](RejectedPagedTx, classOf[BlockChainTxId], _.toBlockChainTxId) :+
         MessageInfoComposite[BlockChainTx](PagedTx, classOf[BlockChainTx], _.toBlockChainTx) :+
         MessageInfoComposite[VoteLeader](VoteLeader, classOf[VoteLeader], _.toVoteLeader) :+
         MessageInfoComposite[FindLeader](FindLeader, classOf[FindLeader], _.toFindLeader) :+
-        MessageInfoComposite[PureEvent](Leader, classOf[PureEvent], PureEvent(Leader, _)) :+
+        MessageInfoComposite[Leader](Leader, classOf[Leader], _.toLeader) :+
         MessageInfoComposite[Capabilities](Capabilities, classOf[Capabilities], _.toCapabilities) :+
         MessageInfoComposite[Synchronized](Synchronized, classOf[Synchronized], _.toSynchronized) :+
         MessageInfoComposite[PureEvent](QueryCapabilities, classOf[PureEvent], PureEvent(QueryCapabilities,_))
@@ -87,21 +81,5 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   }
 
   val messages = localMessages ++ publishedMsgs
-
-
-  def decode[T](msgCode: Byte, f: => T)(t: T => Unit): Unit = {
-    Try {
-      f
-    } match {
-      case Failure(e) =>
-        log.error(s"Unable to decode a request of type $msgCode", e)
-      case Success(s) =>
-        Try(t(s)) match {
-          case Failure(e) =>
-            log.error(s"Problem handling message of type $msgCode", e)
-          case _ =>
-        }
-    }
-  }
 
 }
