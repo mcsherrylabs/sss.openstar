@@ -3,12 +3,13 @@ package sss.ui.nobu
 import akka.actor.Actor
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.block.Synchronized
 import sss.asado.common.block._
 import sss.asado.message.{Message, MessageInBox}
 import sss.asado.network.SerializedMessage
-import sss.asado.nodebuilder.MinimumNode
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
+import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.reactor.UIReactor
 
@@ -18,7 +19,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
 /**
   * Created by alan on 11/9/16.
   */
-class ClientEventActor(clientNode: MinimumNode)
+class ClientEventActor(clientNode: ClientNode)
     extends Actor
     with AsadoEventSubscribedActor {
 
@@ -32,6 +33,7 @@ class ClientEventActor(clientNode: MinimumNode)
   var watchingBounties: Map[String, BountyTracker] = Map()
   var watchingMsgSpends: Map[String, Bag] = Map()
 
+  messageEventBus.subscribe(classOf[Synchronized])
   messageEventBus.subscribe(MessageKeys.SignedTxAck)
   messageEventBus.subscribe(MessageKeys.AckConfirmTx)
   messageEventBus.subscribe(MessageKeys.TempNack)
@@ -40,7 +42,8 @@ class ClientEventActor(clientNode: MinimumNode)
   override def receive: Receive = connecting orElse business
 
   private def connecting: Receive = {
-    case RemoteLeaderEvent(conn) =>
+    case _ =>
+   /* case RemoteLeaderEvent(conn) =>
       context.become(connected(conn.nodeId) orElse business)
       self ! BroadcastConnected
 
@@ -51,11 +54,12 @@ class ClientEventActor(clientNode: MinimumNode)
     case ConnectHome =>
       connectHome
       self ! ConnectHomeDelay()
-
+*/
   }
 
   private def connected(connectedTo: String): Receive = {
-    case NotOrderedEvent =>
+    case _ =>
+   /* case NotOrderedEvent =>
       UIReactor.eventBroadcastActorRef ! LostConnection
       context.become(connecting orElse business)
       self ! ConnectHomeDelay()
@@ -66,10 +70,13 @@ class ClientEventActor(clientNode: MinimumNode)
         .scheduleOnce(FiniteDuration(30, SECONDS), self, BroadcastConnected)
 
     case ConnectHome => log.info("Already connected, ignore ConnectHome")
+    */
   }
 
   private def business: Receive = {
-    case StateMachineInitialised =>
+
+    case _ =>
+    /*case StateMachineInitialised =>
       net
       self ! ConnectHomeDelay(3)
 
@@ -88,7 +95,7 @@ class ClientEventActor(clientNode: MinimumNode)
 
     case b @ BountyTracker(sender, userWallet, txIndex, out, le) =>
       watchingBounties += txIndex.txId.toBase64Str -> b
-      clientNode.net.send(
+      clientNode.send(
         SerializedMessage(MessageKeys.SignedTx, le.toBytes),
         clientNode.homeDomain.nodeId.id)
 
@@ -140,6 +147,6 @@ class ClientEventActor(clientNode: MinimumNode)
       //push(Notification.show(s"Got NACK ${m.msg}"))
       watchingBounties -= m.txId.toBase64Str
       watchingMsgSpends -= m.txId.toBase64Str
-
+*/
   }
 }

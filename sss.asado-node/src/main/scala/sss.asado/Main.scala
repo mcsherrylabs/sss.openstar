@@ -27,96 +27,26 @@ import scala.util.Try
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved. 
   * mcsherrylabs on 3/9/16.
   */
-
-case class InitWithActorRefs(refs: ActorRef*)
-
-
 object Main {
 
   def main(withArgs: Array[String]): Unit = {
 
-    val aNewHope = new Logging
-      with ConfigBuilder
-      with RequireActorSystem
-      with DbBuilder
-      with RequireGlobalChainId
-      with NodeConfigBuilder
-      with RequirePhrase
-      with RequireSeedBytes
-      with NodeIdentityBuilder
-      with IdentityServiceBuilder
-      with BootstrapIdentitiesBuilder
-      with DecoderBuilder
-      with MessageEventBusBuilder
-      with BlockChainBuilder
-      with NetworkInterfaceBuilder
-      with HandshakeGeneratorBuilder
-      with NetworkControllerBuilder
-      with NetSendBuilder
-      with BalanceLedgerBuilder
-      with PeerManagerBuilder
-      with HttpServerBuilder
-      with SendTxBuilder
-      with UnsubscribedMessageHandlerBuilder
-      with WalletBuilder
-      with WalletPersistenceBuilder
-      with ShutdownHookBuilder
-      with PublicKeyTrackerBuilder
-      with ChainBuilder {
+    val aNewHope = new PartialNode {
 
       override val configName: String = withArgs(0)
 
       override val phrase: Option[String] =
         if (withArgs.length > 1) Option(withArgs(1)) else None
 
-
-      override def shutdown: Unit = {
-        actorSystem.terminate
-      }
-
-      Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
+      init // <- init delayed until phrase can be initialised.
 
       Try(QuorumService.create(globalChainId, "bob"))
 
       Try(pKTracker.track(nodeIdentity.publicKey))
 
-      val startSyncer: StartSyncer = ChainDownloadRequestActor.createStartSyncer(nodeIdentity,
-        send,
-          messageEventBus,
-          bc, db, chain.ledgers, chain.id)
-
-      import chain.ledgers
-
       startUnsubscribedHandler
 
-      val synchronization =
-        ChainSynchronizer(chain.quorumCandidates(),
-          nodeIdentity.id,
-          startSyncer,
-          () => bc.getLatestCommittedBlockId(),
-          () => bc.getLatestRecordedBlockId(),
-        )
-
       peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
-
-      LeaderElectionActor(nodeIdentity.id, bc)
-
-      ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
-
-      TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id,bc, nodeIdentity))
-
-      TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
-
-      QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
-
-      QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
-
-      TxForwarderActor(1000)
-
-      SouthboundTxDistributorActor(
-        SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(),bc,  net.disconnect)
-      )
-
 
       synchronization.startSync
 

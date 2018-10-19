@@ -92,7 +92,7 @@ object LeaderElectionActor {
     def createFindLeader: MakeFindLeader = () => createFindLeaderMsg(thisNodeId, bc)
 
 
-    apply(thisNodeId, createFindLeader, () => bc.getLatestCommittedBlockId)
+    apply(thisNodeId, createFindLeader, () => bc.getLatestCommittedBlockId())
   }
 }
 

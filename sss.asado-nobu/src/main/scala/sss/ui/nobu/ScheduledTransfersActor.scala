@@ -4,16 +4,15 @@ package sss.ui.nobu
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-
 import sss.asado.MessageKeys
-import sss.asado.account.{NodeIdentity}
+import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.TxOutput
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
-import sss.asado.ledger.{LedgerItem}
+import sss.asado.ledger.LedgerItem
 import sss.asado.message.{Identity, MessageEcryption, MessageInBox, SavedAddressedMessage}
-import sss.asado.nodebuilder.ClientNode
 import sss.asado.wallet.Wallet
-import sss.ui.nobu.NobuNodeBridge.{WalletUpdate}
+import sss.ui.nobu.Main.ClientNode
+import sss.ui.nobu.NobuNodeBridge.WalletUpdate
 import sss.ui.nobu.ScheduledTransfersActor.DetailedMessageToSend
 
 import scala.concurrent.duration.{FiniteDuration, HOURS, MINUTES}
@@ -31,7 +30,7 @@ object ScheduledTransfersActor {
                                    text: String, amount: Int)
 }
 
-class ScheduledTransfersActor(nobuNode: ClientNode,clientEventActor: ActorRef) extends Actor with ActorLogging {
+class ScheduledTransfersActor(nobuNode: ClientNode, clientEventActor: ActorRef) extends Actor with ActorLogging {
 
   import nobuNode.db
 

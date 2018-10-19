@@ -186,7 +186,6 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
               if (timeToWait <= 0) {
                 syncerRef ! tracker.peer
                 inProgress = true
-                log.info(s"Option(tracker.peer) $tracker")
                 synchronizingPeerOpt = Option(tracker.peer)
               } else {
                 startSyncTimer = Option(context

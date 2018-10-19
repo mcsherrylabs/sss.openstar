@@ -1,6 +1,7 @@
 package sss.ui.nobu
 
 import akka.actor.{ActorRef, Props}
+import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.server.FontAwesome
@@ -9,15 +10,17 @@ import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
+import sss.asado.chains.BlockChainSettings
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageInBox.MessagePage
 import sss.asado.message.{Message, MessageEcryption, MessageInBox, SavedAddressedMessage, _}
-import sss.asado.nodebuilder.ClientNode
+import sss.asado.state.HomeDomain
 import sss.asado.wallet.Wallet
 import sss.db.Db
 import sss.ui.design.NobuMainDesign
+import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 
@@ -39,18 +42,21 @@ case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessag
 class NobuMainLayout(uiReactor: UIReactor,
                      userDir: UserDirectory,
                      userWallet: Wallet,
-                     userId: NodeIdentity,
-                     nobuNode: ClientNode,
-                     clientEventActor: ActorRef) extends NobuMainDesign with View with Logging {
+                     userId: NodeIdentity
+                     ) (
+                    implicit db: Db,
+                    identityService: IdentityServiceQuery,
+                    conf: Config, homeDomain: HomeDomain,
+                    currentBlockHeight: () => Long
+) extends NobuMainDesign with View with Logging {
 
-  private implicit val db: Db = nobuNode.db
-  private implicit val identityQuery: IdentityServiceQuery = nobuNode.identityService
+
   private implicit val nodeIdentity = userId
   private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
-  private lazy val minNumBlocksInWhichToClaim = nobuNode.conf.getInt("messagebox.minNumBlocksInWhichToClaim")
-  private lazy val chargePerMessage = nobuNode.conf.getInt("messagebox.chargePerMessage")
-  private lazy val amountBuriedInMail = nobuNode.conf.getInt("messagebox.amountBuriedInMail")
+  private lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
+  private lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
+  private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
 
   schedulesButton.setIcon(FontAwesome.CALENDAR_CHECK_O)
 
@@ -120,7 +126,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
           } else if(b.isSuccess) {
             itemPanelVerticalLayout.addComponent(new IdentityClaimComponent(itemPanelVerticalLayout,
-              mainNobuRef, msg, nobuNode.homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
+              mainNobuRef, msg, homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
           }
 
           /*val newMsg = msgDecoders(msgPayload) match {
@@ -163,9 +169,9 @@ class NobuMainLayout(uiReactor: UIReactor,
       // Add 4 blocks to min to allow for the local ledger being some blocks behind the
       // up to date ledger.
       Seq(
-        TxOutput(chargePerMessage, SingleIdentityEnc(nobuNode.homeDomain.nodeId.id)),
+        TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
         TxOutput(amount, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
-          nobuNode.currentBlockHeight + minNumBlocksInWhichToClaim + 4))
+          currentBlockHeight() + minNumBlocksInWhichToClaim + 4))
       )
     }
 
@@ -268,7 +274,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
         val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
         val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-        clientEventActor ! BountyTracker(self, userWallet, TxIndex(signedTx.txId, 0),out, le)
+        // FIXME clientEventActor ! BountyTracker(self, userWallet, TxIndex(signedTx.txId, 0),out, le)
 
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))
@@ -304,7 +310,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
         // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
         log.info("MessageToSend finished, sending bag")
-        clientEventActor ! bag
+        //FIXME clientEventActor ! bag FIXME
 
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))

@@ -1,5 +1,6 @@
 package sss.asado.nodebuilder
 
+import sss.asado.account.NodeIdentity
 import sss.asado.wallet.{IntegratedWallet, PublicKeyTracker, Wallet, WalletPersistence}
 
 /**
@@ -33,13 +34,17 @@ trait WalletBuilder extends RequireWallet {
     RequireDb with
     PublicKeyTrackerBuilder =>
 
-  lazy val wallet = new Wallet(nodeIdentity,
-    balanceLedger,
-    identityService,
-    walletPersistence,
-    currentBlockHeight _,
-    pKTracker.isTracked
-  )
+  def buildWallet(nodeIdentity: NodeIdentity): Wallet =
+
+    new Wallet(nodeIdentity,
+      balanceLedger,
+      identityService,
+      walletPersistence,
+      currentBlockHeight _,
+      pKTracker.isTracked
+    )
+
+  lazy val wallet = buildWallet(nodeIdentity)
 
 }
 

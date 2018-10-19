@@ -9,9 +9,8 @@ import sss.ancillary.{DynConfig, _}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
-
 import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
-import sss.asado.chains.BlockChainSettings
+import sss.asado.chains._
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
 import sss.asado.eventbus.{MessageInfo, PureEvent}
@@ -25,6 +24,7 @@ import sss.asado.peers.PeerManager.{Capabilities, Query}
 import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
 import sss.asado._
+import sss.asado.chains.ChainSynchronizer.StartSyncer
 import sss.asado.tools.SendTxSupport
 import sss.asado.tools.SendTxSupport.SendTx
 import sss.db.Db
@@ -135,7 +135,7 @@ trait HomeDomainBuilder {
 
   self: NodeConfigBuilder =>
 
-  lazy val homeDomain: HomeDomain = {
+  implicit lazy val homeDomain: HomeDomain = {
     val conf =
       DynConfig[HomeDomainConfig](nodeConfig.conf.getConfig("homeDomain"))
     new HomeDomain {
@@ -222,6 +222,7 @@ trait ChainBuilder extends RequireChain {
 
 }
 
+
 trait RequireDecoder {
   val decoder: Byte => Option[MessageInfo]
 }
@@ -284,8 +285,8 @@ trait NodeIdentityBuilder extends RequireNodeIdentity {
 
   self: RequireConfig with RequirePhrase with RequireSeedBytes =>
 
-  lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
-  lazy val nodeIdentity: NodeIdentity = {
+  implicit lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
+  implicit lazy val nodeIdentity: NodeIdentity = {
     phrase match {
       case None         => nodeIdentityManager.unlockNodeIdentityFromConsole(conf)
       case Some(secret) => nodeIdentityManager(conf, secret)
@@ -314,7 +315,7 @@ trait BalanceLedgerBuilder {
 trait IdentityServiceBuilder {
   self: RequireDb =>
 
-  lazy val identityService: IdentityService = IdentityService()
+  implicit lazy val identityService: IdentityService = IdentityService()
 }
 
 
@@ -454,12 +455,37 @@ trait NetworkControllerBuilder {
   lazy val net = netController.waitStart()
 }
 
-trait MinimumNode
-    extends Logging
+trait ChainSynchronizerBuilder {
+
+  self: RequireActorSystem
     with RequireGlobalChainId
+    with RequireDb
+    with RequireNodeIdentity
+    with RequireChain
+    with RequireNetSend
+    with RequireBlockChain
+    with MessageEventBusBuilder =>
+
+  lazy val startSyncer: StartSyncer = ChainDownloadRequestActor.createStartSyncer(nodeIdentity,
+    send,
+    messageEventBus,
+    bc, db, chain.ledgers, chain.id)
+
+
+  lazy val synchronization =
+    ChainSynchronizer(chain.quorumCandidates(),
+      nodeIdentity.id,
+      startSyncer,
+      () => bc.getLatestCommittedBlockId(),
+      () => bc.getLatestRecordedBlockId(),
+    )
+}
+
+trait PartialNode extends Logging
     with ConfigBuilder
     with RequireActorSystem
     with DbBuilder
+    with RequireGlobalChainId
     with NodeConfigBuilder
     with RequirePhrase
     with RequireSeedBytes
@@ -472,14 +498,19 @@ trait MinimumNode
     with NetworkInterfaceBuilder
     with HandshakeGeneratorBuilder
     with NetworkControllerBuilder
+    with NetSendBuilder
     with BalanceLedgerBuilder
-    with ChainBuilder
-    with WalletPersistenceBuilder
-    with WalletBuilder
-    with PublicKeyTrackerBuilder
-    with IntegratedWalletBuilder
+    with PeerManagerBuilder
+    with HttpServerBuilder
     with SendTxBuilder
-    with HttpServerBuilder {
+    with UnsubscribedMessageHandlerBuilder
+    with WalletBuilder
+    with WalletPersistenceBuilder
+    with ShutdownHookBuilder
+    with PublicKeyTrackerBuilder
+    with ChainBuilder
+    with ChainSynchronizerBuilder {
+
 
   def shutdown: Unit = {
     httpServer.stop
@@ -487,6 +518,29 @@ trait MinimumNode
   }
 
   Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
+
+  lazy val init = {
+
+    LeaderElectionActor(nodeIdentity.id, bc)
+
+    ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
+
+    import chain.ledgers
+
+    TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id, bc, nodeIdentity))
+
+    TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
+
+    QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
+
+    QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
+
+    TxForwarderActor(1000)
+
+    SouthboundTxDistributorActor(
+      SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(), bc, net.disconnect)
+    )
+  }
 }
 
 
