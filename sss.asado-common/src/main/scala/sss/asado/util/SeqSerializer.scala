@@ -1,11 +1,15 @@
 package sss.asado.util
 
 import com.google.common.primitives.Ints
-import sss.asado.util.Serialize.Serializer
+import sss.asado.util.Serialize.{Serializer, ToBytes}
 
 import scala.annotation.tailrec
 
 object SeqSerializer extends Serializer[Iterable[Array[Byte]]] {
+
+  implicit class SeqToBytes[T <% ToBytes](val s: Seq[T]) extends ToBytes {
+    override def toBytes: Array[Byte] = SeqSerializer.toBytes(s map (_.toBytes))
+  }
 
   override def toBytes(seqAryBytes: Iterable[Array[Byte]]): Array[Byte] = {
     val num = seqAryBytes.size

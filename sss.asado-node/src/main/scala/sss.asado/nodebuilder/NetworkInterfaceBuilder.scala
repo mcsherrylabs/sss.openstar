@@ -11,7 +11,7 @@ trait NetworkInterfaceBuilder {
 
   self : NodeIdentityBuilder with
     IdentityServiceBuilder with
-    DbBuilder with
+    RequireDb with
     BootstrapIdentitiesBuilder with
     Logging with
     NodeConfigBuilder =>

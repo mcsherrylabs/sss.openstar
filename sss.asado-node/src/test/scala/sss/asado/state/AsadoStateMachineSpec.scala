@@ -6,7 +6,7 @@ package sss.asado.state
 import akka.actor.FSM.{CurrentState, SubscribeTransitionCallBack}
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
-import block.IsSynced
+import sss.asado.block.IsSynced
 import org.scalatest._
 import sss.asado.StopSystemAfterAll
 import sss.asado.network.NetworkControllerActor.{QuorumGained, QuorumLost}

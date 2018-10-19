@@ -1,22 +1,24 @@
 package sss.ui.nobu
 
 
-
-
 import akka.actor.{ActorRef, Props}
+import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.ui.Button.ClickEvent
-import com.vaadin.ui.{Button, Notification, UI}
+import com.vaadin.ui._
 import org.joda.time.LocalDateTime
 import sss.ancillary.Logging
-import sss.asado.account.NodeIdentity
+import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
+import sss.asado.identityledger.IdentityService
 import sss.asado.message.{Message, MessageInBox}
-import sss.asado.nodebuilder.ClientNode
-import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.state.HomeDomain
 import sss.asado.wallet.{Wallet, WalletPersistence}
 import sss.ui.design.CenteredAccordianDesign
 import sss.ui.reactor.{ComponentEvent, UIReactor}
+import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
+import sss.db.Db
+import sss.ui.nobu.Main.ClientNode
 
 import scala.util.{Failure, Success, Try}
 
@@ -25,16 +27,21 @@ import scala.util.{Failure, Success, Try}
   */
 
 private case class IdTagValue(str: String) {
-  //private val tuple = str.split(", ")
+
   val identity: String = str
   val tag: String = "defaultTag"
 }
 
-class UnlockClaimView(
-                      uiReactor: UIReactor,
-                      userDir: UserDirectory,
-                      clientNode: ClientNode,
-                      clientEventActor: ActorRef
+class UnlockClaimView(userDir: UserDirectory,
+                      buildWallet: NodeIdentity => Wallet
+                     )(
+                      implicit uiReactor: UIReactor,
+                      nodeIdentityManager: NodeIdentityManager,
+                      identityService: IdentityService,
+                      homeDomain: HomeDomain,
+                      db:Db,
+                      conf:Config,
+                      currentBlockHeight: () => Long
                       ) extends CenteredAccordianDesign with View with Logging {
 
   private val claimBtnVal = claimBtn
@@ -50,7 +57,6 @@ class UnlockClaimView(
   unlockInfoTextArea.setRows(8)
   claimInfoTextArea.setRows(8)
 
-  import clientNode.db
 
   uiReactor.actorOf(Props(UnlockClaimViewActor), claimBtnVal, unlockBtnVal)
 
@@ -66,17 +72,12 @@ class UnlockClaimView(
     userDir.loadCombo(identityCombo)
   }
 
-  claimMnuBtn.addClickListener(new Button.ClickListener{
-    override def buttonClick(event: ClickEvent): Unit = showClaim
-  })
+  claimMnuBtn.addClickListener(_ => showClaim)
 
-  unlockMnuBtn.addClickListener(new Button.ClickListener{
-    override def buttonClick(event: ClickEvent): Unit = showUnlock
-  })
+  unlockMnuBtn.addClickListener(_ => showUnlock)
 
   claimBtnVal.addClickListener(uiReactor)
   unlockBtnVal.addClickListener(uiReactor)
-
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
     val keyNames = userDir.listUsers
@@ -93,7 +94,7 @@ class UnlockClaimView(
         val claim = claimIdentityText.getValue
         val claimTag = claimTagText.getValue
 
-        if(clientNode.nodeIdentityManager.keyExists(claim, claimTag)) {
+        if(nodeIdentityManager.keyExists(claim, claimTag)) {
           push(Notification.show(s"Identity $claim exists, try loading it instead?"))
         } else {
           Try {
@@ -101,9 +102,9 @@ class UnlockClaimView(
             val phraseRetype = claimPhraseRetype.getValue
             if(phrase != phraseRetype) throw new Error(s"The passwords do not match!")
             else {
-              if(clientNode.identityService.accounts(claim).nonEmpty) throw new Error(s"Identity already claimed!")
+              if(identityService.accounts(claim).nonEmpty) throw new Error(s"Identity already claimed!")
               else {
-                val nId = clientNode.nodeIdentityManager(claim, claimTag, phrase)
+                val nId = nodeIdentityManager(claim, claimTag, phrase)
                 val publicKey = nId.publicKey.toBase64Str
                 val message = Message(claim, msgPayload =
                   IdentityClaimMessagePayload(claim, claimTag, nId.publicKey, claimInfoTextArea.getValue).toMessagePayLoad,
@@ -127,7 +128,7 @@ class UnlockClaimView(
           val tag = claimAndTag.tag
           val identity = claimAndTag.identity
           val phrase = unLockPhrase.getValue
-          Try(clientNode.nodeIdentityManager(identity, tag, phrase)) match {
+          Try(nodeIdentityManager(identity, tag, phrase)) match {
             case Failure(e) =>
               log.error("Failed to unlock {} {}", identity, e)
               push(Notification.show(s"${e.getMessage}"))
@@ -138,18 +139,14 @@ class UnlockClaimView(
     }
 
     def createWallet(nId: NodeIdentity) : Wallet = {
-      new Wallet(nId,
-        clientNode.balanceLedger,
-        clientNode.identityService,
-        new WalletPersistence(nId.id, clientNode.db),
-        clientNode.currentBlockHeight _)
+      buildWallet(nId)
     }
 
     def gotoMainView(nId: NodeIdentity): Unit = {
       val userWallet = createWallet(nId)
       getSession().setAttribute(UnlockClaimView.identityAttr, nId.id)
       UserSession.note(nId, userWallet)
-      val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId, clientNode, clientEventActor)
+      val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId)
       push {
         getUI().getNavigator.addView(mainView.name, mainView)
         getUI().getNavigator.navigateTo(mainView.name)

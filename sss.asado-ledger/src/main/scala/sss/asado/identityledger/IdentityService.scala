@@ -28,12 +28,12 @@ trait IdentityServiceQuery {
 }
 
 trait IdentityService extends IdentityServiceQuery {
-  def claim(identity: String, publicKey: PublicKey, tag: String = defaultTag)
-  def link(identity: String, publicKey: PublicKey, tag: String)
+  def claim(identity: String, publicKey: PublicKey, tag: String = defaultTag): Unit
+  def link(identity: String, publicKey: PublicKey, tag: String): Unit
   def unlink(identity: String, publicKey: PublicKey): Boolean
   def unlink(identity: String, tag: String): Boolean
-  def linkRescuer(identity: String, rescuer: String)
-  def unLinkRescuer(identity: String, rescuer: String)
+  def linkRescuer(identity: String, rescuer: String): Unit
+  def unLinkRescuer(identity: String, rescuer: String): Unit
 }
 
 object IdentityService {
@@ -103,7 +103,6 @@ object IdentityService {
         case Some(rowId) => f(rowId)
       }
     }
-
 
     override def list(startIndex: Long, pageSize: Int): Seq[String] = {
       identityTable.page(startIndex, pageSize).map(r => r[String](identityCol))
@@ -189,7 +188,7 @@ object IdentityService {
       }
     }
 
-    override def claim(identity: String, publicKey: PublicKey, tag: String) = db.tx {
+    override def claim(identity: String, publicKey: PublicKey, tag: String): Unit = db.tx {
       Try {
         val newRow = identityTable.insert(Map(identityCol -> identity, createdCol -> new Date().getTime))
         keyTable.insert(Map(identityLnkCol -> newRow[Long](id), publicKeyCol -> publicKey.toBase64Str,

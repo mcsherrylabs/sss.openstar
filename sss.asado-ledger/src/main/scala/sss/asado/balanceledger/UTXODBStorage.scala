@@ -2,11 +2,27 @@ package sss.asado.balanceledger
 
 import sss.ancillary.Logging
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.util.StringCheck.SimpleTag
 import sss.db._
 
-private[balanceledger] class UTXODBStorage(implicit db: Db) extends Logging {
+import scala.util.Try
 
-  private val utxoLedgerTable = db.table("utxo")
+private[balanceledger] class UTXODBStorage(tag:SimpleTag)(implicit db: Db) extends Logging {
+
+  private val tableName = s"utxo_$tag"
+
+  private val createTableSql =
+    s"""CREATE TABLE IF NOT EXISTS
+        |$tableName
+        |(txid VARCHAR(64) NOT NULL,
+        |indx INT NOT NULL,
+        |entry BLOB NOT NULL,
+        |PRIMARY KEY (txid, indx));
+        |""".stripMargin
+
+  db.executeSql(createTableSql)
+
+  private val utxoLedgerTable = db.table(tableName)
 
   def keys: Seq[TxIndex] = utxoLedgerTable.map { row => TxIndex(row[String]("txid").toByteArray, row[Int]("indx")) }
 

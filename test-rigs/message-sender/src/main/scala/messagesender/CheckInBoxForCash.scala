@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef}
 import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.contract.SaleSecretDec
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._

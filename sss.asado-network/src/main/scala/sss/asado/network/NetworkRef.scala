@@ -4,6 +4,8 @@ import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorRef
+import sss.ancillary.Logging
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.network.NetworkControllerActor._
 
 import scala.concurrent.duration.Duration
@@ -17,14 +19,14 @@ import scala.concurrent.{Future, Promise}
   * @param stopFuture
   */
 class NetworkRef private[network] (networkController: ActorRef,
-                                   connectionsRef: AtomicReference[Set[Connection]],
-                                   stopFuture: Promise[Unit]) {
+                                   stopFuture: Promise[Unit]) extends NetSend with Logging {
 
-  def send(msg: NetworkMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
-    nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
-  }
 
-  def send(msg: NetworkMessage, nIds: UniqueNodeIdentifier*): Unit = {
+  override def apply(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit =
+    send(msg, nIds)
+
+  def send(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit = {
+    if(nIds.isEmpty) log.warn (s"Sending SerializedMessage to zero recipients! ($msg)")
     nIds foreach (nId => networkController ! SendToNodeId(msg, nId))
   }
 
@@ -64,7 +66,4 @@ class NetworkRef private[network] (networkController: ActorRef,
     stopFuture.future
   }
 
-  def connections(): Set[Connection] = {
-    connectionsRef.get()
-  }
 }

@@ -1,6 +1,7 @@
 package sss.asado.nodebuilder
 
-import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
+import sss.asado.account.NodeIdentity
+import sss.asado.wallet.{IntegratedWallet, PublicKeyTracker, Wallet, WalletPersistence}
 
 /**
   * Created by alan on 6/30/16.
@@ -8,24 +9,42 @@ import sss.asado.wallet.{IntegratedWallet, Wallet, WalletPersistence}
 
 trait WalletPersistenceBuilder {
 
-  self: NodeIdentityBuilder with DbBuilder =>
+  self: NodeIdentityBuilder with RequireDb =>
   lazy val walletPersistence = new WalletPersistence(nodeIdentity.id, db)
 }
 
-trait WalletBuilder {
+trait RequireWallet {
+  val wallet: Wallet
+}
 
-  self: NodeIdentityBuilder with
+trait PublicKeyTrackerBuilder {
+  self: RequireNodeIdentity with
+    RequireDb =>
+
+  lazy val pKTracker: PublicKeyTracker = new PublicKeyTracker(nodeIdentity.id)
+}
+
+trait WalletBuilder extends RequireWallet {
+
+  self: RequireNodeIdentity with
     BalanceLedgerBuilder with
     IdentityServiceBuilder with
     WalletPersistenceBuilder with
     BlockChainBuilder with
-    DbBuilder =>
+    RequireDb with
+    PublicKeyTrackerBuilder =>
 
-  lazy val wallet = new Wallet(nodeIdentity,
-    balanceLedger,
-    identityService,
-    walletPersistence,
-    currentBlockHeight _)
+  def buildWallet(nodeIdentity: NodeIdentity): Wallet =
+
+    new Wallet(nodeIdentity,
+      balanceLedger,
+      identityService,
+      walletPersistence,
+      currentBlockHeight _,
+      pKTracker.isTracked
+    )
+
+  lazy val wallet = buildWallet(nodeIdentity)
 
 }
 
@@ -33,7 +52,7 @@ trait IntegratedWalletBuilder {
   self :
     WalletBuilder with
     MessageEventBusBuilder with
-    ActorSystemBuilder =>
+    RequireActorSystem =>
 
   lazy val integratedWallet = new IntegratedWallet(wallet, messageEventBus)
 }

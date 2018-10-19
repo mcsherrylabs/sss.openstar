@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.actor.{Actor, _}
 import akka.io.Tcp._
 import akka.io.{IO, Tcp}
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.network.ConnectionHandler.{Begin, ConnectionRef, HandshakeStep}
 import sss.asado.network.NetworkControllerActor._
 
@@ -16,7 +17,7 @@ import language.postfixOps
 
 private[network] object NetworkControllerActor {
 
-  case class SendToNodeId(msg: NetworkMessage, nId: UniqueNodeIdentifier)
+  case class SendToNodeId(msg: SerializedMessage, nId: UniqueNodeIdentifier)
   case class ConnectTo(nodeId: NodeId,
                        reconnectionStrategy: ReconnectionStrategy)
 
@@ -40,7 +41,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   import context.system
   import context.dispatcher
 
-  private val connectionsRef: AtomicReference[Set[Connection]]= new AtomicReference[Set[Connection]](Set())
+  //private val connectionsRef: AtomicReference[Set[Connection]]= new AtomicReference[Set[Connection]](Set())
 
   private val stopPromise: Promise[Unit] = Promise()
   private var connections = Set[ConnectionRef]()
@@ -49,13 +50,13 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   private var blackList = Map[InetAddress, Long]()
   private var blackListByIdentity = Map[UniqueNodeIdentifier, Long]()
 
-  context.actorOf(
+  /*context.actorOf(
     Props(
       classOf[ConnectionTracker],
       connectionsRef,
       messageEventBus
     )
-  )
+  )*/
 
   IO(Tcp) ! Bind(self, netInf.localAddress)
 
@@ -65,7 +66,6 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       context.become(manageNetwork(sender()))
       startPromise.success(new NetworkRef(
         self,
-        connectionsRef,
         stopPromise
       ))
 
@@ -225,7 +225,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
     strategies.get(nodeId) foreach { case (addr, strategy) =>
         val delayTime = strategy.head
         val timeToRetry = delayTime
-        log.info("Reconnect strategy for {} in {} s", nodeId, delayTime)
+        log.debug("Reconnect strategy for {} in {} s", nodeId, delayTime)
         system.scheduler.scheduleOnce(timeToRetry seconds,
                                       self,
                                       ConnectTo(NodeId(nodeId, addr), strategy.tail))
@@ -242,7 +242,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
       Props(classOf[ConnectionHandlerActor],
             connection,
             remoteAddress,
-            messageEventBus))
+            messageEventBus).withDispatcher("blocking-dispatcher"))
   }
 
   override def postStop: Unit = {

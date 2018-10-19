@@ -6,7 +6,7 @@ object Vers {
   val scalatraVer = "2.6.3"
   val sssDbVer = "0.9.36-SNAPSHOT"
   val sssVaadinReact = "0.4-SNAPSHOT"
-  val hsqldbVer = "2.3.4"
+  val hsqldbVer = "2.4.1"
   val twitterColVer = "18.5.0"
   val consoleUtilVer = "0.1.4"
   val sprayJsonVer = "1.3.2"

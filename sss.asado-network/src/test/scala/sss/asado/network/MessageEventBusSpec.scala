@@ -7,9 +7,9 @@ import akka.util.ByteString
 import scala.language.postfixOps
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.AsadoEvent
+import sss.asado.network.MessageEventBus.{IncomingMessage, UnsubscribedEvent, UnsubscribedIncomingMessage}
 
 import concurrent.duration._
-import sss.asado.network.MessageEventBus.HasNodeId
 
 class MessageEventBusSpec extends FlatSpec with Matchers {
 
@@ -24,11 +24,14 @@ class MessageEventBusSpec extends FlatSpec with Matchers {
   val fromNodeId = "test"
     //NodeId("test", InetSocketAddress.createUnresolved("somehost.com", 8008))
   val connController = TestProbe().ref
-  val incomingNetworkMessage =
-    IncomingNetworkMessage(fromNodeId, 1.toByte, Array())
+  val incomingSerializedNetworkMessage =
+    IncomingSerializedMessage( fromNodeId, SerializedMessage(1.toByte, 1.toByte, Array()))
 
   val networkMessageAsApplicationTestMessage =
-    TestMessage(fromNodeId, ByteString())
+    TestMessage(ByteString())
+
+  val incomingNetworkMessage =
+    IncomingMessage(1.toByte, 1, fromNodeId, networkMessageAsApplicationTestMessage)
 
   val myEvent = MyEvent(9)
   val myOtherEvent = MyOtherEvent(10)
@@ -36,38 +39,37 @@ class MessageEventBusSpec extends FlatSpec with Matchers {
   "EventBus " should " receive raw msg once subsrcibed " in {
 
     msgBus.subscribe(1.toByte)( observer1)
-    msgBus.publish(incomingNetworkMessage)
+    msgBus.publish(incomingSerializedNetworkMessage)
 
     probe1.expectMsg(incomingNetworkMessage)
   }
 
+  it should " prevent subscribing to unknown msgCode " in {
+
+    intercept[IllegalArgumentException] {
+      msgBus.subscribe(2.toByte)(observer1)
+    }
+  }
+
   it should " not receive msg when unsubscribed" in {
     msgBus.unsubscribe(1.toByte)( observer1)
-    msgBus.publish(incomingNetworkMessage)
+    msgBus.publish(incomingSerializedNetworkMessage)
     probe1.expectNoMessage(1 second)
   }
 
   it should " allow a second observer to receive " in {
     msgBus.subscribe(1.toByte)( observer2)
-    msgBus.publish(incomingNetworkMessage)
+    msgBus.publish(incomingSerializedNetworkMessage)
 
     probe1.expectNoMessage(1 second)
     probe2.expectMsg(incomingNetworkMessage)
   }
 
-  it should " support receiving a decoded network message " in {
-    msgBus.subscribe(classOf[TestMessage])( observer2)
-    msgBus.publish(incomingNetworkMessage)
-
-    probe1.expectNoMessage(1 second)
-    probe2.expectMsg(incomingNetworkMessage)
-    probe2.expectMsg(networkMessageAsApplicationTestMessage)
-  }
 
   it should " support unsubscribing from all " in {
     msgBus.subscribe(1.toByte)( observer1)
     msgBus.unsubscribe(observer2)
-    msgBus.publish(incomingNetworkMessage)
+    msgBus.publish(incomingSerializedNetworkMessage)
 
     probe1.expectMsg(incomingNetworkMessage)
     probe2.expectNoMessage(1 second)
@@ -95,10 +97,39 @@ class MessageEventBusSpec extends FlatSpec with Matchers {
   it should " support registering for sub classification of network messages" in {
 
     msgBus.unsubscribe(observer1)
-    msgBus.subscribe(classOf[HasNodeId])( observer1)
-    msgBus.publish(incomingNetworkMessage)
-    probe1.expectMsg(networkMessageAsApplicationTestMessage)
+    msgBus.subscribe(classOf[SuperClass])( observer1)
+    msgBus.publish(myEvent)
+    probe1.expectMsg(myEvent)
 
   }
 
+  it should " support registering for unsubscribed net messages " in {
+
+    //No net message when subscribed to Events
+    msgBus.unsubscribe(observer1)
+    msgBus.subscribe(classOf[UnsubscribedEvent[_]])( observer1)
+    msgBus.publish(incomingSerializedNetworkMessage)
+    probe1.expectNoMessage(1 second)
+
+    //Subscribe to net message, get net message
+    msgBus.subscribe(classOf[UnsubscribedIncomingMessage])( observer1)
+    msgBus.publish(incomingSerializedNetworkMessage)
+    probe1.expectMsg(UnsubscribedIncomingMessage(incomingNetworkMessage))
+
+    //check unsubscribe works
+    msgBus.unsubscribe(classOf[UnsubscribedIncomingMessage])(observer1)
+    msgBus.publish(incomingSerializedNetworkMessage)
+    probe1.expectNoMessage(1 second)
+
+
+  }
+
+  it should " support registering for unsubscribed events " in {
+
+    msgBus.unsubscribe(observer1)
+    msgBus.subscribe(classOf[UnsubscribedEvent[_]])( observer1)
+    msgBus.publish(myEvent)
+    probe1.expectMsg(UnsubscribedEvent(myEvent))
+
+  }
 }

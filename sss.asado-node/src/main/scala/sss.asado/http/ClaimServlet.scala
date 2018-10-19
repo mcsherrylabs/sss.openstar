@@ -5,11 +5,10 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.scalatra.{BadRequest, Ok, ScalatraServlet}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
-import sss.asado.network.{MessageEventBus, NetworkMessage}
-import sss.asado.state.AsadoStateProtocol.{NotReadyEvent, ReadyStateEvent}
+import sss.asado.network.{MessageEventBus, SerializedMessage}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.IntegratedWallet
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
@@ -71,7 +70,8 @@ class ClaimServlet(actorSystem:ActorSystem,
             val ste = SignedTxEntry(claim.toBytes)
             val le = LedgerItem(MessageKeys.IdentityLedger , claim.txId, ste.toBytes)
             val p = Promise[String]()
-            claimsActor ! Claiming(claiming, le.txIdHexStr, NetworkMessage(PublishedMessageKeys.SignedTx, le.toBytes), p)
+            //TODO fix the global chain id on next line.
+            claimsActor ! Claiming(claiming, le.txIdHexStr, SerializedMessage(1.toByte, MessageKeys.SignedTx, le.toBytes), p)
             p.future.map { Ok(_) }
             Await.result(p.future, Duration(5, MINUTES))
 
@@ -82,7 +82,7 @@ class ClaimServlet(actorSystem:ActorSystem,
 
 object ClaimServlet {
 
-  case class Claiming(identity: String, txIdHex: String, netMsg: NetworkMessage, p: Promise[String])
+  case class Claiming(identity: String, txIdHex: String, netMsg: SerializedMessage, p: Promise[String])
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
 }
 
@@ -98,14 +98,14 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
 
   private def working: Receive = {
 
-    case NotReadyEvent => context.become(init)
+    // TODO how does it shutdown case NotReadyEvent => context.become(init)
 
     case c@Claiming(identity, txIdHex, netMsg, promise) =>
       inFlightClaims += (txIdHex-> ClaimTracker(sender(), c))
       messageRouter ! netMsg
 
-    case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
-      val bcTxId = bytes.toBlockChainIdTx
+    case SerializedMessage(_, MessageKeys.AckConfirmTx, bytes) =>
+      val bcTxId = bytes.toBlockChainTxId
       val hexId = bcTxId.blockTxId.txId.toBase64Str
       val trackerOpt = inFlightClaims.get(hexId)
       Try {
@@ -123,7 +123,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
         case Success(_) =>
       }
 
-    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+    case SerializedMessage(_, MessageKeys.TempNack, bytes) =>
       Try {
         val txMsg = bytes.toTxMessage
         val hexId = txMsg.txId.toBase64Str
@@ -136,7 +136,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
 
 
 
-    case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+    case SerializedMessage(_, MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
       val hexId = txMsg.txId.toBase64Str
       val claimTracker = inFlightClaims(hexId)
@@ -165,7 +165,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
   def init: Receive = {
     case c@Claiming(identity, txIdHex, netMsg, promise) => promise.success("fail:Network not ready")
 
-    case ReadyStateEvent => context.become(working)
+    // TODO, how does this start up now? case ReadyStateEvent => context.become(working)
   }
 
 }

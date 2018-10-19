@@ -1,22 +1,15 @@
 package sss.ui.nobu
 
 import akka.actor.Actor
-
 import sss.asado.MessageKeys
 import sss.asado.actor.AsadoEventSubscribedActor
-import sss.asado.block._
-
+import sss.asado.block.Synchronized
+import sss.asado.common.block._
 import sss.asado.message.{Message, MessageInBox}
-import sss.asado.network.NetworkMessage
-import sss.asado.nodebuilder.ClientNode
-import sss.asado.state.AsadoStateProtocol.{
-  NotOrderedEvent,
-  RemoteLeaderEvent,
-  StateMachineInitialised
-}
+import sss.asado.network.SerializedMessage
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
-
+import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.reactor.UIReactor
 
@@ -40,6 +33,7 @@ class ClientEventActor(clientNode: ClientNode)
   var watchingBounties: Map[String, BountyTracker] = Map()
   var watchingMsgSpends: Map[String, Bag] = Map()
 
+  messageEventBus.subscribe(classOf[Synchronized])
   messageEventBus.subscribe(MessageKeys.SignedTxAck)
   messageEventBus.subscribe(MessageKeys.AckConfirmTx)
   messageEventBus.subscribe(MessageKeys.TempNack)
@@ -48,7 +42,8 @@ class ClientEventActor(clientNode: ClientNode)
   override def receive: Receive = connecting orElse business
 
   private def connecting: Receive = {
-    case RemoteLeaderEvent(conn) =>
+    case _ =>
+   /* case RemoteLeaderEvent(conn) =>
       context.become(connected(conn.nodeId) orElse business)
       self ! BroadcastConnected
 
@@ -59,11 +54,12 @@ class ClientEventActor(clientNode: ClientNode)
     case ConnectHome =>
       connectHome
       self ! ConnectHomeDelay()
-
+*/
   }
 
   private def connected(connectedTo: String): Receive = {
-    case NotOrderedEvent =>
+    case _ =>
+   /* case NotOrderedEvent =>
       UIReactor.eventBroadcastActorRef ! LostConnection
       context.become(connecting orElse business)
       self ! ConnectHomeDelay()
@@ -74,11 +70,14 @@ class ClientEventActor(clientNode: ClientNode)
         .scheduleOnce(FiniteDuration(30, SECONDS), self, BroadcastConnected)
 
     case ConnectHome => log.info("Already connected, ignore ConnectHome")
+    */
   }
 
   private def business: Receive = {
-    case StateMachineInitialised =>
-      ncRef
+
+    case _ =>
+    /*case StateMachineInitialised =>
+      net
       self ! ConnectHomeDelay(3)
 
     case b @ Bag(userWallet,
@@ -88,20 +87,20 @@ class ClientEventActor(clientNode: ClientNode)
                  from) =>
       val sndr = sender()
       //val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-      val netMsg = NetworkMessage(
+      val netMsg = SerializedMessage(
         MessageKeys.SignedTx,
         savedAddressedMessage.addrMsg.ledgerItem.toBytes)
       watchingMsgSpends += savedAddressedMessage.addrMsg.ledgerItem.txIdHexStr -> b
-      clientNode.ncRef.send(netMsg, clientNode.homeDomain.nodeId.id)
+      clientNode.net.send(netMsg, clientNode.homeDomain.nodeId.id)
 
     case b @ BountyTracker(sender, userWallet, txIndex, out, le) =>
       watchingBounties += txIndex.txId.toBase64Str -> b
-      clientNode.ncRef.send(
-        NetworkMessage(MessageKeys.SignedTx, le.toBytes),
+      clientNode.send(
+        SerializedMessage(MessageKeys.SignedTx, le.toBytes),
         clientNode.homeDomain.nodeId.id)
 
-    case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
-      val bId = bytes.toBlockChainIdTx
+    case SerializedMessage(_, MessageKeys.AckConfirmTx, bytes) =>
+      val bId = bytes.toBlockChainTxId
       val txId = bId.blockTxId.txId
       watchingBounties.get(bId.blockTxId.txId.toBase64Str) map {
         bountyTracker =>
@@ -128,26 +127,26 @@ class ClientEventActor(clientNode: ClientNode)
         bag.walletUpdate.sndr ! Show(s"Message accepted!")
       }
 
-    case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
-      val bId = bytes.toBlockChainIdTx
+    case SerializedMessage(_, MessageKeys.NackConfirmTx, bytes) =>
+      val bId = bytes.toBlockChainTxId
       //push(Notification.show(s"Got NAckConfirm $bId"))
       watchingBounties -= bId.blockTxId.txId.toBase64Str
 
-    case NetworkMessage(MessageKeys.SignedTxAck, bytes) =>
-      val bId = bytes.toBlockChainIdTx
+    case SerializedMessage(_, MessageKeys.SignedTxAck, bytes) =>
+      val bId = bytes.toBlockChainTxId
     //push(Notification.show(s"Got ACK $bId"))
 
-    case NetworkMessage(MessageKeys.TempNack, bytes) =>
+    case SerializedMessage(_, MessageKeys.TempNack, bytes) =>
       val m = bytes.toTxMessage
       //push(Notification.show(s"Got NACK ${m.msg}"))
       watchingBounties -= m.txId.toBase64Str
       watchingMsgSpends -= m.txId.toBase64Str
 
-    case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+    case SerializedMessage(_, MessageKeys.SignedTxNack, bytes) =>
       val m = bytes.toTxMessage
       //push(Notification.show(s"Got NACK ${m.msg}"))
       watchingBounties -= m.txId.toBase64Str
       watchingMsgSpends -= m.txId.toBase64Str
-
+*/
   }
 }

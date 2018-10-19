@@ -1,7 +1,7 @@
 package sss.asado.message
 
 import akka.actor.{Actor, ActorLogging}
-import sss.asado.network.NetworkMessage
+import sss.asado.network.SerializedMessage
 
 import scala.util.{Failure, Success, Try}
 
@@ -11,6 +11,8 @@ import scala.util.{Failure, Success, Try}
 trait DecodeNetworkMsg {
   self : Actor with ActorLogging =>
 
+  /*import SerializedMessage.noChain
+
   def apply[T](f: => T)(work: T => Unit)(fail: => (Byte, Array[Byte])) = {
     Try {
       work(f)
@@ -18,7 +20,7 @@ trait DecodeNetworkMsg {
       case Success(_) =>
       case Failure(e) =>
         log.error(e, "Generic failure handler")
-        sender() ! NetworkMessage(fail._1, fail._2)
+        sender() ! SerializedMessage(fail._1, fail._2)
     }
-  }
+  }*/
 }

@@ -2,20 +2,24 @@ package sss.asado.console
 
 import java.net.InetSocketAddress
 
-import akka.actor.ActorRef
-import akka.agent.Agent
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
+import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.Block
-import sss.asado.block.signature.BlockSignatures
 import sss.asado.contract.SingleIdentityEnc
-import sss.asado.identityledger.IdentityService
+import sss.asado.eventbus.EventPublish
+import sss.asado.identityledger.{Claim, IdentityService}
 import sss.asado.network.{NetworkRef, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.asado.wallet.{Wallet, WalletPersistence}
+import sss.asado.wallet.{WalletPersistence}
 import sss.db._
+import sss.asado.util.FutureOps._
 import sss.asado.ledger._
+import sss.asado.quorumledger.{AddNodeId, RemoveNodeId}
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
+
 
 /**
   * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
@@ -23,9 +27,13 @@ import sss.ui.console.util.{Cmd, ConsoleServlet => BaseConsoleServlet}
   */
 class ConsoleServlet(
                       ncRef: NetworkRef,
+                      publisher: EventPublish,
+                      nodeIdentity: NodeIdentity,
+                      quorumQuery: () => Set[UniqueNodeIdentifier],
                       identityService: IdentityService,
-                      wallet: Wallet,
-                      implicit val db: Db)
+                      sendTx: SendTx
+                      )
+                    (implicit val db: Db)
     extends BaseConsoleServlet {
 
   lazy val utxosTable = db.table("utxo")
@@ -34,9 +42,9 @@ class ConsoleServlet(
   val cmds: Map[String, Cmd] = Map(
     "peers" -> new Cmd {
       override def apply(params: Seq[String]): Seq[String] =
-        ncRef.connections().map(_.nodeId.toString).toSeq
+        Seq("Not implememvted")
     },
-    "signatures" -> new Cmd {
+    /*"signatures" -> new Cmd {
       override def help: String = s"signatures <blockheight> <num_sigs>"
       override def apply(params: Seq[String]): Seq[String] = {
         val sigs = BlockSignatures(params.head.toLong)
@@ -44,7 +52,7 @@ class ConsoleServlet(
           .map(_.toString)
         Seq(s"Num sigs is ${sigs.size}") ++ sigs
       }
-    },
+    },*/
     "listunspent" -> new Cmd {
       override def help = s"listunspent <identity> "
       override def apply(params: Seq[String]): Seq[String] = {
@@ -72,28 +80,32 @@ class ConsoleServlet(
         Seq(s"use listunspent to see the change ")
       }
     },
-    "balance" -> new Cmd {
+    /*"balance" -> new Cmd {
       override def help =
         s"the balance of the node wallet at a given block height"
       override def apply(params: Seq[String]): Seq[String] = {
         Seq(s"Balance: ${wallet.balance(params.head.toLong)}")
       }
-    },
+    },*/
     "block" -> new Cmd {
-      override def help = s"block <block height> <start index> <end index>"
+      override def help = s"block <chain id> <block height> <start index> <end index>"
       override def apply(params: Seq[String]): Seq[String] = {
-        Block(params.head.toLong).entries
+        implicit val chainId = params(0).toByte
+        Block(params(1).toLong).entries
           .map(_.toString)
-          .slice(params(1).toInt, params(2).toInt) :+ "...End"
+          .slice(params(2).toInt, params(3).toInt) :+ "...End"
       }
     },
     "claim" -> new Cmd {
       override def help: String = s"Claim an identity with public key "
       override def apply(params: Seq[String]): Seq[String] = {
-        val claim = params(1)
-        val pKey = params(2).toByteArray
-        identityService.claim(claim, pKey)
-        Seq(s"Seems ok ... $claim")
+        val claim = params(0)
+        val pKey = params(1).toByteArray
+        val tx = Claim(claim, pKey)
+        //val sig = nodeIdentity.sign(tx.txId)
+        val ste = SignedTxEntry(tx.toBytes, Seq())
+        val le = LedgerItem(MessageKeys.IdentityLedger, tx.txId, ste.toBytes)
+        Seq(sendTx(le).await().toString)
       }
     },
     "connectpeer" -> new Cmd {
@@ -123,7 +135,36 @@ class ConsoleServlet(
         if (result.isEmpty) Seq("No utxos found")
         else result
       }
+    },
+    "removequorum" -> new Cmd {
+      override def apply(params: Seq[String]): Seq[String] = {
+        val chainId = params.tail.head.toByte
+        val tx = RemoveNodeId(params.head)
+        val sig = nodeIdentity.sign(tx.txId)
+        val sigs = Seq(nodeIdentity.idBytes, nodeIdentity.tagBytes, sig)
+        val ste = SignedTxEntry(tx.toBytes, Seq(sigs))
+        val le = LedgerItem(MessageKeys.QuorumLedger, tx.txId, ste.toBytes)
+        Seq(sendTx(le).await().toString)
+        //Seq("LedgerItem Message published")
+      }
+    },
+    "addquorum" -> new Cmd {
+      override def apply(params: Seq[String]): Seq[String] = {
+        val chainId = params.tail.head.toByte
+        val tx = AddNodeId(params.head)
+        val sig = nodeIdentity.sign(tx.txId)
+        val sigs = Seq(nodeIdentity.idBytes, nodeIdentity.tagBytes, sig)
+        val ste = SignedTxEntry(tx.toBytes, Seq(sigs))
+        val le = LedgerItem(MessageKeys.QuorumLedger, tx.txId, ste.toBytes)
+        Seq(sendTx(le).await().toString)
+        //Seq("LedgerItem Message published")
+      }
+    },
+    "showquorum" -> new Cmd {
+    override def apply(params: Seq[String]): Seq[String] = {
+      quorumQuery().toSeq
     }
+  }
   )
 
 }

@@ -1,8 +1,9 @@
 package sss.asado.block.serialize
 
-import block.DistributeClose
+import sss.asado.block.DistributeClose
 import com.google.common.primitives.Ints
 import sss.asado.block.signature.BlockSignatures.BlockSignature
+import sss.asado.common.block.serialize.BlockIdSerializer
 import sss.asado.util.Serialize.Serializer
 
 import scala.annotation.tailrec

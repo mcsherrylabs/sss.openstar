@@ -9,46 +9,88 @@ import sss.ancillary.{DynConfig, _}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger.BalanceLedger
 import sss.asado.block._
+import sss.asado.chains.Chains.{Chain, GlobalChainIdMask}
+import sss.asado.chains._
 import sss.asado.contract.CoinbaseValidator
 import sss.asado.crypto.SeedBytes
+import sss.asado.eventbus.{MessageInfo, PureEvent}
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
 import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
-import sss.asado.network.MessageEventBus.MessageInfo
 import sss.asado.network.NetworkInterface.BindControllerSettings
-import sss.asado.network._
+import sss.asado.network.{MessageEventBus, _}
+import sss.asado.peers.{PeerManager, PeerQuery}
+import sss.asado.peers.PeerManager.{Capabilities, Query}
+import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
-import sss.asado.{InitWithActorRefs, MessageKeys}
+import sss.asado._
+import sss.asado.chains.ChainSynchronizer.StartSyncer
+import sss.asado.tools.SendTxSupport
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.db.Db
 import sss.db.datasource.DataSource
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
 /**
-  * Copyright Stepping Stone Software Ltd. 2016, all rights reserved.
-  * mcsherrylabs on 3/9/16.
+  * This is area is used to create 'components' that can be wired up for test or different applications
+  *
+  * A component should be created only if it is reusable across applications or tests. The final wiring
+  * can be done in the 'main' function, not everything has to be buildable.
+  *
+  * There are a few options for making a component available.
+  *
+  * 1. Declare as a requirement. Declare the name of the val and the type in a trait . e.g.
+  *
+  * trait RequireMyThing { val myThing: MyThing }
+  *
+  * This 'RequireMyThing' trait is now stackable and usable across applications and tests.
+  * If myThing is a simple instanciation it can read
+  *
+  * trait RequireMyThing { val myThing: MyThing = new MyThing() }
+  *
+  * If it is more complicated and needs construction use a Builder
+  *
+  * 2.
+  *
+  * trait MyThingBuilder extends RequireMyThing with RequireOtherThing { val myThing: MyThing = new MyThing(otherThing) }
+  *
+  * Note the MyThingBuilder depends only on other 'Require'ments. This means in tests or elsewhere one can use the Builder
+  * but the dependencies can be wired up as test dependencies.
+  *
+  * 3.
+  * Just add a Builder (no 'Require' trait) , in this case extending this trait means instantly depending on the components
+  * used to build it.
+  *
+  * So a component could have
+  *
+  * a. no building trait, to be instanciated in the 'main' function
+  * b. a Require trait
+  * c. a RequireTrait and extending Builder
+  * d. a Builder only
+  *
   */
-trait PhraseBuilder {
+trait RequirePhrase {
   val phrase: Option[String]
 }
 
-trait ConfigBuilder extends Configure {
-  val configName: String
-  lazy val conf: Config = config(configName)
+trait RequireGlobalChainId {
+  implicit val globalChainId: GlobalChainIdMask = 1.toByte
 }
 
-trait NodeConfigBuilder {
+trait RequireConfig {
+  val conf: Config
+}
 
-  self: ConfigBuilder =>
+trait ConfigBuilder extends RequireConfig with Configure {
+  val configName: String
+  override lazy val conf: Config = config(configName)
+}
 
-  lazy val bindSettings: BindControllerSettings =
-    DynConfig[BindControllerSettings](conf.getConfig("bind"))
-
-  lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
+trait RequireNodeConfig {
+  val bindSettings: BindControllerSettings
+  val nodeConfig: NodeConfig
 
   trait NodeConfig {
     val conf: Config
@@ -57,16 +99,26 @@ trait NodeConfigBuilder {
     val blockChainSettings: BlockChainSettings
     val production: Boolean
     val peersList: Set[NodeId]
-    //val quorum: Int
-    /*val connectedPeers = Agent[Set[Connection]](Set.empty[Connection])
-    val connectedClients = Agent[Set[Connection]](Set.empty[Connection])*/
   }
+
+}
+trait NodeConfigBuilder extends RequireNodeConfig {
+
+  self: RequireConfig =>
+
+  lazy val bindSettings: BindControllerSettings =
+    DynConfig[BindControllerSettings](conf.getConfig("bind"))
+
+  lazy val nodeConfig: NodeConfig = NodeConfigImpl(conf)
+
 
   case class NodeConfigImpl(conf: Config) extends NodeConfig with Configure {
 
     lazy val settings: BindControllerSettings = bindSettings
-    lazy val uPnp = DynConfig.opt[UPnPSettings](s"${configName}.upnp") map (new UPnP(
-      _))
+
+    lazy val uPnp = if(conf.hasPath("upnp"))
+      Some(new UPnP(DynConfig[UPnPSettings](conf.getConfig("upnp")))) else None
+
     lazy val blockChainSettings: BlockChainSettings =
       DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
     lazy val production: Boolean = conf.getBoolean("production")
@@ -75,7 +127,7 @@ trait NodeConfigBuilder {
       .asScala
       .toSet
       .map(toNodeId)
-    //lazy val quorum = quorum(peersList.size)
+
   }
 }
 
@@ -83,7 +135,7 @@ trait HomeDomainBuilder {
 
   self: NodeConfigBuilder =>
 
-  lazy val homeDomain: HomeDomain = {
+  implicit lazy val homeDomain: HomeDomain = {
     val conf =
       DynConfig[HomeDomainConfig](nodeConfig.conf.getConfig("homeDomain"))
     new HomeDomain {
@@ -96,61 +148,145 @@ trait HomeDomainBuilder {
 
 }
 
-trait DbBuilder {
+trait RequireDb {
+  implicit val db: Db
+}
 
-  self: ConfigBuilder =>
+trait DbBuilder extends RequireDb {
 
-  lazy implicit val db = Db(conf.getConfig("database"))(
-    DataSource(conf.getConfig("database.datasource")))
+  self: RequireConfig =>
+
+  override lazy implicit val db: Db = {
+    Db(conf.getConfig("database"))(
+      DataSource(conf.getConfig("database.datasource")))
+  }
 
 }
 
-trait ActorSystemBuilder {
+
+trait RequireActorSystem {
   lazy implicit val actorSystem: ActorSystem = ActorSystem("asado-network-node")
 }
 
-trait LedgersBuilder {
+trait ShutdownHookBuilder {
+
+  def shutdown(): Unit
+
+  Runtime.getRuntime.addShutdownHook(new Thread() {
+    override def run(): Unit = {
+      shutdown()
+    }
+  })
+}
+
+trait RequireChain {
+  val chain: Chain
+}
+
+trait ChainBuilder extends RequireChain {
 
   self: BlockChainBuilder
     with IdentityServiceBuilder
     with BalanceLedgerBuilder
-    with DbBuilder =>
+    with MessageEventBusBuilder
+    with RequireNodeConfig
+    with RequireGlobalChainId
+    with RequireDb =>
 
-  lazy val ledgers: Ledgers = {
+  private lazy val quorumService = new QuorumService(globalChainId)
 
-    val identityLedger =
-      new IdentityLedger(MessageKeys.IdentityLedger, identityService)
+  lazy val chain: Chain = new Chain {
+    implicit override val id: GlobalChainIdMask = globalChainId
 
-    new Ledgers(
+
+    override implicit val ledgers: Ledgers = new Ledgers({
+      val identityLedger =
+        new IdentityLedger(MessageKeys.IdentityLedger, identityService)
+
+      val quorumLedger: QuorumLedger = new QuorumLedger(
+        globalChainId,
+        MessageKeys.QuorumLedger,
+        quorumService,
+        messageEventBus,
+        identityService.accounts)
+
       Map(
         MessageKeys.BalanceLedger -> balanceLedger,
-        MessageKeys.IdentityLedger -> identityLedger
-      ))
+        MessageKeys.IdentityLedger -> identityLedger,
+        MessageKeys.QuorumLedger -> quorumLedger
+      )}
+    )
+    override def quorumCandidates(): Set[UniqueNodeIdentifier] = quorumService.candidates()
   }
-}
 
-trait DecoderBuilder {
-  val decoder: Byte => Option[MessageInfo] = ???
-}
-
-trait MessageEventBusBuilder {
-  self: ActorSystemBuilder with
-    DecoderBuilder =>
-
-  lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
 
 }
 
-trait SeedBytesBuilder {
+
+trait RequireDecoder {
+  val decoder: Byte => Option[MessageInfo]
+}
+
+trait DecoderBuilder extends RequireDecoder {
+  lazy val m = MessageKeys.messages
+  lazy val decoder: Byte => Option[MessageInfo] = m.find
+}
+
+trait RequirePeerQuery {
+  val peerQuery: PeerQuery
+}
+
+trait PeerQueryBuilder extends RequirePeerQuery {
+  self: RequirePeerManager =>
+
+  lazy override val peerQuery: PeerQuery = peerManager
+
+}
+
+trait RequirePeerManager {
+  val peerManager: PeerManager
+}
+
+trait PeerManagerBuilder extends RequirePeerManager {
+  self: NetworkControllerBuilder with
+  RequireActorSystem with
+  ChainBuilder with
+  RequireNodeConfig with
+
+  MessageEventBusBuilder =>
+
+  lazy val peerManager: PeerManager = new PeerManager(net,
+    nodeConfig.peersList,
+    Capabilities(chain.id), messageEventBus)
+}
+
+trait RequireMessageEventBus {
+  implicit val messageEventBus: MessageEventBus
+}
+
+trait MessageEventBusBuilder extends RequireMessageEventBus {
+  self: RequireActorSystem with
+    RequireDecoder =>
+
+  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
+
+}
+
+trait RequireSeedBytes {
   lazy val seedBytes = new SeedBytes {}
 }
 
-trait NodeIdentityBuilder {
+trait RequireNodeIdentity {
+  val nodeIdentityManager: NodeIdentityManager
+  val nodeIdentity: NodeIdentity
+}
 
-  self: ConfigBuilder with PhraseBuilder with SeedBytesBuilder =>
+trait NodeIdentityBuilder extends RequireNodeIdentity {
 
-  lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
-  lazy val nodeIdentity: NodeIdentity = {
+  self: RequireConfig with RequirePhrase with RequireSeedBytes =>
+
+  implicit lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
+  implicit lazy val nodeIdentity: NodeIdentity = {
     phrase match {
       case None         => nodeIdentityManager.unlockNodeIdentityFromConsole(conf)
       case Some(secret) => nodeIdentityManager(conf, secret)
@@ -160,12 +296,13 @@ trait NodeIdentityBuilder {
 
 trait BalanceLedgerBuilder {
   self: NodeConfigBuilder
-    with DbBuilder
+    with RequireDb
+    with RequireGlobalChainId
     with BlockChainBuilder
     with IdentityServiceBuilder =>
 
   def publicKeyOfFirstSigner(height: Long): Option[PublicKey] =
-    bc.signatures(height, 1).map(_.publicKey).headOption
+    bc.quorumSigs(height).signatures(1).map(_.publicKey).headOption
 
   lazy val balanceLedger: BalanceLedger = BalanceLedger(
     new CoinbaseValidator(publicKeyOfFirstSigner,
@@ -176,23 +313,25 @@ trait BalanceLedgerBuilder {
 }
 
 trait IdentityServiceBuilder {
-  self: DbBuilder =>
+  self: RequireDb =>
 
-  lazy val identityService: IdentityService = IdentityService()
+  implicit lazy val identityService: IdentityService = IdentityService()
 }
+
 
 import sss.asado.util.ByteArrayEncodedStrOps._
 
 case class BootstrapIdentity(nodeId: String, pKeyStr: String) {
-  private lazy val pKey: PublicKey = pKeyStr.toByteArray
+  lazy val pKey: PublicKey = pKeyStr.toByteArray
   private lazy val pKeyAccount = PublicKeyAccount(pKey)
   def verify(sig: Signature, msg: Array[Byte]): Boolean =
     pKeyAccount.verify(sig, msg)
 }
 
+
 trait BootstrapIdentitiesBuilder {
 
-  self: ConfigBuilder =>
+  self: RequireConfig =>
 
   lazy val bootstrapIdentities: List[BootstrapIdentity] =
     buildBootstrapIdentities
@@ -205,37 +344,11 @@ trait BootstrapIdentitiesBuilder {
   }
 }
 
-trait LeaderActorBuilder {
-
-  self: ActorSystemBuilder
-    with NodeConfigBuilder
-    with LedgersBuilder
-    with DbBuilder
-    with BlockChainBuilder
-    with NodeIdentityBuilder
-    with MessageEventBusBuilder
-    with IdentityServiceBuilder
-    with NetworkControllerBuilder
-    with StateMachineActorBuilder =>
-
-  lazy val leaderActor: ActorRef = buildLeaderActor
-
-  def buildLeaderActor = {
-    actorSystem.actorOf(
-      Props(classOf[LeaderActor],
-            nodeIdentity.id,
-            Set(),
-            messageEventBus,
-            ncRef,
-            stateMachineActor,
-            bc))
-  }
-}
 
 trait MessageQueryHandlerActorBuilder {
-  self: DbBuilder
+  self: RequireDb
     with MessageEventBusBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with NodeIdentityBuilder
     with BlockChainBuilder
     with ConfigBuilder
@@ -261,9 +374,9 @@ trait MessageQueryHandlerActorBuilder {
 }
 
 trait MessageDownloadServiceBuilder {
-  self: DbBuilder
+  self: RequireDb
     with MessageEventBusBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with NodeIdentityBuilder
     with HomeDomainBuilder
     with NetworkControllerBuilder =>
@@ -273,94 +386,28 @@ trait MessageDownloadServiceBuilder {
           nodeIdentity.id,
           homeDomain,
           messageEventBus,
-          ncRef,
+          net,
           db))
 }
 
-trait BlockChainBuilder {
-  self: DbBuilder =>
+trait RequireBlockChain {
+  val bc: BlockChain with BlockChainSignaturesAccessor
+    with BlockChainGenesis
+
+  def currentBlockHeight: Long
+}
+
+trait BlockChainBuilder extends RequireBlockChain {
+
+  self: RequireDb with RequireGlobalChainId =>
 
   lazy val bc: BlockChain
-    with BlockChainSignatures
-    with BlockChainGenesis
-    with BlockChainTxConfirms = new BlockChainImpl()
+    with BlockChainSignaturesAccessor
+    with BlockChainGenesis = new BlockChainImpl()
 
-  def currentBlockHeight: Long = bc.lastBlockHeader.height + 1
+  def currentBlockHeight(): Long = bc.lastBlockHeader.height + 1
 }
 
-trait StateMachineActorBuilder {
-  val stateMachineActor: ActorRef
-  def initStateMachine = {}
-}
-
-trait CoreStateMachineActorBuilder extends StateMachineActorBuilder {
-
-  self: ActorSystemBuilder
-    with DbBuilder
-    with NodeConfigBuilder
-    with NodeIdentityBuilder
-    with BlockChainBuilder
-    with BlockChainActorsBuilder
-    with LeaderActorBuilder
-    with BlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with NetworkControllerBuilder
-    with MessageEventBusBuilder =>
-
-  lazy val stateMachineActor: ActorRef = buildCoreStateMachine
-
-  override def initStateMachine = {
-
-    stateMachineActor ! InitWithActorRefs(leaderActor,
-                                          txRouter,
-                                          blockChainActor,
-                                          txForwarderActor)
-
-    blockChainDownloaderActor
-  }
-
-  def buildCoreStateMachine: ActorRef = {
-    actorSystem.actorOf(
-      Props(classOf[AsadoCoreStateMachineActor],
-            nodeIdentity.id,
-            nodeConfig.blockChainSettings,
-            bc,
-            messageEventBus,
-            ncRef,
-            db))
-  }
-
-}
-
-trait ClientStateMachineActorBuilder extends StateMachineActorBuilder {
-
-  self: ActorSystemBuilder
-    with DbBuilder
-    with NodeConfigBuilder
-    with NodeIdentityBuilder
-    with BlockChainBuilder
-    with MessageDownloadServiceBuilder
-    with ClientBlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with MessageEventBusBuilder =>
-
-  lazy val stateMachineActor: ActorRef = buildClientStateMachine
-
-  override def initStateMachine = {
-    stateMachineActor ! InitWithActorRefs(messageDownloaderActor,
-                                          blockChainDownloaderActor,
-                                          txForwarderActor)
-  }
-
-  def buildClientStateMachine: ActorRef = {
-    actorSystem.actorOf(
-      Props(classOf[AsadoClientStateMachineActor],
-            nodeIdentity.id,
-            nodeConfig.blockChainSettings,
-            bc,
-            db))
-  }
-}
 
 trait HandshakeGeneratorBuilder {
 
@@ -373,46 +420,97 @@ trait HandshakeGeneratorBuilder {
     )
 }
 
+trait RequireNetSend {
+  implicit val send: Send
+}
+
+trait SendTxBuilder {
+
+  self : MessageEventBusBuilder
+    with RequireActorSystem
+    with RequireGlobalChainId =>
+
+  implicit val sendTx: SendTx = SendTxSupport(actorSystem, globalChainId, messageEventBus)
+}
+
+trait NetSendBuilder extends RequireNetSend {
+
+  self :NetworkControllerBuilder =>
+
+  implicit override lazy val send: Send = Send(net)
+}
+
 trait NetworkControllerBuilder {
 
-  self: ActorSystemBuilder
-    with DbBuilder
+  self: RequireActorSystem
+    with RequireDb
     with NodeConfigBuilder
     with MessageEventBusBuilder
     with NetworkInterfaceBuilder
     with HandshakeGeneratorBuilder =>
 
-  val netController =
+  lazy val netController =
     new NetworkController(initialStepGenerator, networkInterface, messageEventBus)
 
-  lazy val ncRef = netController.waitStart()
+  lazy val net = netController.waitStart()
 }
 
-trait MinimumNode
-    extends Logging
+trait ChainSynchronizerBuilder {
+
+  self: RequireActorSystem
+    with RequireGlobalChainId
+    with RequireDb
+    with RequireNodeIdentity
+    with RequireChain
+    with RequireNetSend
+    with RequireBlockChain
+    with MessageEventBusBuilder =>
+
+  lazy val startSyncer: StartSyncer = ChainDownloadRequestActor.createStartSyncer(nodeIdentity,
+    send,
+    messageEventBus,
+    bc, db, chain.ledgers, chain.id)
+
+
+  lazy val synchronization =
+    ChainSynchronizer(chain.quorumCandidates(),
+      nodeIdentity.id,
+      startSyncer,
+      () => bc.getLatestCommittedBlockId(),
+      () => bc.getLatestRecordedBlockId(),
+    )
+}
+
+trait PartialNode extends Logging
     with ConfigBuilder
-    with ActorSystemBuilder
+    with RequireActorSystem
     with DbBuilder
+    with RequireGlobalChainId
     with NodeConfigBuilder
-    with PhraseBuilder
-    with SeedBytesBuilder
+    with RequirePhrase
+    with RequireSeedBytes
     with NodeIdentityBuilder
     with IdentityServiceBuilder
     with BootstrapIdentitiesBuilder
     with DecoderBuilder
     with MessageEventBusBuilder
     with BlockChainBuilder
-    with StateMachineActorBuilder
     with NetworkInterfaceBuilder
     with HandshakeGeneratorBuilder
     with NetworkControllerBuilder
+    with NetSendBuilder
     with BalanceLedgerBuilder
-    with LedgersBuilder
-    with WalletPersistenceBuilder
-    with WalletBuilder
-    with IntegratedWalletBuilder
+    with PeerManagerBuilder
     with HttpServerBuilder
-    with SimpleTxPageActorBuilder {
+    with SendTxBuilder
+    with UnsubscribedMessageHandlerBuilder
+    with WalletBuilder
+    with WalletPersistenceBuilder
+    with ShutdownHookBuilder
+    with PublicKeyTrackerBuilder
+    with ChainBuilder
+    with ChainSynchronizerBuilder {
+
 
   def shutdown: Unit = {
     httpServer.stop
@@ -420,29 +518,29 @@ trait MinimumNode
   }
 
   Logger.getLogger("hsqldb.db").setLevel(Level.OFF)
+
+  lazy val init = {
+
+    LeaderElectionActor(nodeIdentity.id, bc)
+
+    ChainDownloadResponseActor(nodeConfig.blockChainSettings.maxSignatures, bc)
+
+    import chain.ledgers
+
+    TxWriterActor(TxWriterActor.props(nodeConfig.blockChainSettings, nodeIdentity.id, bc, nodeIdentity))
+
+    TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
+
+    QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
+
+    QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
+
+    TxForwarderActor(1000)
+
+    SouthboundTxDistributorActor(
+      SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(), bc, net.disconnect)
+    )
+  }
 }
 
-trait CoreNode
-    extends MinimumNode
-    with BlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with CoreStateMachineActorBuilder
-    with LeaderActorBuilder
-    with BlockChainActorsBuilder {}
 
-trait ServicesNode
-    extends CoreNode
-    with MessageQueryHandlerActorBuilder
-    with ClaimServletBuilder {}
-
-trait ClientNode
-    extends MinimumNode
-    with ClientBlockChainDownloaderBuilder
-    with TxForwarderActorBuilder
-    with ClientStateMachineActorBuilder
-    with MessageDownloadServiceBuilder
-    with HomeDomainBuilder {
-
-  def connectHome = ncRef.connect(homeDomain.nodeId)
-
-}

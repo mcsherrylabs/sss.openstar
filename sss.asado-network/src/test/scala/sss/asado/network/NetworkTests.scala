@@ -2,8 +2,10 @@ package sss.asado.network
 
 import java.net.InetSocketAddress
 
-import scala.language.postfixOps
 import sss.asado.network.TestActorSystem.TestMessage
+
+import scala.language.postfixOps
+
 import sss.asado.network.testserver.TestServer
 import sss.asado.network.testserver.TestServer._
 
@@ -35,8 +37,8 @@ object NetworkTests {
                               server.startActor)
       nc.connect(servers._1.nodeId, reconnectionStrategy(1))
       WaitFor[Connection] { c: Connection =>
-        val nm = NetworkMessage(1.toByte, Array())
-        nc.send(nm, c.nodeId)
+        val nm = SerializedMessage(1.toByte, 1.toByte, Array())
+        nc.send(nm, Set(c.nodeId))
         WaitFor[ConnectionLost] { lost =>
           WaitFor[Connection] { c =>
             nc.disconnect(c.nodeId)

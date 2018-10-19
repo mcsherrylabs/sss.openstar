@@ -10,7 +10,9 @@ class ConnectionTracker(
                          eventBus: MessageEventBus
                        ) extends Actor {
 
-  var connections: Set[Connection] = Set()
+  override def receive: Receive = ??? //TODO delete
+
+  /*var connections: Set[Connection] = Set()
 
   eventBus.subscribe(classOf[ConnectionLost])
   eventBus.subscribe(classOf[Connection])
@@ -23,5 +25,5 @@ class ConnectionTracker(
     case l @ ConnectionLost(n) =>
       connections = connections.filterNot(_.nodeId == n)
       atomicReference.set(connections)
-  }
+  }*/
 }

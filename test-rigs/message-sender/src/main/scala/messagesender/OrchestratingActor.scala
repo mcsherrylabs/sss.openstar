@@ -3,7 +3,7 @@ package messagesender
 import akka.actor.{Actor, ActorLogging, Cancellable}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{TxIndex, TxOutput}
-import sss.asado.block.BlockChainTxId
+import sss.asado.common.block.BlockChainTxId
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.state.AsadoStateProtocol.{ReadyStateEvent, StateMachineInitialised}
 import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}

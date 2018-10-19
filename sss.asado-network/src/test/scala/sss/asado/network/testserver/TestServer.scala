@@ -8,7 +8,7 @@ import akka.pattern.ask
 import akka.util.Timeout
 import sss.asado.AsadoEvent
 import sss.asado.network.NetworkInterface.BindControllerSettings
-import sss.asado.network._
+import sss.asado.network.{MessageEventBus, _}
 import sss.asado.network.testserver.TestServer._
 
 import scala.concurrent.Await

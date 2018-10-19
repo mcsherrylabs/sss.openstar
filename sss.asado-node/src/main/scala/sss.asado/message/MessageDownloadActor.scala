@@ -3,10 +3,9 @@ package sss.asado.message
 import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, Send}
 import sss.asado.MessageKeys._
-
-import sss.asado.network.{MessageEventBus, NetworkMessage, NetworkRef}
+import sss.asado.network.{MessageEventBus, NetworkRef, SerializedMessage}
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -21,8 +20,9 @@ case object ForceCheckForMessages
 
 class MessageDownloadActor(who: String,
                            homeDomain: HomeDomain,
-                           messageRouter: MessageEventBus,
-                           ncRef: NetworkRef)(implicit db: Db)
+                           )(implicit db: Db,
+                             messageRouter: MessageEventBus,
+                             send: Send)
     extends Actor
     with ActorLogging {
 
@@ -33,6 +33,8 @@ class MessageDownloadActor(who: String,
   log.info("MessageDownload actor has started...")
 
   private val inBox = MessageInBox(who)
+
+  import SerializedMessage.noChain
 
   private var isQuiet = true
 
@@ -46,29 +48,28 @@ class MessageDownloadActor(who: String,
 
     case CheckForMessages =>
       if (isQuiet) {
-        ncRef.send(
-          NetworkMessage(
+        send(
             MessageKeys.MessageQuery,
-            createQuery.toBytes),
+            createQuery,
           homeDomain.nodeId.id)
 
         isQuiet = false
       }
 
-    case NetworkMessage(MessageKeys.EndMessagePage, bytes) =>
+    case SerializedMessage(_, MessageKeys.EndMessagePage, bytes) =>
       isQuiet = true
       self ! CheckForMessages
 
-    case NetworkMessage(MessageKeys.EndMessageQuery, bytes) =>
+    case SerializedMessage(_, MessageKeys.EndMessageQuery, bytes) =>
       isQuiet = true
       context.system.scheduler.scheduleOnce(FiniteDuration(5, TimeUnit.SECONDS),
                                             self,
                                             CheckForMessages)
 
-    case NetworkMessage(MessageKeys.MessageMsg, bytes) =>
-      decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
+    case SerializedMessage(_, MessageKeys.MessageMsg, bytes) =>
+      /*decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
         inBox.addNew(msg)
-      }
+      }*/
 
   }
 }

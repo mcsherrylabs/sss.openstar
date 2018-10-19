@@ -52,20 +52,16 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
       case CoinbaseDecumbrance(blockHeight) =>
         getTxIdForBlockHeight(currentBlockHeight) match {
           case Some(alreadyDone) =>
-            log.debug(s"A coinbase Tx ${alreadyDone}=? ${tx.txId.toBase64Str} already exists for block height $blockHeight")
+            require(false, s"A coinbase Tx ${alreadyDone}=? ${tx.txId.toBase64Str} already exists for block height $blockHeight")
 
           case None =>
             //TODO Strategy for block rewards
-            //require(in.amount == rewardPerBlockAmount, s"${in.amount} is not the amount allowed for a block ($rewardPerBlockAmount)")
-            require(params.nonEmpty && params.head.nonEmpty, "The tx sig must be provided - not enough params.")
-            val sigOfTx = params(0)(0)
-            val pKey = pKeyOfFirstSigner(blockHeight)
-
-            require(pKey.isDefined, s"Cannot find the public key used to sign block $blockHeight")
+            require(in.amount == rewardPerBlockAmount, s"${in.amount} is not the amount allowed for a block ($rewardPerBlockAmount)")
 
             tx.outs.foreach { out => out.encumbrance match {
                 case SinglePrivateKey(publicKey, minBlockHeight) =>
-                  require(blockHeight == currentBlockHeight - 1, "Must claim coinbase reward in the next block")
+                  val diff = currentBlockHeight - blockHeight
+                  require( diff == 0, s"Must claim coinbase reward in this block  $blockHeight, $currentBlockHeight")
                   require(minBlockHeight >= blockHeight + numBlocksInTheFuture,
                     s"The earliest spend block must be ${numBlocksInTheFuture} blocks in the future." +
                       s"(min - ${minBlockHeight} cur -  $blockHeight)")
@@ -75,13 +71,11 @@ case class CoinbaseValidator(pKeyOfFirstSigner: (Long) => Option[PublicKey],
                     s"The earliest spend block must be ${numBlocksInTheFuture} blocks in the future." +
                       s"(min - ${minBlockHeight} cur -  $blockHeight)")
 
-                case _ => require(false, "The reward coins must be locked using SinglePrivateKey encumbrance ")
+                case _ => require(false, "The reward coins must be locked using SinglePrivateKey/SingleIdentityEnc encumbrance ")
               }
             }
-            require(PublicKeyAccount(pKey.get).verify(sigOfTx, tx.txId),
-              "The signature provided did not match the tx and key.")
 
-            log.debug(s"Writing Coinbase Tx ${tx.txId.toBase64Str} for height $currentBlockHeight")
+            log.debug(s"Writing Coinbase Tx ${tx.txId.toBase64Str} for height $currentBlockHeight to coinbase table")
             write(currentBlockHeight, tx.txId.toBase64Str)
           }
 

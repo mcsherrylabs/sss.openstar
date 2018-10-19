@@ -4,6 +4,8 @@ import java.util.Date
 
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.TestClientKey
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block._
 import sss.db.Db
 
 /**
@@ -15,6 +17,7 @@ class BlockChainSpec extends FlatSpec with Matchers {
   val merkleRoot= "12345678123456781234567812345678".getBytes
   val prevHash = "12345678123456781234567812345678".getBytes
 
+  implicit val chainId: GlobalChainIdMask = 2.toByte
   implicit val db = Db()
   val bc = new BlockChainImpl()
 
@@ -31,8 +34,8 @@ class BlockChainSpec extends FlatSpec with Matchers {
   }
 
 
-  "A block chain " should " create a genesis block " in {
-    genBlk = bc.genesisBlock()
+  "A block chain " should " retrieve a genesis block " in {
+    genBlk = bc.blockHeader(1)
     assert(genBlk.height === 1)
     assert(genBlk.numTxs === 0)
   }
@@ -42,9 +45,10 @@ class BlockChainSpec extends FlatSpec with Matchers {
     val someNodeId = "whoareyou"
     val ck = TestClientKey()
     val signed = ck.sign(genBlk.hash)
-    bc.addSignature(1, signed, ck.publicKey, someNodeId)
-    assert(bc.indexOfBlockSignature(1, someNodeId).isDefined)
-    assert(bc.indexOfBlockSignature(1, someNodeId).get == 1)
+    bc.quorumSigs(1).addSignature(signed, ck.publicKey, someNodeId)
+    assert(bc.quorumSigs(1).indexOfBlockSignature(someNodeId).isDefined)
+    assert(bc.nonQuorumSigs(1).indexOfBlockSignature(someNodeId).isEmpty)
+    assert(bc.quorumSigs(1).indexOfBlockSignature(someNodeId).get == 1)
 
   }
 
@@ -53,30 +57,30 @@ class BlockChainSpec extends FlatSpec with Matchers {
 
     val someNodeId = "whoareyou"
 
-    val header2 = BlockHeader(1, 0, genBlk.hash, merkleRoot, new Date())
+    //val header2 = BlockHeader(1, 0, genBlk.hash, merkleRoot, new Date())
 
     val ck = TestClientKey()
     val signed = ck.sign(genBlk.hash)
 
-    intercept[Exception] {
-      bc.addSignature(1, signed, ck.publicKey, someNodeId)
-    }
+    assert(
+      bc.quorumSigs(1).addSignature( signed, ck.publicKey, someNodeId).isSuccess
+    )
 
     // check non existant block...
-    intercept[Exception] {
-      bc.addSignature(Long.MaxValue, signed, ck.publicKey, someNodeId)
-    }
+    assert(
+      bc.quorumSigs(2).addSignature(signed, ck.publicKey, someNodeId).isFailure
+    )
 
   }
 
   it should " not find signatures that haven't occurred " in {
     val someNodeId = "totallunknown"
-    assert(bc.indexOfBlockSignature(1, someNodeId).isEmpty)
+    assert(bc.quorumSigs(1).indexOfBlockSignature(someNodeId).isEmpty)
   }
 
   it should " not find signatures that for another block " in {
     val someNodeId = "whoareyou"
-    assert(bc.indexOfBlockSignature(99, someNodeId).isEmpty)
+    assert(bc.quorumSigs(99).indexOfBlockSignature(someNodeId).isEmpty)
   }
 
   it should " find the correct last block " in {
@@ -96,7 +100,7 @@ class BlockChainSpec extends FlatSpec with Matchers {
     val now = new Date()
     val lastBlock = bc.lastBlockHeader
 
-    val newHeader = bc.closeBlock(lastBlock)
+    val newHeader = bc.closeBlock(lastBlock).get
 
     matchSecondBlock(bc.lastBlockHeader, lastBlock.hash)
 
@@ -117,30 +121,7 @@ class BlockChainSpec extends FlatSpec with Matchers {
     intercept[Exception]{bc.genesisBlock()}
   }
 
-  it should " get the unconfirmed " in {
-    val height = bc.lastBlockHeader.height
-    val num = Block(height).entries.size
-    assert(bc.getUnconfirmed(height, 999).size === num)
-  }
 
-  it should " successfully confirm " in {
-    val height = bc.lastBlockHeader.height
-    var index = 0
-    val size = Block(height).entries.size
-
-    Block(height).entries foreach { entry =>
-      bc.confirm(BlockChainTxId(height, BlockTxId(entry.ledgerItem.txId, index)))
-      index += 1
-    }
-    assert(bc.getUnconfirmed(height, 1).size === 0)
-    assert(bc.getUnconfirmed(height, 2).size === size)
-    index = 0
-    Block(height).entries foreach { entry =>
-      bc.confirm(BlockChainTxId(height, BlockTxId(entry.ledgerItem.txId, index)))
-      index += 1
-    }
-    assert(bc.getUnconfirmed(height, 2).size === 0)
-  }
 
 
 }

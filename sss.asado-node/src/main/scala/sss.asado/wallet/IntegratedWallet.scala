@@ -5,9 +5,9 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{TxIndex, TxOutput}
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.ledger._
-import sss.asado.network.{MessageEventBus, NetworkMessage}
+import sss.asado.network.{MessageEventBus, SerializedMessage}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
 
@@ -65,12 +65,12 @@ class IntegratedWallet(wallet: Wallet,
         /*messageRouterActor ! NetworkMessage(MessageKeys.SignedTx,
           LedgerItem(MessageKeys.BalanceLedger, stx.txId, stx.toBytes).toBytes)*/
 
-      case NetworkMessage(MessageKeys.SignedTxAck, bytes) => log.info(s"SignedTxAck")
+      case SerializedMessage(_, MessageKeys.SignedTxAck, bytes) => log.info(s"SignedTxAck")
 
-      case NetworkMessage(MessageKeys.AckConfirmTx, bytes) =>
+      case SerializedMessage(_, MessageKeys.AckConfirmTx, bytes) =>
         Try {
           log.info(s"PAYMENT ACK ")
-          val bcTxId = bytes.toBlockChainIdTx
+          val bcTxId = bytes.toBlockChainTxId
           val hexId = bcTxId.blockTxId.txId.toBase64Str
           paymentsInFlight.get(hexId) match {
             case Some(txTracker) =>
@@ -87,12 +87,12 @@ class IntegratedWallet(wallet: Wallet,
           case Success(_) =>
         }
 
-      case NetworkMessage(MessageKeys.NackConfirmTx, bytes) =>
-          val blockChainTxId = bytes.toBlockChainIdTx
+      case SerializedMessage(_, MessageKeys.NackConfirmTx, bytes) =>
+          val blockChainTxId = bytes.toBlockChainTxId
           log.warning(s"PAYMENT CONFIRM NACK $blockChainTxId")
 
 
-      case NetworkMessage(MessageKeys.TempNack, bytes) =>
+      case SerializedMessage(_, MessageKeys.TempNack, bytes) =>
         Try {
           log.info(s"Temp NACK ")
           val txMsg = bytes.toTxMessage
@@ -109,7 +109,7 @@ class IntegratedWallet(wallet: Wallet,
           case Success(_) =>
         }
 
-      case NetworkMessage(MessageKeys.SignedTxNack, bytes) =>
+      case SerializedMessage(_, MessageKeys.SignedTxNack, bytes) =>
         Try {
           log.info(s"PAYMENT NACK ")
           val txMsg = bytes.toTxMessage

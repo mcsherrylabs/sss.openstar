@@ -5,6 +5,7 @@ import java.util.Date
 
 import com.google.common.primitives.Longs
 import sss.asado.util.ByteArrayComparisonOps
+import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.util.hash.SecureCryptographicHash
 import sss.db.Row
 
@@ -39,6 +40,13 @@ case class BlockHeader(
     case _ => false
   }
 
+  override def toString: String = {
+    s"Height: $height, " +
+      s"numTxs: $numTxs, " +
+      s"hashPrev: ${hashPrevBlock.toBase64Str}, " +
+      s"merkle: ${merkleRoot.toBase64Str}, " +
+      s"time: $time"
+  }
   override def hashCode(): Int = {
     (17 + Longs.hashCode(height)) *
       (numTxs + util.Arrays.hashCode(hashPrevBlock) +

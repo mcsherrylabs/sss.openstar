@@ -10,7 +10,8 @@ import sss.analysis.TransactionHistory.{ExpandedTx, ExpandedTxElement}
 import sss.ancillary.Logging
 import sss.asado.MessageKeys
 import sss.asado.balanceledger.{Tx, TxIndex, TxInput, TxOutput, _}
-import sss.asado.block.{Block, BlockTx}
+import sss.asado.block.Block
+import sss.asado.common.block.BlockTx
 import sss.asado.contract.{Encumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc}
 import sss.asado.identityledger._
 import sss.asado.ledger._

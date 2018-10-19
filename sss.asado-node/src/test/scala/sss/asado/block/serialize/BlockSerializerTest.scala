@@ -1,10 +1,10 @@
 package sss.asado.block.serialize
 
-import block._
+import sss.asado.block._
 import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.account.PrivateKeyAccount
-import sss.asado.block._
+import sss.asado.common.block._
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.DummySeedBytes
 import sss.asado.ledger.LedgerItem
@@ -23,7 +23,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   val stx = LedgerItem(1, DummySeedBytes(32), DummySeedBytes(100))
 
   "A Find Leader " should " be corrrectly serialised and deserialized " in {
-    val c = FindLeader(1234, 99, 4, "Holy Karelia!")
+    val c = FindLeader(1234, 99, 98, 4, "Holy Karelia!")
     val asBytes = c.toBytes
     val backAgain = asBytes.toFindLeader
     assert(backAgain.height === c.height)
@@ -40,7 +40,7 @@ class BlockSerializerTest extends FlatSpec with Matchers {
   }
 
   "A Vote Leader " should " be corrrectly serialised and deserialized " in {
-    val c = VoteLeader("Holy Karelia!")
+    val c = VoteLeader("Holy Karelia!", 89, 9)
     val asBytes = c.toBytes
     val backAgain = asBytes.toVoteLeader
     assert(backAgain.nodeId === c.nodeId)

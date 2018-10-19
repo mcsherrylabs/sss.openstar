@@ -1,21 +1,23 @@
 package sss.asado.network
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.util.ByteString
-import sss.asado.AsadoEvent
-import sss.asado.network.MessageEventBus.{HasNodeId, MessageInfo}
+import sss.asado.eventbus.MessageInfo
+import sss.asado.network.TestActorSystem.SuperClass
+import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
+
 
 object TestActorSystem {
 
   implicit val actorSystem: ActorSystem = ActorSystem()
 
-  case class MyEvent(i: Int) extends AsadoEvent
+  case class MyEvent(i: Int) extends AsadoEvent with SuperClass
   case class MyOtherEvent(i: Int) extends AsadoEvent
 
+  trait SuperClass
   case class TestMessage(
-                         nodeId: UniqueNodeIdentifier,
+
                          data: ByteString)
-      extends HasNodeId
 
 
   object TestMessageInfo extends MessageInfo {
@@ -24,13 +26,19 @@ object TestActorSystem {
     override type T = TestMessage
     override val clazz: Class[T] = classOf[T]
 
-    override def fromBytes(nodeId: UniqueNodeIdentifier, bytes: Array[Byte]) =
-      TestMessage(nodeId, ByteString(bytes))
+    override def fromBytes(bytes: Array[Byte]) =
+      TestMessage(ByteString(bytes))
   }
 
   val messages = Set(TestMessageInfo)
   val decoder: Byte => Option[MessageInfo] =
     messages.map(b => b.msgCode -> b).toMap.get
+
+  object LogActor extends Actor with ActorLogging {
+    override def receive: Receive = {
+      case x => log.info(s"Testing default message handler   $x")
+    }
+  }
 
   lazy val msgBus = new MessageEventBus(decoder)
   lazy val msgBus2 = new MessageEventBus(decoder)

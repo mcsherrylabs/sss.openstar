@@ -3,14 +3,17 @@ package sss.asado.identityledger
 import java.nio.charset.StandardCharsets.UTF_8
 
 import sss.ancillary.Logging
+import sss.asado.common.block.BlockId
 import sss.asado.ledger._
+
+import scala.util.Try
 
 /**
   * Created by alan on 5/30/16.
   */
 class IdentityLedger(ledgerId: Byte, idLedgerService: IdentityService) extends  Ledger with Logging {
 
-  override def apply(ledgerItem: LedgerItem, blockHeight: Long): Unit = {
+  override def apply(ledgerItem: LedgerItem, blockId: BlockId): LedgerResult = Try {
     require(ledgerItem.ledgerId == ledgerId, s"The ledger id for this (Identity) ledger is $ledgerId but " +
       s"the ledgerItem passed has an id of ${ledgerItem.ledgerId}")
 
@@ -43,6 +46,8 @@ class IdentityLedger(ledgerId: Byte, idLedgerService: IdentityService) extends  
         verifyChangeRequest(ste, a, identity)
         idLedgerService.unLinkRescuer(identity, rescuer)
     }
+
+    Seq.empty
   }
 
   def verifyRescueRequest(rescuer: String, ste: SignedTxEntry, msg: IdentityLedgerTx, identity: String) {
@@ -66,4 +71,5 @@ class IdentityLedger(ledgerId: Byte, idLedgerService: IdentityService) extends  
     require(accOpt.isDefined, s"Could not find an account for identity/tag pair ${identity}/$tag provided in signature.")
     require(accOpt.get.verify(sig, msg.txId), "The signature does not match the txId")
   }
+
 }

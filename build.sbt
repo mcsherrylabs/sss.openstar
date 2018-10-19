@@ -3,7 +3,7 @@ lazy val commonSettings = Seq(
   organization := "com.mcsherrylabs",
   version := "0.4.0-SNAPSHOT",
   scalaVersion := "2.12.6",
-  scalacOptions += "-target:jvm-1.8",
+  scalacOptions ++= Seq("-unchecked", "-deprecation", "-target:jvm-1.8"),
   updateOptions := updateOptions.value.withGigahorse(false),
   resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/repository/releases",
   resolvers += "stepsoft-snapshots" at "http://nexus.mcsherrylabs.com/repository/snapshots",
@@ -13,7 +13,7 @@ lazy val commonSettings = Seq(
 
 
 lazy val root = (project in file("."))
-  .aggregate(common, network, ledger, node, nobu, analysis)
+  .aggregate(common, network, ledger, node)
 
 lazy val common  = (project in file("sss.asado-common"))
   .settings(commonSettings)

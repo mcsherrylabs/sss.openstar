@@ -90,8 +90,10 @@ object Serialize {
   }
 
   case class ByteStringSerializer(payload: ByteString) extends ToBytes {
-    override def toBytes: Array[Byte] =
+    override def toBytes: Array[Byte] = {
+      assert(payload.toArray.length == payload.length, "WHAT?")
       Ints.toByteArray(payload.length) ++ payload
+    }
   }
 
   object BooleanDeSerialize extends DeSerializeTarget {

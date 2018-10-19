@@ -4,7 +4,7 @@ package sss.analysis
 import org.joda.time.LocalDateTime
 import sss.asado.MessageKeys
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.block.{Block, BlockTx}
+import sss.asado.common.block.BlockTx
 import sss.asado.ledger._
 import sss.asado.balanceledger._
 import sss.asado.contract.{Encumbrance, NullEncumbrance, SaleOrReturnSecretEnc, SingleIdentityEnc}

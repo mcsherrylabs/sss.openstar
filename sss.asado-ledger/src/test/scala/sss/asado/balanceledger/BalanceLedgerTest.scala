@@ -3,7 +3,8 @@ package sss.asado.balanceledger
 import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.{NodeIdentityManager, PrivateKeyAccount}
-import sss.asado.block.BlockId
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.common.block.BlockId
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityService
 import sss.asado.ledger._
@@ -18,15 +19,17 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
   nodeIdentityManager.deleteKey("testKey", "tag")
   val nodeIdentity = nodeIdentityManager("testKey", "tag", "phrase1233333333")
 
+  implicit val chainId: GlobalChainIdMask = 1.toByte
+
   def pKeyOfFirstSigner(blockHeight:Long) = Option(nodeIdentity.publicKey)
 
   implicit val db: Db = Db()
-  db.executeSql("TRUNCATE TABLE utxo ")
 
   val cbv = CoinbaseValidator(pKeyOfFirstSigner, 100, 0)
   val identityService = IdentityService()
   val ledger = BalanceLedger(cbv, identityService)
 
+  //FIXME SHAMEFULLY the state of validOut is used throughout this test.
   var validOut: TxIndex = _
   var cbTx: SignedTxEntry = _
 
@@ -34,35 +37,31 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     val numBlockInFuture = 10
     val cbv = CoinbaseValidator(pKeyOfFirstSigner, 100, numBlockInFuture)
     val ledger = BalanceLedger(cbv, identityService)
-    val le = ledger.coinbase(nodeIdentity, BlockId(50, 0), 1.toByte).get
+    val le = ledger.coinbase(nodeIdentity, 50, 1.toByte).get
 
     val initBal = ledger.balance
     assert(le.txEntryBytes.toSignedTxEntry.txEntryBytes.toTx.outs.head.encumbrance.asInstanceOf[SinglePrivateKey].minBlockHeight == 60)
 
-    intercept[IllegalArgumentException] {
-      // cannot ledger into same block
-      ledger(le, 50)
-    }
+    // can only ledger into same block
+    ledger(le, BlockId(50, 1)).get
 
-    ledger(le, 51)
+    assert(ledger(le, BlockId(51, 1)).isFailure)
 
     assert(ledger.balance - initBal == 100)
   }
 
   "A Ledger " should " allow coinbase tx " in {
-    val le = ledger.coinbase(nodeIdentity, BlockId(1, 0), 1.toByte).get
+    val le = ledger.coinbase(nodeIdentity, 2, 1.toByte).get
     cbTx = le.txEntryBytes.toSignedTxEntry
     val initBal = ledger.balance
-    ledger(le, 2)
+    ledger(le, BlockId(2, 1))
     assert(ledger.balance - initBal == 100)
   }
 
   it should "only allow 1 coinbase per block " in {
 
-    val le = ledger.coinbase(nodeIdentity, BlockId(1, 0), 1.toByte).get
-    intercept[IllegalArgumentException] {
-      ledger(le, 1)
-    }
+    val le = ledger.coinbase(nodeIdentity, 2, 1.toByte).get
+    assert(ledger(le, BlockId(2, 1)).isFailure)
   }
 
   it should " prevent txs with bad balances " in {
@@ -72,7 +71,7 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     intercept[IllegalArgumentException] {
       val le = ledger.apply(
         SignedTxEntry(StandardTx(ins, outs).toBytes, Seq()),
-        0)
+        BlockId(0, 1))
     }
   }
 
@@ -83,7 +82,7 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     intercept[IllegalArgumentException] {
       val le = ledger.apply(
         SignedTxEntry(StandardTx(ins, outs).toBytes, Seq()),
-        0)
+        BlockId(0, 1))
     }
   }
 
@@ -94,7 +93,7 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     intercept[IllegalArgumentException] {
       val le = ledger.apply(
         SignedTxEntry(StandardTx(ins, outs).toBytes, Seq(Seq())),
-        0)
+        BlockId(0, 1))
     }
   }
 
@@ -108,14 +107,14 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
 
     intercept[IllegalArgumentException] {
       // minimum block height not exceeded
-      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), 0)
+      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), BlockId(3, 1))
     }
 
-    val le = ledger.apply(stx, 1)
+    val le = ledger.apply(stx, BlockId(4, 2))
 
     intercept[IllegalArgumentException] {
       // cannot double spend.
-      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), 1)
+      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), BlockId(4, 1))
     }
   }
 
@@ -124,7 +123,7 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     val ins = Seq(TxInput(TxIndex(DummySeedBytes.randomSeed(3), 2), 100,  NullDecumbrance))
     val outs = Seq(TxOutput(99, NullEncumbrance), TxOutput(1, NullEncumbrance))
     intercept[IllegalArgumentException] {
-      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), 0)
+      ledger.apply(SignedTxEntry(StandardTx(ins, outs).toBytes), BlockId(0, 1))
     }
   }
 
@@ -133,20 +132,20 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
     val ins = Seq(TxInput(validOut, 99, NullDecumbrance))
     val outs = Seq(TxOutput(98, NullEncumbrance), TxOutput(1, NullEncumbrance))
     val stx = SignedTxEntry(StandardTx(ins, outs).toBytes, Seq(Seq()))
-    ledger(stx, 0)
+    ledger(stx, BlockId(0, 2))
     val nextIns = Seq(TxInput(TxIndex(stx.txId, 0), 98, NullDecumbrance))
     val nextOuts = Seq(TxOutput(1, NullEncumbrance),TxOutput(97, NullEncumbrance))
     val nextTx = SignedTxEntry(StandardTx(nextIns, nextOuts).toBytes,  Seq(Seq()))
-    ledger(nextTx, 0)
+    ledger(nextTx, BlockId(0, 2))
 
     validOut = TxIndex(nextTx.txId, 1)
 
     intercept[IllegalArgumentException] {
-      ledger(stx, 0)
+      ledger(stx, BlockId(0, 2))
     }
 
     intercept[IllegalArgumentException] {
-      ledger(nextTx, 0)
+      ledger(nextTx, BlockId(0, 2))
     }
   }
 
@@ -159,13 +158,13 @@ class BalanceLedgerTest extends FlatSpec with Matchers {
 
     val outs = Seq(TxOutput(1, SinglePrivateKey(pkPair1.publicKey)), TxOutput(96, SinglePrivateKey(pkPair2.publicKey)))
     val stx = SignedTxEntry(StandardTx(ins, outs).toBytes,  Seq(Seq()))
-    ledger(stx, 0)
+    ledger(stx, BlockId(0, 2))
     val nextIns = Seq(TxInput(TxIndex(stx.txId, 0), 1, PrivateKeySig), TxInput(TxIndex(stx.txId, 1), 96, PrivateKeySig))
     val nextOuts = Seq(TxOutput(97, NullEncumbrance))
     val nextTx = StandardTx(nextIns, nextOuts)
 
     val nextSignedTx = SignedTxEntry(nextTx.toBytes, Seq(Seq(pkPair1.sign(nextTx.txId)), Seq(pkPair2.sign(nextTx.txId))))
-    ledger(nextSignedTx, 0)
+    ledger(nextSignedTx, BlockId(0, 2))
 
   }
 }

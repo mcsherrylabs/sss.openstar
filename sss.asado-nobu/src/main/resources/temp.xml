@@ -1,0 +1,675 @@
+<Wix xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+
+    <Product Id="dd41efe9-b0e8-426f-8ce3-5270e631032f" Name="openstar nobu" Language="1033" Version="0.4.0-SNAPSHOT" Manufacturer="Stepping Stone Software Ltd." UpgradeCode="4e7cec34-0c58-4b2d-8392-8b69aaccd743">
+
+        <Package Description="Nobu Openstar Install" Comments="TODO - we need comments." Manufacturer="Stepping Stone Software Ltd."
+                 InstallScope="perMachine" InstallerVersion="200" Compressed="yes"/>
+
+
+        <Media Id="1" Cabinet="_nobu3386836xx.cab" EmbedCab="yes"/>
+
+        <!-- Define the directories we use -->
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="nobu">
+                    <Component Id="_ApplicationProgramsFolderRemove689092593" Guid="31167826-7523-44a4-a098-2b21fe896e8c">
+                        <RemoveFolder Id="ApplicationProgramsFolderRemove" On="uninstall"/>
+                        <RegistryValue Root="HKCU" Key="Software\Stepping Stone Software Ltd.\nobu" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+                    </Component>
+                </Directory>
+            </Directory>
+            <Directory Id="ProgramFilesFolder" Name="PFiles">
+                <Directory Id="INSTALLDIR" Name="nobu">
+                    <Directory Id="_conf3059492xx" Name="conf">
+
+                    </Directory><!-- --><Directory Id="_lib107141xxx" Name="lib">
+
+                </Directory><Directory Id="_bin97543xxxx" Name="bin">
+
+                </Directory>
+                </Directory>
+            </Directory>
+        </Directory>
+        <!-- Now define the components -->
+        <DirectoryRef Id="_conf3059492xx">
+            <Component Id="_conf_application_conf869632883" Guid="22c7cc54-a421-4e0c-ac82-c758db103045">
+                <File Id="fl__conf_application_conf869632883" Name="application.conf" DiskId="1" Source="conf\application.conf">
+
+                    <util:PermissionEx User="Administrators" GenericAll="yes"/>
+                    <util:PermissionEx User="Users" GenericAll="yes"/>
+
+                </File>
+            </Component>
+        </DirectoryRef><DirectoryRef Id="_conf3059492xx">
+        <Component Id="_conf_application_ini205016303" Guid="de974702-a661-4db3-a795-fc25b7e33064">
+            <File Id="fl__conf_application_ini205016303" Name="application.ini" DiskId="1" Source="conf\application.ini">
+
+                <util:PermissionEx User="Administrators" GenericAll="yes"/>
+                <util:PermissionEx User="Users" GenericAll="yes"/>
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_conf3059492xx">
+        <Component Id="_conf_logback_xml183077903" Guid="e70f0bbd-f56e-4f8d-9441-61ea1210a991">
+            <File Id="fl__conf_logback_xml183077903" Name="logback.xml" DiskId="1" Source="conf\logback.xml">
+
+                <util:PermissionEx User="Administrators" GenericAll="yes"/>
+                <util:PermissionEx User="Users" GenericAll="yes"/>
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_conf3059492xx">
+        <Component Id="_conf_node_conf146895728" Guid="77566b32-d65e-4299-b895-a32e8a627b93">
+            <File Id="fl__conf_node_conf146895728" Name="node.conf" DiskId="1" Source="conf\node.conf">
+
+                <util:PermissionEx User="Administrators" GenericAll="yes"/>
+                <util:PermissionEx User="Users" GenericAll="yes"/>
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_jar386349133" Guid="ee2e153b-1f85-4c36-ad8b-cab56b4c79cd">
+            <File Id="fl__lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_jar386349133" Name="com.mcsherrylabs.nobu-0.4.0-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.nobu-0.4.0-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_asado_node_0_4_0_SNAPSHOT_jar195061758" Guid="f8c9a814-041f-4bbc-ac39-26b14589a692">
+            <File Id="fl__lib_com_mcsherrylabs_sss_asado_node_0_4_0_SNAPSHOT_jar195061758" Name="com.mcsherrylabs.sss-asado-node-0.4.0-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-asado-node-0.4.0-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_asado_common_0_4_0_SNAPSHOT_jar173859090" Guid="10c693f6-5e54-438e-8995-abbc5f5b9dd0">
+            <File Id="fl__lib_com_mcsherrylabs_sss_asado_common_0_4_0_SNAPSHOT_jar173859090" Name="com.mcsherrylabs.sss-asado-common-0.4.0-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-asado-common-0.4.0-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_asado_network_0_4_0_SNAPSHOT_jar710911172" Guid="66238ec6-4591-47df-b066-2d95e55d703b">
+            <File Id="fl__lib_com_mcsherrylabs_sss_asado_network_0_4_0_SNAPSHOT_jar710911172" Name="com.mcsherrylabs.sss-asado-network-0.4.0-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-asado-network-0.4.0-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_asado_ledger_0_4_0_SNAPSHOT_jar101191960" Guid="2440a87c-6edf-4b44-ae0c-95b9574d3da5">
+            <File Id="fl__lib_com_mcsherrylabs_sss_asado_ledger_0_4_0_SNAPSHOT_jar101191960" Name="com.mcsherrylabs.sss-asado-ledger-0.4.0-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-asado-ledger-0.4.0-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scala_lang_scala_library_2_12_6_jar147452238" Guid="dd07f538-c038-4a57-80e0-0696a03564a6">
+            <File Id="fl__lib_org_scala_lang_scala_library_2_12_6_jar147452238" Name="org.scala-lang.scala-library-2.12.6.jar" DiskId="1" Source="lib\org.scala-lang.scala-library-2.12.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_consensusresearch_scrypto_2_12_1_2_0_RC3_jar440876828" Guid="fe027c97-880a-4df2-a509-a781c768339a">
+            <File Id="fl__lib_org_consensusresearch_scrypto_2_12_1_2_0_RC3_jar440876828" Name="org.consensusresearch.scrypto_2.12-1.2.0-RC3.jar" DiskId="1" Source="lib\org.consensusresearch.scrypto_2.12-1.2.0-RC3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_chuusai_shapeless_2_12_2_3_2_jar170665879" Guid="21fd75f3-b039-4c8d-9002-5f3769dd94e0">
+            <File Id="fl__lib_com_chuusai_shapeless_2_12_2_3_2_jar170665879" Name="com.chuusai.shapeless_2.12-2.3.2.jar" DiskId="1" Source="lib\com.chuusai.shapeless_2.12-2.3.2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_typelevel_macro_compat_2_12_1_1_1_jar127949528" Guid="4e17854a-315c-452c-9d47-6462df1dedb6">
+            <File Id="fl__lib_org_typelevel_macro_compat_2_12_1_1_1_jar127949528" Name="org.typelevel.macro-compat_2.12-1.1.1.jar" DiskId="1" Source="lib\org.typelevel.macro-compat_2.12-1.1.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_google_guava_guava_19_0_jar176981278" Guid="7542b935-cf09-456c-8ba4-3da27db2d1ca">
+            <File Id="fl__lib_com_google_guava_guava_19_0_jar176981278" Name="com.google.guava.guava-19.0.jar" DiskId="1" Source="lib\com.google.guava.guava-19.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_whispersystems_curve25519_java_0_3_0_jar120556451" Guid="fef5eaca-4b0e-4c53-8da3-04f9fa71acb3">
+            <File Id="fl__lib_org_whispersystems_curve25519_java_0_3_0_jar120556451" Name="org.whispersystems.curve25519-java-0.3.0.jar" DiskId="1" Source="lib\org.whispersystems.curve25519-java-0.3.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_ancillary_2_12_1_4_SNAPSHOT_jar673121535" Guid="04e47ffd-c919-43e9-af5f-b6563d5baf15">
+            <File Id="fl__lib_com_mcsherrylabs_sss_ancillary_2_12_1_4_SNAPSHOT_jar673121535" Name="com.mcsherrylabs.sss-ancillary_2.12-1.4-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-ancillary_2.12-1.4-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scala_lang_scala_reflect_2_12_6_jar749409362" Guid="c694a694-1242-4fff-adba-cb2a5dec31fa">
+            <File Id="fl__lib_org_scala_lang_scala_reflect_2_12_6_jar749409362" Name="org.scala-lang.scala-reflect-2.12.6.jar" DiskId="1" Source="lib\org.scala-lang.scala-reflect-2.12.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_config_1_3_3_jar150070474" Guid="216c2ffa-df55-4a91-b012-91a1f708db85">
+            <File Id="fl__lib_com_typesafe_config_1_3_3_jar150070474" Name="com.typesafe.config-1.3.3.jar" DiskId="1" Source="lib\com.typesafe.config-1.3.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_b_com_typesafe_scala_logging_scala_logging_2_12_3_9_0_jar891410666" Guid="1f0cb160-d3aa-4cf0-86f8-19faaf8cf662">
+            <File Id="fl__b_com_typesafe_scala_logging_scala_logging_2_12_3_9_0_jar891410666" Name="com.typesafe.scala-logging.scala-logging_2.12-3.9.0.jar" DiskId="1" Source="lib\com.typesafe.scala-logging.scala-logging_2.12-3.9.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_slf4j_slf4j_api_1_7_25_jar674574048" Guid="0701a2d9-d64d-4840-8590-1b3014f9d82e">
+            <File Id="fl__lib_org_slf4j_slf4j_api_1_7_25_jar674574048" Name="org.slf4j.slf4j-api-1.7.25.jar" DiskId="1" Source="lib\org.slf4j.slf4j-api-1.7.25.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_ch_qos_logback_logback_classic_1_2_3_jar203962478" Guid="35f03444-54f4-4130-9c74-a32d89e2cc30">
+            <File Id="fl__lib_ch_qos_logback_logback_classic_1_2_3_jar203962478" Name="ch.qos.logback.logback-classic-1.2.3.jar" DiskId="1" Source="lib\ch.qos.logback.logback-classic-1.2.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_ch_qos_logback_logback_core_1_2_3_jar156832362" Guid="392bf204-55d1-464d-b0c7-bc363b91ecbe">
+            <File Id="fl__lib_ch_qos_logback_logback_core_1_2_3_jar156832362" Name="ch.qos.logback.logback-core-1.2.3.jar" DiskId="1" Source="lib\ch.qos.logback.logback-core-1.2.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_joda_time_joda_time_2_9_9_jar186344681" Guid="f4f1a843-8008-46cf-89ae-3ac2f34b0a86">
+            <File Id="fl__lib_joda_time_joda_time_2_9_9_jar186344681" Name="joda-time.joda-time-2.9.9.jar" DiskId="1" Source="lib\joda-time.joda-time-2.9.9.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_ipse_jetty_aggregate_jetty_all_server_8_2_0_v20160908_jar191540424" Guid="6ff191ce-cf85-441b-9f02-ebc673689f6d">
+            <File Id="fl__ipse_jetty_aggregate_jetty_all_server_8_2_0_v20160908_jar191540424" Name="org.eclipse.jetty.aggregate.jetty-all-server-8.2.0.v20160908.jar" DiskId="1" Source="lib\org.eclipse.jetty.aggregate.jetty-all-server-8.2.0.v20160908.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_eclipse_jetty_orbit_javax_servlet_3_0_0_v201112011016_jar179397078" Guid="98f83509-ed95-47d0-b62d-b89875badb23">
+            <File Id="fl__eclipse_jetty_orbit_javax_servlet_3_0_0_v201112011016_jar179397078" Name="org.eclipse.jetty.orbit.javax.servlet-3.0.0.v201112011016.jar" DiskId="1" Source="lib\org.eclipse.jetty.orbit.javax.servlet-3.0.0.v201112011016.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_orbit_javax_security_auth_message_1_0_0_v201108011116_jar204691454" Guid="69000d87-7bf2-4b1f-99c1-be6258abbb65">
+            <File Id="fl__orbit_javax_security_auth_message_1_0_0_v201108011116_jar204691454" Name="org.eclipse.jetty.orbit.javax.security.auth.message-1.0.0.v201108011116.jar" DiskId="1" Source="lib\org.eclipse.jetty.orbit.javax.security.auth.message-1.0.0.v201108011116.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_jetty_orbit_javax_mail_glassfish_1_4_1_v201005082020_jar163386228" Guid="830de97b-93e8-44ab-876e-1042c159b299">
+            <File Id="fl__jetty_orbit_javax_mail_glassfish_1_4_1_v201005082020_jar163386228" Name="org.eclipse.jetty.orbit.javax.mail.glassfish-1.4.1.v201005082020.jar" DiskId="1" Source="lib\org.eclipse.jetty.orbit.javax.mail.glassfish-1.4.1.v201005082020.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_ipse_jetty_orbit_javax_activation_1_1_0_v201105071233_jar130234066" Guid="f9853551-b044-4e22-acd6-cfcf31c491c5">
+            <File Id="fl__ipse_jetty_orbit_javax_activation_1_1_0_v201105071233_jar130234066" Name="org.eclipse.jetty.orbit.javax.activation-1.1.0.v201105071233.jar" DiskId="1" Source="lib\org.eclipse.jetty.orbit.javax.activation-1.1.0.v201105071233.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_ipse_jetty_orbit_javax_annotation_1_1_0_v201108011116_jar192181942" Guid="00e659b7-e926-45e6-be44-287f472cd38e">
+            <File Id="fl__ipse_jetty_orbit_javax_annotation_1_1_0_v201108011116_jar192181942" Name="org.eclipse.jetty.orbit.javax.annotation-1.1.0.v201108011116.jar" DiskId="1" Source="lib\org.eclipse.jetty.orbit.javax.annotation-1.1.0.v201108011116.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_us_monoid_web_resty_0_3_2_jar140952717" Guid="2afd3cfb-6aeb-43c8-b5b7-7891390ed680">
+            <File Id="fl__lib_us_monoid_web_resty_0_3_2_jar140952717" Name="us.monoid.web.resty-0.3.2.jar" DiskId="1" Source="lib\us.monoid.web.resty-0.3.2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_net_java_dev_javacc_javacc_4_1_jar535214491" Guid="ee954025-0f7f-4e84-b48d-a7337370212d">
+            <File Id="fl__lib_net_java_dev_javacc_javacc_4_1_jar535214491" Name="net.java.dev.javacc.javacc-4.1.jar" DiskId="1" Source="lib\net.java.dev.javacc.javacc-4.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scalatra_scalatra_2_12_2_6_3_jar108799839" Guid="aa1e17cf-fb6f-44b8-9ed4-e986e2bb3dc0">
+            <File Id="fl__lib_org_scalatra_scalatra_2_12_2_6_3_jar108799839" Name="org.scalatra.scalatra_2.12-2.6.3.jar" DiskId="1" Source="lib\org.scalatra.scalatra_2.12-2.6.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scalatra_scalatra_common_2_12_2_6_3_jar130576141" Guid="cef5bbba-8b0c-4bca-bc5c-9bdacfd15328">
+            <File Id="fl__lib_org_scalatra_scalatra_common_2_12_2_6_3_jar130576141" Name="org.scalatra.scalatra-common_2.12-2.6.3.jar" DiskId="1" Source="lib\org.scalatra.scalatra-common_2.12-2.6.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_googlecode_juniversalchardet_juniversalchardet_1_0_3_jar160235793" Guid="ffd37367-7278-40d0-8210-2129d2d0a48b">
+            <File Id="fl__googlecode_juniversalchardet_juniversalchardet_1_0_3_jar160235793" Name="com.googlecode.juniversalchardet.juniversalchardet-1.0.3.jar" DiskId="1" Source="lib\com.googlecode.juniversalchardet.juniversalchardet-1.0.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_eu_medsea_mimeutil_mime_util_2_1_3_jar56087884x" Guid="41ab6a56-aa6e-4644-a46c-2365e4fe2114">
+            <File Id="fl__lib_eu_medsea_mimeutil_mime_util_2_1_3_jar56087884x" Name="eu.medsea.mimeutil.mime-util-2.1.3.jar" DiskId="1" Source="lib\eu.medsea.mimeutil.mime-util-2.1.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_apache_commons_commons_lang3_3_6_jar564623081" Guid="fe4e8b18-b8ef-4d0d-b704-91c9b5bede1e">
+            <File Id="fl__lib_org_apache_commons_commons_lang3_3_6_jar564623081" Name="org.apache.commons.commons-lang3-3.6.jar" DiskId="1" Source="lib\org.apache.commons.commons-lang3-3.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_cala_lang_modules_scala_parser_combinators_2_12_1_0_6_jar857240571" Guid="ef0ef192-1ab7-416a-9fed-96555165271b">
+            <File Id="fl__cala_lang_modules_scala_parser_combinators_2_12_1_0_6_jar857240571" Name="org.scala-lang.modules.scala-parser-combinators_2.12-1.0.6.jar" DiskId="1" Source="lib\org.scala-lang.modules.scala-parser-combinators_2.12-1.0.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scala_lang_modules_scala_xml_2_12_1_0_6_jar199064302" Guid="fd5c04ce-1f2c-4d72-a09d-2fe357cb5fbd">
+            <File Id="fl__lib_org_scala_lang_modules_scala_xml_2_12_1_0_6_jar199064302" Name="org.scala-lang.modules.scala-xml_2.12-1.0.6.jar" DiskId="1" Source="lib\org.scala-lang.modules.scala-xml_2.12-1.0.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_actor_2_12_2_4_20_jar601266856" Guid="e125315b-16fa-4f5b-abf4-86c3375d848d">
+            <File Id="fl__lib_com_typesafe_akka_akka_actor_2_12_2_4_20_jar601266856" Name="com.typesafe.akka.akka-actor_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-actor_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_org_scala_lang_modules_scala_java8_compat_2_12_0_8_0_jar102777858" Guid="42ff650e-9e2e-49df-a89e-4a3cbe332ad3">
+            <File Id="fl__org_scala_lang_modules_scala_java8_compat_2_12_0_8_0_jar102777858" Name="org.scala-lang.modules.scala-java8-compat_2.12-0.8.0.jar" DiskId="1" Source="lib\org.scala-lang.modules.scala-java8-compat_2.12-0.8.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scalactic_scalactic_2_12_3_0_5_jar109504479" Guid="b836a5e7-b84d-44d6-8d3c-8830d20a989c">
+            <File Id="fl__lib_org_scalactic_scalactic_2_12_3_0_5_jar109504479" Name="org.scalactic.scalactic_2.12-3.0.5.jar" DiskId="1" Source="lib\org.scalactic.scalactic_2.12-3.0.5.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_commons_net_commons_net_3_6_jar304389139" Guid="bc5af9d7-df36-4565-82f7-f15b7e104885">
+            <File Id="fl__lib_commons_net_commons_net_3_6_jar304389139" Name="commons-net.commons-net-3.6.jar" DiskId="1" Source="lib\commons-net.commons-net-3.6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_agent_2_12_2_4_20_jar124930416" Guid="6dc9debb-9e91-4a2d-9ab5-8f560fc2967a">
+            <File Id="fl__lib_com_typesafe_akka_akka_agent_2_12_2_4_20_jar124930416" Name="com.typesafe.akka.akka-agent_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-agent_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_scala_stm_scala_stm_2_12_0_8_jar897476978" Guid="d8ab99a1-cb69-424d-8b0a-b379e07dca5c">
+            <File Id="fl__lib_org_scala_stm_scala_stm_2_12_0_8_jar897476978" Name="org.scala-stm.scala-stm_2.12-0.8.jar" DiskId="1" Source="lib\org.scala-stm.scala-stm_2.12-0.8.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_bitlet_weupnp_0_1_4_jar688853552" Guid="d86b0da3-df2b-4a86-8e8c-cfdf636d1383">
+            <File Id="fl__lib_org_bitlet_weupnp_0_1_4_jar688853552" Name="org.bitlet.weupnp-0.1.4.jar" DiskId="1" Source="lib\org.bitlet.weupnp-0.1.4.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_db_2_12_0_9_36_SNAPSHOT_jar349794067" Guid="9e2bfdbb-30a6-40bf-b2b9-b077a8e899ea">
+            <File Id="fl__lib_com_mcsherrylabs_sss_db_2_12_0_9_36_SNAPSHOT_jar349794067" Name="com.mcsherrylabs.sss-db_2.12-0.9.36-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-db_2.12-0.9.36-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_apache_commons_commons_dbcp2_2_0_jar478346436" Guid="60fe50f5-e01e-48db-8d3c-4dc8e732930f">
+            <File Id="fl__lib_org_apache_commons_commons_dbcp2_2_0_jar478346436" Name="org.apache.commons.commons-dbcp2-2.0.jar" DiskId="1" Source="lib\org.apache.commons.commons-dbcp2-2.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_apache_commons_commons_pool2_2_2_jar665093067" Guid="eb867632-2880-4d85-b471-db8c36568031">
+            <File Id="fl__lib_org_apache_commons_commons_pool2_2_2_jar665093067" Name="org.apache.commons.commons-pool2-2.2.jar" DiskId="1" Source="lib\org.apache.commons.commons-pool2-2.2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_commons_logging_commons_logging_1_1_3_jar252044309" Guid="e8d085e7-dbc2-473b-88c2-958e8c246934">
+            <File Id="fl__lib_commons_logging_commons_logging_1_1_3_jar252044309" Name="commons-logging.commons-logging-1.1.3.jar" DiskId="1" Source="lib\commons-logging.commons-logging-1.1.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_zaxxer_HikariCP_2_4_7_jar525550369" Guid="50e5fd97-5e8e-414d-ab77-fd27856028ab">
+            <File Id="fl__lib_com_zaxxer_HikariCP_2_4_7_jar525550369" Name="com.zaxxer.HikariCP-2.4.7.jar" DiskId="1" Source="lib\com.zaxxer.HikariCP-2.4.7.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_twitter_util_collection_2_12_18_5_0_jar603178075" Guid="882d5935-3dc6-41a4-a410-8acfe349f5ad">
+            <File Id="fl__lib_com_twitter_util_collection_2_12_18_5_0_jar603178075" Name="com.twitter.util-collection_2.12-18.5.0.jar" DiskId="1" Source="lib\com.twitter.util-collection_2.12-18.5.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_twitter_util_core_2_12_18_5_0_jar612648602" Guid="25654fd9-8856-4af8-bdee-9310a601d84b">
+            <File Id="fl__lib_com_twitter_util_core_2_12_18_5_0_jar612648602" Name="com.twitter.util-core_2.12-18.5.0.jar" DiskId="1" Source="lib\com.twitter.util-core_2.12-18.5.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_twitter_util_function_2_12_18_5_0_jar189567612" Guid="cea8627f-9be4-44f4-a4cd-84cabc188790">
+            <File Id="fl__lib_com_twitter_util_function_2_12_18_5_0_jar189567612" Name="com.twitter.util-function_2.12-18.5.0.jar" DiskId="1" Source="lib\com.twitter.util-function_2.12-18.5.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_slf4j_2_12_2_4_20_jar782513146" Guid="bc3c2ce0-9893-4d36-993d-26cf8224edd7">
+            <File Id="fl__lib_com_typesafe_akka_akka_slf4j_2_12_2_4_20_jar782513146" Name="com.typesafe.akka.akka-slf4j_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-slf4j_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_sss_console_util_2_12_0_1_4_jar113199559" Guid="81973cbf-e6ee-48be-81e1-335ed8b26877">
+            <File Id="fl__lib_com_mcsherrylabs_sss_console_util_2_12_0_1_4_jar113199559" Name="com.mcsherrylabs.sss-console-util_2.12-0.1.4.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-console-util_2.12-0.1.4.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_io_spray_spray_json_2_12_1_3_2_jar105522897" Guid="940626ac-813b-4477-8a9d-18049b66086d">
+            <File Id="fl__lib_io_spray_spray_json_2_12_1_3_2_jar105522897" Name="io.spray.spray-json_2.12-1.3.2.jar" DiskId="1" Source="lib\io.spray.spray-json_2.12-1.3.2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_javax_servlet_javax_servlet_api_3_0_1_jar203350919" Guid="7acff44e-7150-46b1-83bb-70b70e0ba74c">
+            <File Id="fl__lib_javax_servlet_javax_servlet_api_3_0_1_jar203350919" Name="javax.servlet.javax.servlet-api-3.0.1.jar" DiskId="1" Source="lib\javax.servlet.javax.servlet-api-3.0.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_hsqldb_hsqldb_2_3_4_jar208768329" Guid="d6d2723e-de16-4129-9a4f-b9aa203227ea">
+            <File Id="fl__lib_org_hsqldb_hsqldb_2_3_4_jar208768329" Name="org.hsqldb.hsqldb-2.3.4.jar" DiskId="1" Source="lib\org.hsqldb.hsqldb-2.3.4.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_remote_2_12_2_4_20_jar200295850" Guid="60eda9ac-f890-4206-a489-91b7b582354d">
+            <File Id="fl__lib_com_typesafe_akka_akka_remote_2_12_2_4_20_jar200295850" Name="com.typesafe.akka.akka-remote_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-remote_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_stream_2_12_2_4_20_jar651910113" Guid="bb95d065-d5e6-4189-961a-13837369211d">
+            <File Id="fl__lib_com_typesafe_akka_akka_stream_2_12_2_4_20_jar651910113" Name="com.typesafe.akka.akka-stream_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-stream_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_reactivestreams_reactive_streams_1_0_0_jar195203620" Guid="c548e66c-d63d-4be1-9049-259a71886f8d">
+            <File Id="fl__lib_org_reactivestreams_reactive_streams_1_0_0_jar195203620" Name="org.reactivestreams.reactive-streams-1.0.0.jar" DiskId="1" Source="lib\org.reactivestreams.reactive-streams-1.0.0.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_ssl_config_core_2_12_0_2_1_jar209310797" Guid="84766681-4c51-4c0b-bbd9-f6718837500e">
+            <File Id="fl__lib_com_typesafe_ssl_config_core_2_12_0_2_1_jar209310797" Name="com.typesafe.ssl-config-core_2.12-0.2.1.jar" DiskId="1" Source="lib\com.typesafe.ssl-config-core_2.12-0.2.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_typesafe_akka_akka_protobuf_2_12_2_4_20_jar106379524" Guid="4ffaf35c-8abb-4f5e-99c5-73be9d6bb02b">
+            <File Id="fl__lib_com_typesafe_akka_akka_protobuf_2_12_2_4_20_jar106379524" Name="com.typesafe.akka.akka-protobuf_2.12-2.4.20.jar" DiskId="1" Source="lib\com.typesafe.akka.akka-protobuf_2.12-2.4.20.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_io_netty_netty_3_10_6_Final_jar206359754" Guid="3d7f387a-9f98-4d0d-9ac5-5793006e2369">
+            <File Id="fl__lib_io_netty_netty_3_10_6_Final_jar206359754" Name="io.netty.netty-3.10.6.Final.jar" DiskId="1" Source="lib\io.netty.netty-3.10.6.Final.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_uncommons_maths_uncommons_maths_1_2_2a_jar147707538" Guid="a7aee3a3-ca35-43b0-98a0-b4e6be041b0a">
+            <File Id="fl__lib_org_uncommons_maths_uncommons_maths_1_2_2a_jar147707538" Name="org.uncommons.maths.uncommons-maths-1.2.2a.jar" DiskId="1" Source="lib\org.uncommons.maths.uncommons-maths-1.2.2a.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_io_aeron_aeron_driver_1_2_5_jar579244739" Guid="791654b8-fb67-442c-9f25-814525a999dd">
+            <File Id="fl__lib_io_aeron_aeron_driver_1_2_5_jar579244739" Name="io.aeron.aeron-driver-1.2.5.jar" DiskId="1" Source="lib\io.aeron.aeron-driver-1.2.5.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_io_aeron_aeron_client_1_2_5_jar110487177" Guid="231948f7-b7a9-4592-8c4c-2e39199d1f68">
+            <File Id="fl__lib_io_aeron_aeron_client_1_2_5_jar110487177" Name="io.aeron.aeron-client-1.2.5.jar" DiskId="1" Source="lib\io.aeron.aeron-client-1.2.5.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_agrona_agrona_0_9_5_jar109719667" Guid="6f2bcffb-308b-4aae-8b7b-de5de61b1fce">
+            <File Id="fl__lib_org_agrona_agrona_0_9_5_jar109719667" Name="org.agrona.agrona-0.9.5.jar" DiskId="1" Source="lib\org.agrona.agrona-0.9.5.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_server_7_7_13_jar75782609x" Guid="b422d271-eab5-4d9e-b7bc-95d5965b4faa">
+            <File Id="fl__lib_com_vaadin_vaadin_server_7_7_13_jar75782609x" Name="com.vaadin.vaadin-server-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-server-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_sass_compiler_0_9_13_jar427570201" Guid="2c28fc98-466a-47ac-97b0-4eb78d4886a9">
+            <File Id="fl__lib_com_vaadin_vaadin_sass_compiler_0_9_13_jar427570201" Name="com.vaadin.vaadin-sass-compiler-0.9.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-sass-compiler-0.9.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_w3c_css_sac_1_3_jar124634170" Guid="4624b476-748e-4788-b412-63e0d5365cff">
+            <File Id="fl__lib_org_w3c_css_sac_1_3_jar124634170" Name="org.w3c.css.sac-1.3.jar" DiskId="1" Source="lib\org.w3c.css.sac-1.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_external_flute_flute_1_3_0_gg2_jar109095339" Guid="bcf5bafd-dc48-41d7-83d3-a4505d956cba">
+            <File Id="fl__lib_com_vaadin_external_flute_flute_1_3_0_gg2_jar109095339" Name="com.vaadin.external.flute.flute-1.3.0.gg2.jar" DiskId="1" Source="lib\com.vaadin.external.flute.flute-1.3.0.gg2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_shared_7_7_13_jar109932046" Guid="6bf9839f-3104-4f70-b22e-433a9e775ad6">
+            <File Id="fl__lib_com_vaadin_vaadin_shared_7_7_13_jar109932046" Name="com.vaadin.vaadin-shared-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-shared-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_jsoup_jsoup_1_8_3_jar992055968" Guid="f5f4fce5-d278-410e-a201-848a6f3d181f">
+            <File Id="fl__lib_org_jsoup_jsoup_1_8_3_jar992055968" Name="org.jsoup.jsoup-1.8.3.jar" DiskId="1" Source="lib\org.jsoup.jsoup-1.8.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_themes_7_7_13_jar213667151" Guid="b34324a9-9f94-49e6-bcfc-a8f5107dcdbd">
+            <File Id="fl__lib_com_vaadin_vaadin_themes_7_7_13_jar213667151" Name="com.vaadin.vaadin-themes-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-themes-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_push_7_7_13_jar185948134" Guid="4fbda876-337e-4818-b9bb-221275d148ee">
+            <File Id="fl__lib_com_vaadin_vaadin_push_7_7_13_jar185948134" Name="com.vaadin.vaadin-push-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-push-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_external_atmosphere_atmosphere_runtime_2_2_9_vaadin2_jar146789742" Guid="85cd6c3c-c424-4ade-b5b5-2ae57698e232">
+            <File Id="fl__external_atmosphere_atmosphere_runtime_2_2_9_vaadin2_jar146789742" Name="com.vaadin.external.atmosphere.atmosphere-runtime-2.2.9.vaadin2.jar" DiskId="1" Source="lib\com.vaadin.external.atmosphere.atmosphere-runtime-2.2.9.vaadin2.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_ib_com_vaadin_external_slf4j_vaadin_slf4j_jdk14_1_6_1_jar275339638" Guid="ab1a5e3e-2c07-4d60-866b-d74005335ea9">
+            <File Id="fl__ib_com_vaadin_external_slf4j_vaadin_slf4j_jdk14_1_6_1_jar275339638" Name="com.vaadin.external.slf4j.vaadin-slf4j-jdk14-1.6.1.jar" DiskId="1" Source="lib\com.vaadin.external.slf4j.vaadin-slf4j-jdk14-1.6.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_client_compiler_7_7_13_jar188866729" Guid="d7de277e-7bff-48af-bc57-cc1160d85080">
+            <File Id="fl__lib_com_vaadin_vaadin_client_compiler_7_7_13_jar188866729" Name="com.vaadin.vaadin-client-compiler-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-client-compiler-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_client_7_7_13_jar185289530" Guid="7c88276c-14e9-43eb-a712-49228d8031fa">
+            <File Id="fl__lib_com_vaadin_vaadin_client_7_7_13_jar185289530" Name="com.vaadin.vaadin-client-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-client-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_b_com_vaadin_external_gwt_gwt_elemental_2_7_0_vaadin6_jar101795340" Guid="71546a20-724b-4d06-9fc5-30c52d0d3aa3">
+            <File Id="fl__b_com_vaadin_external_gwt_gwt_elemental_2_7_0_vaadin6_jar101795340" Name="com.vaadin.external.gwt.gwt-elemental-2.7.0.vaadin6.jar" DiskId="1" Source="lib\com.vaadin.external.gwt.gwt-elemental-2.7.0.vaadin6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_external_gwt_gwt_user_2_7_0_vaadin6_jar100171384" Guid="62e36968-8694-4b78-885a-9acaaee89e81">
+            <File Id="fl__lib_com_vaadin_external_gwt_gwt_user_2_7_0_vaadin6_jar100171384" Name="com.vaadin.external.gwt.gwt-user-2.7.0.vaadin6.jar" DiskId="1" Source="lib\com.vaadin.external.gwt.gwt-user-2.7.0.vaadin6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_javax_validation_validation_api_1_0_0_GA_sources_jar166399894" Guid="b1334163-4a7b-473d-af70-a90c24d5f6d1">
+            <File Id="fl__lib_javax_validation_validation_api_1_0_0_GA_sources_jar166399894" Name="javax.validation.validation-api-1.0.0.GA-sources.jar" DiskId="1" Source="lib\javax.validation.validation-api-1.0.0.GA-sources.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_javax_validation_validation_api_1_0_0_GA_jar407816628" Guid="4d79d7ed-8f21-49a2-96a6-a201d06dd343">
+            <File Id="fl__lib_javax_validation_validation_api_1_0_0_GA_jar407816628" Name="javax.validation.validation-api-1.0.0.GA.jar" DiskId="1" Source="lib\javax.validation.validation-api-1.0.0.GA.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_external_gwt_gwt_dev_2_7_0_vaadin6_jar190080165" Guid="e7b1976b-6ddc-4971-b16d-75052a14d574">
+            <File Id="fl__lib_com_vaadin_external_gwt_gwt_dev_2_7_0_vaadin6_jar190080165" Name="com.vaadin.external.gwt.gwt-dev-2.7.0.vaadin6.jar" DiskId="1" Source="lib\com.vaadin.external.gwt.gwt-dev-2.7.0.vaadin6.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_ow2_asm_asm_5_0_3_jar740255404" Guid="285f0dab-f0f4-4da7-b6dd-5d842590f99e">
+            <File Id="fl__lib_org_ow2_asm_asm_5_0_3_jar740255404" Name="org.ow2.asm.asm-5.0.3.jar" DiskId="1" Source="lib\org.ow2.asm.asm-5.0.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_ow2_asm_asm_util_5_0_3_jar156949734" Guid="4e8bd874-8640-4fe0-80a5-d9a8486f6d67">
+            <File Id="fl__lib_org_ow2_asm_asm_util_5_0_3_jar156949734" Name="org.ow2.asm.asm-util-5.0.3.jar" DiskId="1" Source="lib\org.ow2.asm.asm-util-5.0.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_ow2_asm_asm_tree_5_0_3_jar129970596" Guid="c25e8af5-39c2-4b7b-8ae8-a05f46251fd1">
+            <File Id="fl__lib_org_ow2_asm_asm_tree_5_0_3_jar129970596" Name="org.ow2.asm.asm-tree-5.0.3.jar" DiskId="1" Source="lib\org.ow2.asm.asm-tree-5.0.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_ow2_asm_asm_commons_5_0_3_jar116950016" Guid="5f6f9d56-79b7-4578-a8f4-9328dd4df48f">
+            <File Id="fl__lib_org_ow2_asm_asm_commons_5_0_3_jar116950016" Name="org.ow2.asm.asm-commons-5.0.3.jar" DiskId="1" Source="lib\org.ow2.asm.asm-commons-5.0.3.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_vaadin_vaadin_client_compiled_7_7_13_jar81509229x" Guid="b3077184-327c-4007-b601-d5cec01105c3">
+            <File Id="fl__lib_com_vaadin_vaadin_client_compiled_7_7_13_jar81509229x" Name="com.vaadin.vaadin-client-compiled-7.7.13.jar" DiskId="1" Source="lib\com.vaadin.vaadin-client-compiled-7.7.13.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_vaadin_icons_vaadin_icons_1_0_1_jar200047924" Guid="81e30ea7-6f9f-4a40-a034-e7d3cc19f67c">
+            <File Id="fl__lib_org_vaadin_icons_vaadin_icons_1_0_1_jar200047924" Name="org.vaadin.icons.vaadin-icons-1.0.1.jar" DiskId="1" Source="lib\org.vaadin.icons.vaadin-icons-1.0.1.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_org_vaadin_addons_animator_1_7_4_jar188103551" Guid="4610d0c2-26bd-4b69-bd54-89452d11608f">
+            <File Id="fl__lib_org_vaadin_addons_animator_1_7_4_jar188103551" Name="org.vaadin.addons.animator-1.7.4.jar" DiskId="1" Source="lib\org.vaadin.addons.animator-1.7.4.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_sherrylabs_sss_vaadin_akka_reactive_2_12_0_4_SNAPSHOT_jar147667729" Guid="1699aa76-a65c-4551-a6f7-c8284af3d79f">
+            <File Id="fl__sherrylabs_sss_vaadin_akka_reactive_2_12_0_4_SNAPSHOT_jar147667729" Name="com.mcsherrylabs.sss-vaadin-akka-reactive_2.12-0.4-SNAPSHOT.jar" DiskId="1" Source="lib\com.mcsherrylabs.sss-vaadin-akka-reactive_2.12-0.4-SNAPSHOT.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_classpath_jar125146000" Guid="564fc19e-d239-496e-8928-4dd3a4d787fc">
+            <File Id="fl__lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_classpath_jar125146000" Name="com.mcsherrylabs.nobu-0.4.0-SNAPSHOT-classpath.jar" DiskId="1" Source="lib\com.mcsherrylabs.nobu-0.4.0-SNAPSHOT-classpath.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_bin97543xxxx">
+        <Component Id="_bin_nobu891325916" Guid="82356268-5390-45ab-aa9b-a655e1a06781">
+            <File Id="fl__bin_nobu891325916" Name="nobu" DiskId="1" Source="bin\nobu">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_bin97543xxxx">
+        <Component Id="_bin_main891282881" Guid="beff4577-c52f-4fa3-9e71-66606ca775ba">
+            <File Id="fl__bin_main891282881" Name="main" DiskId="1" Source="bin\main">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_bin97543xxxx">
+        <Component Id="_bin_nobu_bat195065574" Guid="3ecdba55-807a-48ca-83bd-1d5baee5dbab">
+            <File Id="fl__bin_nobu_bat195065574" Name="nobu.bat" DiskId="1" Source="bin\nobu.bat">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_bin97543xxxx">
+        <Component Id="_bin_main_bat861635176" Guid="b0641ea0-4998-45c9-bf2c-7eec55f41d8a">
+            <File Id="fl__bin_main_bat861635176" Name="main.bat" DiskId="1" Source="bin\main.bat">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_lib107141xxx">
+        <Component Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_launcher_jar206608546" Guid="2951bb74-23ed-441f-96b9-399e51afbb4e">
+            <File Id="fl__lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_launcher_jar206608546" Name="com.mcsherrylabs.nobu-0.4.0-SNAPSHOT-launcher.jar" DiskId="1" Source="lib\com.mcsherrylabs.nobu-0.4.0-SNAPSHOT-launcher.jar">
+
+            </File>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="_bin97543xxxx">
+        <Component Id="_bin97543xxxxPathC" Guid="da7eb3dd-4838-4307-a246-8488ddb4cd03">
+            <CreateFolder/>
+            <Environment Id="NOBU_HOME" Name="NOBU_HOME" Value="[INSTALLDIR]" Permanent="no" Action="set" System="yes"/>
+            <Environment Id="PATH" Name="PATH" Value="[INSTALLDIR]bin" Permanent="no" Part="last" Action="set" System="yes"/>
+        </Component>
+    </DirectoryRef><DirectoryRef Id="ApplicationProgramsFolder">
+        <Component Id="_shortcut_8a40f2f2_6780_42bb_b136_d07a51eba825135880737" Guid="f71c4dee-8946-4173-bc92-115889d9eada">
+
+            <RegistryValue Root="HKCU" Key="Software\Stepping Stone Software Ltd.\nobu" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+        </Component>
+    </DirectoryRef>
+        <!-- Now define the features! -->
+        <Feature Id="Complete" Title="openstar nobu" Description="Nobu Openstar Install" Display="expand" Level="1" ConfigurableDirectory="INSTALLDIR">
+            <!-- Manually added uninstall feautre -->
+            <Feature Id="Uninstall" Title="Uninstall" Description="Uninstall ApplicationFolder" Level="1" Absent="allow">
+                <ComponentRef Id="_ApplicationProgramsFolderRemove689092593"/>
+            </Feature>
+            <Feature Id="_nobu_core851624150" Title="nobu" Description="All core files." Level="1" Absent="disallow">
+                <ComponentRef Id="_conf_application_conf869632883"/><ComponentRef Id="_conf_application_ini205016303"/><ComponentRef Id="_conf_logback_xml183077903"/><ComponentRef Id="_conf_node_conf146895728"/><ComponentRef Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_jar386349133"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_asado_node_0_4_0_SNAPSHOT_jar195061758"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_asado_common_0_4_0_SNAPSHOT_jar173859090"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_asado_network_0_4_0_SNAPSHOT_jar710911172"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_asado_ledger_0_4_0_SNAPSHOT_jar101191960"/><ComponentRef Id="_lib_org_scala_lang_scala_library_2_12_6_jar147452238"/><ComponentRef Id="_lib_org_consensusresearch_scrypto_2_12_1_2_0_RC3_jar440876828"/><ComponentRef Id="_lib_com_chuusai_shapeless_2_12_2_3_2_jar170665879"/><ComponentRef Id="_lib_org_typelevel_macro_compat_2_12_1_1_1_jar127949528"/><ComponentRef Id="_lib_com_google_guava_guava_19_0_jar176981278"/><ComponentRef Id="_lib_org_whispersystems_curve25519_java_0_3_0_jar120556451"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_ancillary_2_12_1_4_SNAPSHOT_jar673121535"/><ComponentRef Id="_lib_org_scala_lang_scala_reflect_2_12_6_jar749409362"/><ComponentRef Id="_lib_com_typesafe_config_1_3_3_jar150070474"/><ComponentRef Id="_b_com_typesafe_scala_logging_scala_logging_2_12_3_9_0_jar891410666"/><ComponentRef Id="_lib_org_slf4j_slf4j_api_1_7_25_jar674574048"/><ComponentRef Id="_lib_ch_qos_logback_logback_classic_1_2_3_jar203962478"/><ComponentRef Id="_lib_ch_qos_logback_logback_core_1_2_3_jar156832362"/><ComponentRef Id="_lib_joda_time_joda_time_2_9_9_jar186344681"/><ComponentRef Id="_ipse_jetty_aggregate_jetty_all_server_8_2_0_v20160908_jar191540424"/><ComponentRef Id="_eclipse_jetty_orbit_javax_servlet_3_0_0_v201112011016_jar179397078"/><ComponentRef Id="_orbit_javax_security_auth_message_1_0_0_v201108011116_jar204691454"/><ComponentRef Id="_jetty_orbit_javax_mail_glassfish_1_4_1_v201005082020_jar163386228"/><ComponentRef Id="_ipse_jetty_orbit_javax_activation_1_1_0_v201105071233_jar130234066"/><ComponentRef Id="_ipse_jetty_orbit_javax_annotation_1_1_0_v201108011116_jar192181942"/><ComponentRef Id="_lib_us_monoid_web_resty_0_3_2_jar140952717"/><ComponentRef Id="_lib_net_java_dev_javacc_javacc_4_1_jar535214491"/><ComponentRef Id="_lib_org_scalatra_scalatra_2_12_2_6_3_jar108799839"/><ComponentRef Id="_lib_org_scalatra_scalatra_common_2_12_2_6_3_jar130576141"/><ComponentRef Id="_googlecode_juniversalchardet_juniversalchardet_1_0_3_jar160235793"/><ComponentRef Id="_lib_eu_medsea_mimeutil_mime_util_2_1_3_jar56087884x"/><ComponentRef Id="_lib_org_apache_commons_commons_lang3_3_6_jar564623081"/><ComponentRef Id="_cala_lang_modules_scala_parser_combinators_2_12_1_0_6_jar857240571"/><ComponentRef Id="_lib_org_scala_lang_modules_scala_xml_2_12_1_0_6_jar199064302"/><ComponentRef Id="_lib_com_typesafe_akka_akka_actor_2_12_2_4_20_jar601266856"/><ComponentRef Id="_org_scala_lang_modules_scala_java8_compat_2_12_0_8_0_jar102777858"/><ComponentRef Id="_lib_org_scalactic_scalactic_2_12_3_0_5_jar109504479"/><ComponentRef Id="_lib_commons_net_commons_net_3_6_jar304389139"/><ComponentRef Id="_lib_com_typesafe_akka_akka_agent_2_12_2_4_20_jar124930416"/><ComponentRef Id="_lib_org_scala_stm_scala_stm_2_12_0_8_jar897476978"/><ComponentRef Id="_lib_org_bitlet_weupnp_0_1_4_jar688853552"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_db_2_12_0_9_36_SNAPSHOT_jar349794067"/><ComponentRef Id="_lib_org_apache_commons_commons_dbcp2_2_0_jar478346436"/><ComponentRef Id="_lib_org_apache_commons_commons_pool2_2_2_jar665093067"/><ComponentRef Id="_lib_commons_logging_commons_logging_1_1_3_jar252044309"/><ComponentRef Id="_lib_com_zaxxer_HikariCP_2_4_7_jar525550369"/><ComponentRef Id="_lib_com_twitter_util_collection_2_12_18_5_0_jar603178075"/><ComponentRef Id="_lib_com_twitter_util_core_2_12_18_5_0_jar612648602"/><ComponentRef Id="_lib_com_twitter_util_function_2_12_18_5_0_jar189567612"/><ComponentRef Id="_lib_com_typesafe_akka_akka_slf4j_2_12_2_4_20_jar782513146"/><ComponentRef Id="_lib_com_mcsherrylabs_sss_console_util_2_12_0_1_4_jar113199559"/><ComponentRef Id="_lib_io_spray_spray_json_2_12_1_3_2_jar105522897"/><ComponentRef Id="_lib_javax_servlet_javax_servlet_api_3_0_1_jar203350919"/><ComponentRef Id="_lib_org_hsqldb_hsqldb_2_3_4_jar208768329"/><ComponentRef Id="_lib_com_typesafe_akka_akka_remote_2_12_2_4_20_jar200295850"/><ComponentRef Id="_lib_com_typesafe_akka_akka_stream_2_12_2_4_20_jar651910113"/><ComponentRef Id="_lib_org_reactivestreams_reactive_streams_1_0_0_jar195203620"/><ComponentRef Id="_lib_com_typesafe_ssl_config_core_2_12_0_2_1_jar209310797"/><ComponentRef Id="_lib_com_typesafe_akka_akka_protobuf_2_12_2_4_20_jar106379524"/><ComponentRef Id="_lib_io_netty_netty_3_10_6_Final_jar206359754"/><ComponentRef Id="_lib_org_uncommons_maths_uncommons_maths_1_2_2a_jar147707538"/><ComponentRef Id="_lib_io_aeron_aeron_driver_1_2_5_jar579244739"/><ComponentRef Id="_lib_io_aeron_aeron_client_1_2_5_jar110487177"/><ComponentRef Id="_lib_org_agrona_agrona_0_9_5_jar109719667"/><ComponentRef Id="_lib_com_vaadin_vaadin_server_7_7_13_jar75782609x"/><ComponentRef Id="_lib_com_vaadin_vaadin_sass_compiler_0_9_13_jar427570201"/><ComponentRef Id="_lib_org_w3c_css_sac_1_3_jar124634170"/><ComponentRef Id="_lib_com_vaadin_external_flute_flute_1_3_0_gg2_jar109095339"/><ComponentRef Id="_lib_com_vaadin_vaadin_shared_7_7_13_jar109932046"/><ComponentRef Id="_lib_org_jsoup_jsoup_1_8_3_jar992055968"/><ComponentRef Id="_lib_com_vaadin_vaadin_themes_7_7_13_jar213667151"/><ComponentRef Id="_lib_com_vaadin_vaadin_push_7_7_13_jar185948134"/><ComponentRef Id="_external_atmosphere_atmosphere_runtime_2_2_9_vaadin2_jar146789742"/><ComponentRef Id="_ib_com_vaadin_external_slf4j_vaadin_slf4j_jdk14_1_6_1_jar275339638"/><ComponentRef Id="_lib_com_vaadin_vaadin_client_compiler_7_7_13_jar188866729"/><ComponentRef Id="_lib_com_vaadin_vaadin_client_7_7_13_jar185289530"/><ComponentRef Id="_b_com_vaadin_external_gwt_gwt_elemental_2_7_0_vaadin6_jar101795340"/><ComponentRef Id="_lib_com_vaadin_external_gwt_gwt_user_2_7_0_vaadin6_jar100171384"/><ComponentRef Id="_lib_javax_validation_validation_api_1_0_0_GA_sources_jar166399894"/><ComponentRef Id="_lib_javax_validation_validation_api_1_0_0_GA_jar407816628"/><ComponentRef Id="_lib_com_vaadin_external_gwt_gwt_dev_2_7_0_vaadin6_jar190080165"/><ComponentRef Id="_lib_org_ow2_asm_asm_5_0_3_jar740255404"/><ComponentRef Id="_lib_org_ow2_asm_asm_util_5_0_3_jar156949734"/><ComponentRef Id="_lib_org_ow2_asm_asm_tree_5_0_3_jar129970596"/><ComponentRef Id="_lib_org_ow2_asm_asm_commons_5_0_3_jar116950016"/><ComponentRef Id="_lib_com_vaadin_vaadin_client_compiled_7_7_13_jar81509229x"/><ComponentRef Id="_lib_org_vaadin_icons_vaadin_icons_1_0_1_jar200047924"/><ComponentRef Id="_lib_org_vaadin_addons_animator_1_7_4_jar188103551"/><ComponentRef Id="_sherrylabs_sss_vaadin_akka_reactive_2_12_0_4_SNAPSHOT_jar147667729"/><ComponentRef Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_classpath_jar125146000"/><ComponentRef Id="_bin_nobu891325916"/><ComponentRef Id="_bin_main891282881"/><ComponentRef Id="_bin_nobu_bat195065574"/><ComponentRef Id="_bin_main_bat861635176"/><ComponentRef Id="_lib_com_mcsherrylabs_nobu_0_4_0_SNAPSHOT_launcher_jar206608546"/>
+            </Feature><Feature Id="AddBinToPath" Title="Update Environment Variables" Description="Update PATH environment variables (requires restart)." Level="1" Absent="allow">
+            <ComponentRef Id="_bin97543xxxxPathC"/>
+        </Feature><Feature Id="AddConfigLinks" Title="Configuration start menu links" Description="Adds start menu shortcuts to edit configuration files." Level="1" Absent="allow">
+            <ComponentRef Id="_shortcut_8a40f2f2_6780_42bb_b136_d07a51eba825135880737"/>
+        </Feature>
+        </Feature>
+        <MajorUpgrade AllowDowngrades="no" Schedule="afterInstallInitialize" DowngradeErrorMessage="A later version of [ProductName] is already installed. Setup will now exit."/>
+        <UIRef Id="WixUI_FeatureTree"/>
+        <UIRef Id="WixUI_ErrorProgressText"/>
+        <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR"/>
+        <WixVariable Id="WixUILicenseRtf" Value="E:\New User\develop\sss.asado\sss.asado-nobu\src\windows\License.rtf"/>
+
+    </Product>
+</Wix>
