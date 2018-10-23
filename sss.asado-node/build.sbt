@@ -46,5 +46,5 @@ libraryDependencies += "org.hsqldb" % "hsqldb" % Vers.hsqldbVer
 
 //updateOptions := updateOptions.value.withCachedResolution(false)
 
-mainClass in Compile := Some("sss.asado.CoreMain")
+mainClass in Compile := Some("sss.asado.Main")
 

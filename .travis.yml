@@ -20,9 +20,13 @@ before_install:
   - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
   - if [ $TRAVIS_OS_NAME = osx   ]; then sudo spctl --master-disable; fi
 
-script: "sbt clean coverage test coverageReport coverageAggregate coveralls"
+script: "sbt clean" # coverage test coverageReport coverageAggregate coveralls"
 
-after_success: "sbt clean test jdkPackager:packageBin"
+after_success:
+  - if [ $TRAVIS_OS_NAME = linux ]; then "sbt clean node/dist" fi
+  - if [ $TRAVIS_OS_NAME = osx   ]; then "sbt clean node/dist" fi
+  - if [ $TRAVIS_OS_NAME = osx   ]; then "sbt clean nobu/jdkPackager:packageBin" fi
+
 
 deploy:
   on:
@@ -33,5 +37,7 @@ deploy:
   provider: releases
   api_key: ${git_api_key}
   file_glob: true
-  file: "sss.asado-nobu/target/universal/jdkpackager/bundles/**"
+  file:
+   - "sss.asado-nobu/target/universal/jdkpackager/bundles/**"
+   - "sss.asado-node/target/universal/*.zip"
   skip_cleanup: true
