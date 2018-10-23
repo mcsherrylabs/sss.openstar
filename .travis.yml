@@ -23,9 +23,9 @@ before_install:
 script: "sbt clean" # coverage test coverageReport coverageAggregate coveralls"
 
 after_success:
-  - if [ $TRAVIS_OS_NAME = linux ]; then "sbt clean node/dist" fi
-  - if [ $TRAVIS_OS_NAME = osx   ]; then "sbt clean node/dist" fi
-  - if [ $TRAVIS_OS_NAME = osx   ]; then "sbt clean nobu/jdkPackager:packageBin" fi
+  - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then "sbt clean node/dist"; fi
+  - if [[ "$TRAVIS_OS_NAME" = "osx"   ]]; then "sbt clean node/dist"; fi
+  - if [[ "$TRAVIS_OS_NAME" = "osx"   ]]; then "sbt clean nobu/jdkPackager:packageBin"; fi
 
 
 deploy:
