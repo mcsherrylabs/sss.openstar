@@ -24,7 +24,7 @@ script: "sbt clean" # coverage test coverageReport coverageAggregate coveralls"
 
 after_success:
   - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then sbt clean; sbt "node/dist"; fi
-  - if [[ "$TRAVIS_OS_NAME" = "osx"   ]]; then sbt clean; sbt "node/dist"; fi
+  - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then sbt clean; sbt "nobu/dist"; fi
   - if [[ "$TRAVIS_OS_NAME" = "osx"   ]]; then sbt "nobu/jdkPackager:packageBin"; fi
 
 
@@ -39,5 +39,6 @@ deploy:
   file_glob: true
   file:
    - "sss.asado-nobu/target/universal/jdkpackager/bundles/**"
+   - "sss.asado-nobu/target/universal/*.zip"
    - "sss.asado-node/target/universal/*.zip"
   skip_cleanup: true
