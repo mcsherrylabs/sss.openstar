@@ -20,11 +20,11 @@ before_install:
   - if [ $TRAVIS_OS_NAME = linux ]; then sudo apt-get install -y fakeroot; else brew install fakeroot; fi
   - if [ $TRAVIS_OS_NAME = osx   ]; then sudo spctl --master-disable; fi
 
-script: "sbt clean" # coverage test coverageReport coverageAggregate coveralls"
+script: "sbt clean coverage test coverageReport coverageAggregate coveralls"
 
 after_success:
   - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then sbt clean; sbt "node/dist"; fi
-  - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then sbt clean; sbt "nobu/dist"; fi
+  - if [[ "$TRAVIS_OS_NAME" = "linux" ]]; then sbt "nobu/dist"; fi
   - if [[ "$TRAVIS_OS_NAME" = "osx"   ]]; then sbt "nobu/jdkPackager:packageBin"; fi
 
 
