@@ -25,7 +25,7 @@ import sss.asado.quorumledger.{QuorumLedger, QuorumService}
 import sss.asado.state._
 import sss.asado._
 import sss.asado.chains.ChainSynchronizer.StartSyncer
-import sss.asado.tools.SendTxSupport
+import sss.asado.tools.{DownloadSeedNodes, SendTxSupport}
 import sss.asado.tools.SendTxSupport.SendTx
 import sss.db.Db
 import sss.db.datasource.DataSource
@@ -99,6 +99,7 @@ trait RequireNodeConfig {
     val blockChainSettings: BlockChainSettings
     val production: Boolean
     val peersList: Set[NodeId]
+    val dnsSeedUrl: String
   }
 
 }
@@ -128,6 +129,7 @@ trait NodeConfigBuilder extends RequireNodeConfig {
       .toSet
       .map(toNodeId)
 
+    lazy val dnsSeedUrl: String = conf.getString("dnsSeedUrl")
   }
 }
 
@@ -255,8 +257,10 @@ trait PeerManagerBuilder extends RequirePeerManager {
 
   MessageEventBusBuilder =>
 
+  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
+
   lazy val peerManager: PeerManager = new PeerManager(net,
-    nodeConfig.peersList,
+    nodeConfig.peersList ++ seedNodesFromDns,
     Capabilities(chain.id), messageEventBus)
 }
 
