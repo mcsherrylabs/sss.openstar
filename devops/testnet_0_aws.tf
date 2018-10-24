@@ -19,7 +19,7 @@ resource "aws_instance" "openstar_testnet" {
   key_name      = "${var.ssh_key_name}"
 
   security_groups = [
-    "${aws_security_group.allow_ssh.name}",
+    "${aws_security_group.allow_inbound.name}",
     "${aws_security_group.allow_outbound.name}"
   ]
 
@@ -51,7 +51,7 @@ resource "null_resource" "openstar_testnet" {
   }
 
   provisioner "file" {
-    source      = "../sss.asado-nobu/target/universal/${var.product_name}.zip"
+    source      = "../sss.asado-node/target/universal/${var.product_name}.zip"
     destination = "~/${var.product_name}.zip"
 
   }
@@ -60,7 +60,7 @@ resource "null_resource" "openstar_testnet" {
     inline = [
       "unzip ~/${var.product_name}.zip",
       "cd ${var.product_name}",
-      "tmux new -d -s openstar './bin/nobu ${var.quorum_ids[count.index]} ${var.id_phrases}'"
+      "tmux new -d -s openstar './bin/service_node ${var.quorum_ids[count.index]} ${var.id_phrases}'"
     ]
 
   }

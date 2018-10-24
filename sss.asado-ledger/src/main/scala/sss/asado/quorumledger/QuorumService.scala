@@ -28,7 +28,7 @@ object QuorumService {
   private[quorumledger] val identityCol = "identity_col"
 
 
-  def create(uniqueChainId: GlobalChainIdMask, owner: UniqueNodeIdentifier)(implicit db:Db):QuorumService = {
+  def create(uniqueChainId: GlobalChainIdMask, owners: UniqueNodeIdentifier*)(implicit db:Db):QuorumService = {
     // no duplicate mambers allowed via PK
     val tableName = quorumTableName(uniqueChainId)
     val createQuorumTableSql =
@@ -41,7 +41,7 @@ object QuorumService {
     db.executeSql(createQuorumTableSql)
 
     val result = new QuorumService(uniqueChainId)
-    result.add(owner)
+    owners foreach (result.add)
 
     result
   }
