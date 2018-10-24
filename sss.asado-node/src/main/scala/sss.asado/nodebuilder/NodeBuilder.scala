@@ -97,7 +97,6 @@ trait RequireNodeConfig {
     val settings: BindControllerSettings
     val uPnp: Option[UPnP]
     val blockChainSettings: BlockChainSettings
-    val production: Boolean
     val peersList: Set[NodeId]
     val dnsSeedUrl: String
   }
@@ -122,7 +121,7 @@ trait NodeConfigBuilder extends RequireNodeConfig {
 
     lazy val blockChainSettings: BlockChainSettings =
       DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
-    lazy val production: Boolean = conf.getBoolean("production")
+
     lazy val peersList: Set[NodeId] = conf
       .getStringList("peers")
       .asScala
