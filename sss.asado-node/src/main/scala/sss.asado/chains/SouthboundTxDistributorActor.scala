@@ -7,6 +7,7 @@ import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainSignaturesAccessor, DistributeClose, NotSynchronized}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
 import sss.asado.chains.SouthboundTxDistributorActor._
 import sss.asado.common.block._
 import sss.asado.ledger.{LedgerItem, Ledgers}
@@ -89,6 +90,7 @@ private class SouthboundTxDistributorActor(
   messageEventBus.subscribe(classOf[SynchronizedConnection])
   messageEventBus.subscribe(classOf[ConnectionLost])
   messageEventBus.subscribe(classOf[NotSynchronized])
+  messageEventBus.subscribe(classOf[LocalLeader])
   messageEventBus.subscribe(MessageKeys.CommittedTx)
   messageEventBus.subscribe(MessageKeys.NonQuorumBlockNewSig)
   messageEventBus.subscribe(MessageKeys.NonQuorumCloseBlock)
@@ -98,6 +100,8 @@ private class SouthboundTxDistributorActor(
   log.info("SouthboundTxDistributor actor has started...")
 
   override def postStop(): Unit = { log.debug("SouthboundTxDistributor actor stopped ")}
+
+  private var weAreLeader = false
 
   private var syncedNodes: Set[UniqueNodeIdentifier] = Set()
 
@@ -190,8 +194,16 @@ private class SouthboundTxDistributorActor(
       syncedNodes -= someNode
 
     case SynchronizedConnection(`chainId`, someNode) =>
-      //we owe these the new txs and closes
-      syncedNodes += someNode
+      //we owe these the new txs and closes *if* we are not leader
+
+      if(weAreLeader && !quorumCandidates().contains(someNode))
+        disconnect(someNode)
+      else
+        syncedNodes += someNode
+
+
+    case _ : LocalLeader => weAreLeader = true
+    case _ : LeaderLost  => weAreLeader = false
 
 
     case IncomingMessage(`chainId`,
@@ -210,14 +222,14 @@ private class SouthboundTxDistributorActor(
 
 
     case SouthboundRejectedTx(blkChnTxId : BlockChainTxId) =>
-      val minusQuorumCandidates = syncedNodes.filterNot(quorumCandidates().contains(_))
+      val minusQuorumCandidates = syncedNodes.diff(quorumCandidates())
 
       if(minusQuorumCandidates.nonEmpty) {
         send(MessageKeys.QuorumRejectedTx, blkChnTxId, minusQuorumCandidates)
       }
 
     case SouthboundTx(blkChnTx : BlockChainTx) =>
-      val minusQuorumCandidates = syncedNodes.filterNot(quorumCandidates().contains(_))
+      val minusQuorumCandidates = syncedNodes.diff(quorumCandidates())
 
       if(minusQuorumCandidates.nonEmpty) {
         send(MessageKeys.CommittedTx, blkChnTx, minusQuorumCandidates)
@@ -225,8 +237,7 @@ private class SouthboundTxDistributorActor(
 
 
     case SouthboundClose(dc) =>
-
-      val minusQuorumCandidates = syncedNodes.filterNot(quorumCandidates().contains(_))
+      val minusQuorumCandidates = syncedNodes.diff(quorumCandidates())
 
       if(minusQuorumCandidates.nonEmpty)
         send(MessageKeys.NonQuorumCloseBlock, dc, minusQuorumCandidates)

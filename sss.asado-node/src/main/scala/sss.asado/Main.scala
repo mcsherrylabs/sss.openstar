@@ -15,6 +15,7 @@ import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.nodebuilder._
 import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
+import sss.asado.tools.TestnetConfiguration
 import sss.asado.util.FutureOps._
 
 import concurrent.ExecutionContext.Implicits.global
@@ -46,25 +47,14 @@ object Main {
 
       startUnsubscribedHandler
 
+      TestnetConfiguration(bootstrapIdentities)
+
       peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
 
       synchronization.startSync
 
       startHttpServer
 
-      def claim(nodeId: String, pKey: PublicKey): Future[InternalTxResult] = {
-        val tx = Claim(nodeId, pKey)
-        val ste = SignedTxEntry(tx.toBytes, Seq())
-        val le = LedgerItem(MessageKeys.IdentityLedger, tx.txId, ste.toBytes)
-        sendTx(le)
-      }
-
-      if(nodeIdentity.id == "bob") {
-        println("Claim bob" + claim(nodeIdentity.id, nodeIdentity.publicKey).await())
-        Future.sequence(bootstrapIdentities
-          .map(bootId => claim(bootId.nodeId, bootId.pKey))).await()
-          .map(internalResult =>  println(s"Claim nodeId $internalResult"))
-      }
 
     }
 

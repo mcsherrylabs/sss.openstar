@@ -109,6 +109,7 @@ private class LeaderElectionActor(
 
   log.info("Leader actor has started...")
 
+  private var connectedMembers: Set[UniqueNodeIdentifier] = Set()
 
   private var leaderVotes: Seq[VoteLeader] = Seq.empty
 
@@ -116,8 +117,9 @@ private class LeaderElectionActor(
 
   private def waitForQuorum: Receive = {
 
-    case Quorum(`chainId`, connectedMembers, _) =>
+    case Quorum(`chainId`, connected, _) =>
 
+      connectedMembers = connected
       messageBus.subscribe(classOf[QuorumLost])
       messageBus.subscribe(classOf[ConnectionLost])
       messageBus.subscribe(MessageKeys.FindLeader)
@@ -126,10 +128,10 @@ private class LeaderElectionActor(
 
       if(connectedMembers.isEmpty) {
         //Special case where there is a quorum and it's just us.
-        context.become(handle(thisNodeId, connectedMembers))
+        context.become(handle(thisNodeId))
         publishLeaderEvents(getLatestCommittedBlockId())
       } else {
-        context become findLeader(connectedMembers)
+        context become findLeader
         self ! FindTheLeader
       }
 
@@ -149,6 +151,11 @@ private class LeaderElectionActor(
       context become waitForQuorum
   }
 
+  private def updateQuorum: Receive = {
+    case Quorum(`chainId`, connected, _) =>
+      connectedMembers = connected
+  }
+
   private def quorumLost(leader: UniqueNodeIdentifier):Receive = {
 
     case QuorumLost(`chainId`) =>
@@ -159,7 +166,7 @@ private class LeaderElectionActor(
   }
 
 
-  private def findLeader(connectedMembers: Set[UniqueNodeIdentifier]): Receive =  quorumLostNoLeader orElse {
+  private def findLeader: Receive = updateQuorum orElse quorumLostNoLeader orElse {
 
     case FindTheLeader =>
       val findMsg = createFindLeader()
@@ -196,7 +203,7 @@ private class LeaderElectionActor(
         if (leaderVotes.size == connectedMembers.size) {
           // I am the leader.
           context.setReceiveTimeout(Duration.Undefined)
-          context.become(handle(thisNodeId, connectedMembers))
+          context.become(handle(thisNodeId))
 
           send(MessageKeys.Leader, Leader(thisNodeId), connectedMembers)
 
@@ -211,7 +218,7 @@ private class LeaderElectionActor(
     case IncomingMessage(`chainId`, MessageKeys.Leader, leader, _) =>
 
       context.setReceiveTimeout(Duration.Undefined)
-      context.become(handle(leader, connectedMembers))
+      context.become(handle(leader))
       log.info(s"The leader is ${leader}")
       messageBus publish RemoteLeader(`chainId`, leader, connectedMembers)
 
@@ -226,10 +233,11 @@ private class LeaderElectionActor(
       leaderVotes)
   }
 
-  private def handle(leader: UniqueNodeIdentifier, members: Set[UniqueNodeIdentifier]): Receive = quorumLost(leader) orElse {
+  private def handle(leader: UniqueNodeIdentifier): Receive = updateQuorum orElse quorumLost(leader) orElse {
 
     case ConnectionLost(`leader`) =>
-      context become findLeader(members - leader)
+      connectedMembers -= leader
+      context become findLeader
       self ! FindTheLeader
       messageBus.publish(LeaderLost(chainId, leader))
 

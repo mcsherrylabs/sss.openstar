@@ -167,6 +167,8 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   messageEventBus.subscribe(classOf[Quorum])
 
+  private var quorum: Option[Quorum] = None
+
   private var responseMap = Map[BlockId, Response]()
 
   var blockTxsToDistribute: Map[Long, Seq[ActorRef]] =
@@ -196,7 +198,10 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
     )
   }
 
-  private def waitForUp(q: Quorum): Receive = reset orElse {
+  private def waitForUp: Receive = reset orElse {
+
+    case q: Quorum =>
+      quorum = Option(q)
 
     case BlockChainReady(`chainId`, `thisNodeId`) =>
       //start listening for
@@ -208,7 +213,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       val l = createLedger()
       log.info(s"We are leader ({}) and accepting transactions (at height {}) ...", thisNodeId, l.blockHeight)
 
-      context become acceptTxs(l, q)
+      context become acceptTxs(l)
 
       Block(l.blockHeight).getUnCommitted foreach (leftover => {
 
@@ -237,7 +242,8 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
   private def waitForQuorum: Receive = {
 
     case q: Quorum =>
-      context become waitForUp(q)
+      quorum = Option(q)
+      context become waitForUp
       messageEventBus.subscribe(classOf[QuorumLost])
       messageEventBus.subscribe(classOf[BlockChainReady])
 
@@ -294,13 +300,16 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
     }
   }
 
-  private def acceptTxs(blockLedger: BlockChainLedger, q: Quorum): Receive = stopOnAllStop orElse reset orElse {
+  private def acceptTxs(blockLedger: BlockChainLedger): Receive = stopOnAllStop orElse reset orElse {
+
+    case q: Quorum =>
+      quorum = Option(q)
 
     case c @ CloseBlock(height) =>
-      createBlockCloseDistributingActor(q, blockLedger, height)
+      createBlockCloseDistributingActor(quorum.get, blockLedger, height)
 
     case PostJournalConfirm(bcTx) =>
-      postJournalConfirm(blockChainSettings.maxTxPerBlock, createTxDistributingActor(q), InternalResponse(None), bcTx)
+      postJournalConfirm(blockChainSettings.maxTxPerBlock, createTxDistributingActor(quorum.get), InternalResponse(None), bcTx)
 
     case BlockCloseTrigger =>
       blockCloseTimer foreach (_.cancel())
@@ -315,12 +324,12 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
         validateAndJournalTx(blockChainSettings.maxTxPerBlock,
           newLedger,
           _,
-          createTxDistributingActor(q),
+          createTxDistributingActor(quorum.get),
           InternalResponse(None)
         )
       }
 
-      context become acceptTxs(newLedger, q)
+      context become acceptTxs(newLedger)
 
       setTimer()
 
@@ -333,7 +342,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
         validateAndJournalTx(blockChainSettings.maxTxPerBlock,
           blockLedger,
           stx,
-          createTxDistributingActor(q),
+          createTxDistributingActor(quorum.get),
           NetResponse(clientNodeId, send))
       }
 
@@ -345,7 +354,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       validateAndJournalTx(blockChainSettings.maxTxPerBlock,
         blockLedger,
         stx,
-        createTxDistributingActor(q),
+        createTxDistributingActor(quorum.get),
         NetResponse(clientNodeId, send)
       )
 
@@ -355,7 +364,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       validateAndJournalTx(blockChainSettings.maxTxPerBlock,
         blockLedger,
         signedTx,
-        createTxDistributingActor(q),
+        createTxDistributingActor(quorum.get),
         InternalResponse(responseListener)
       )
 
@@ -383,7 +392,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
           }
       }
 
-    case TxReplicated(bTx, c) =>
+    case TxReplicated(bTx) =>
 
       blockLedger.commit(bTx.blockTx) match {
         case Failure(e) =>
@@ -391,7 +400,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
           systemPanic(e)
         case Success(events) =>
           val refOfTxDistributor = sender()
-          refOfTxDistributor ! TxCommitted(bTx.toId, c)
+          refOfTxDistributor ! TxCommitted(bTx.toId)
           blockTxsToDistribute(bTx.height) match {
             case Seq(`refOfTxDistributor`) =>
               // A block has all it's TXs distributed to the quorum, it may be waiting on this to close.

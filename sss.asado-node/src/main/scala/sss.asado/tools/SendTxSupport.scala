@@ -12,6 +12,7 @@ import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
 import scala.language.postfixOps
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Future, Promise}
+import scala.util.Random
 
 object SendTxSupport {
 
@@ -58,7 +59,10 @@ class SendTxSupport(implicit actorSystem: ActorSystem,
 
     def onLeaderFound: Receive = {
       case TxTracker(le,p, timeout) =>
-        val trackerRef = context.actorOf(Props.create(classOf[TxTrackerActor], p, timeout), s"TxTrackerActor_${chainId}_${le.txId.toBase64Str}")
+
+        val trackerRef = context.actorOf(Props.create(classOf[TxTrackerActor], p, timeout),
+          s"TxTrackerActor_${chainId}_${le.txId.toBase64Str}_RND${Random.nextLong()}")
+
         messageEventBus.publish(InternalLedgerItem(chainId, le, Some(trackerRef)))
 
       case l: LeaderLost if (l.chainId == chainId) => context become waitForLeader

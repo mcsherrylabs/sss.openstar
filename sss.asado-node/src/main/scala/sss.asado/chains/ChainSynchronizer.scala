@@ -150,6 +150,8 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         synchronised = s
         inProgress = false
         eventMessageBus.publish(synchronised)
+        //in the case a conn is lost before processing this message.
+        synchronizingPeerOpt.getOrElse(reset())
 
       case _: QuorumLost => reset()
 

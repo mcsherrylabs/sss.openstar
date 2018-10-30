@@ -41,9 +41,9 @@ object TxDistributorActor {
   }
 
   case class TxNackReplicated(bTx: BlockChainTxId, rejectors: Set[UniqueNodeIdentifier]) extends TxNack
-  case class TxReplicated(bTx: BlockChainTx, confirmers: Set[UniqueNodeIdentifier])
+  case class TxReplicated(bTx: BlockChainTx)
   case class TxRejected(bTx: BlockChainTxId, rejectors: Set[UniqueNodeIdentifier])
-  case class TxCommitted(bTx: BlockChainTxId, confirmers: Set[UniqueNodeIdentifier])
+  case class TxCommitted(bTx: BlockChainTxId)
   case class TxTimeout(bTx: BlockChainTxId, rejectors: Set[UniqueNodeIdentifier]) extends TxNack
   private case class InternalTxTimeout(bTx: BlockChainTxId)
 
@@ -86,6 +86,8 @@ private class TxDistributorActor(bTx: BlockChainTx,
   private var confirms: Set[UniqueNodeIdentifier] = Set()
   private var badConfirms: Set[UniqueNodeIdentifier] = Set()
 
+  private var sendOnce = false
+
   private var txTimeoutTimer: Option[Cancellable] = None
 
   Seq(classOf[QuorumLost], classOf[Quorum]).subscribe
@@ -95,9 +97,9 @@ private class TxDistributorActor(bTx: BlockChainTx,
   override def postStop(): Unit = { log.debug("TxDistributor {} actor stopped ", bTx.toId)}
 
   private def finishSendingCommits(q: Quorum) : Receive = {
-    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
-      confirms += mem
-      send(MessageKeys.CommittedTxId, bTx.toId, mem)
+    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, member, _) if(!confirms.contains(member)) =>
+      confirms += member
+      send(MessageKeys.CommittedTxId, bTx.toId, member)
 
       if(confirms.size + badConfirms.size == q.members.size)
         messageEventBus unsubscribe self
@@ -110,6 +112,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
     case InternalTxTimeout(bTxId) =>
       context stop self
       log.warning("TxTimeout for {}", bTxId)
+      //TODO add sendOnce check
       context.parent ! TxTimeout(bTxId, badConfirms)
 
     case TxRejected(bTxId, _) =>
@@ -119,9 +122,9 @@ private class TxDistributorActor(bTx: BlockChainTx,
       context stop self
 
 
-    case TxCommitted(bTxId, confirmers) =>
+    case TxCommitted(bTxId) =>
       log.info("Distributed TxCommitted {}", bTxId)
-      send(MessageKeys.CommittedTxId, bTxId, confirmers)
+      send(MessageKeys.CommittedTxId, bTxId, confirms)
       txTimeoutTimer map (_.cancel())
 
       if(confirms.size + badConfirms.size == q.members.size)
@@ -132,15 +135,17 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
       confirms += mem
-      if(confirms.size >= q.minConfirms) {
+      if(!sendOnce && confirms.size >= q.minConfirms) {
         log.info("Tx replicated confirms {} min confirms {}", confirms, q.minConfirms)
-        context.parent ! TxReplicated(bTx, confirms)
+        context.parent ! TxReplicated(bTx)
+        sendOnce = true
       }
 
     case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, bTx: BlockChainTx) =>
       badConfirms += mem
-      if(badConfirms.size >= q.minConfirms) {
+      if(!sendOnce && badConfirms.size >= q.minConfirms) {
         context.parent ! TxNackReplicated(bTx.toId, badConfirms)
+        sendOnce = true
         messageEventBus unsubscribe self
         context stop self
         log.warning("{} could not confirm a tx! {}, quorum rejects this tx!", mem, bTx)
@@ -157,13 +162,16 @@ private class TxDistributorActor(bTx: BlockChainTx,
       context stop self
 
     case quorum: Quorum =>
-      val remainingMembers = quorum.members.filterNot(confirms.contains(_))
+
+      val remainingMembers = quorum.members.diff(confirms)
+      log.info(s"Q members ${quorum.members}, remaining $remainingMembers")
+
       import context.dispatcher
       txTimeoutTimer map (_.cancel())
 
       if(remainingMembers.isEmpty) {
         // don't need more confirms, we are done!
-        context.parent ! TxReplicated(bTx, remainingMembers)
+        context.parent ! TxReplicated(bTx)
         context become withQuorum(quorum)
       } else {
         txTimeoutTimer = Option(context.system.scheduler.scheduleOnce(10 seconds,
