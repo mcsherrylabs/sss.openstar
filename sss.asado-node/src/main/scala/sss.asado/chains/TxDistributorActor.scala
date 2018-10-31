@@ -90,6 +90,8 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   private var txTimeoutTimer: Option[Cancellable] = None
 
+  private val bTxId = bTx.toId
+
   Seq(classOf[QuorumLost], classOf[Quorum]).subscribe
   Seq(MessageKeys.AckConfirmTx, MessageKeys.NackConfirmTx).subscribe
 
@@ -97,9 +99,9 @@ private class TxDistributorActor(bTx: BlockChainTx,
   override def postStop(): Unit = { log.debug("TxDistributor {} actor stopped ", bTx.toId)}
 
   private def finishSendingCommits(q: Quorum) : Receive = {
-    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, member, _) if(!confirms.contains(member)) =>
+    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, member, `bTxId`) if(!confirms.contains(member)) =>
       confirms += member
-      send(MessageKeys.CommittedTxId, bTx.toId, member)
+      send(MessageKeys.CommittedTxId, bTxId, member)
 
       if(confirms.size + badConfirms.size == q.members.size)
         messageEventBus unsubscribe self
@@ -109,20 +111,20 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   private def withQuorum(q: Quorum): Receive = onQuorum orElse {
 
-    case InternalTxTimeout(bTxId) =>
+    case InternalTxTimeout(`bTxId`) =>
       context stop self
       log.warning("TxTimeout for {}", bTxId)
       //TODO add sendOnce check
       context.parent ! TxTimeout(bTxId, badConfirms)
 
-    case TxRejected(bTxId, _) =>
+    case TxRejected(`bTxId`, _) =>
       log.warning("Quorum REJECTING {}", bTxId)
       send(MessageKeys.QuorumRejectedTx, bTxId, q.members)
       txTimeoutTimer map (_.cancel())
       context stop self
 
 
-    case TxCommitted(bTxId) =>
+    case TxCommitted(`bTxId`) =>
       log.info("Distributed TxCommitted {}", bTxId)
       send(MessageKeys.CommittedTxId, bTxId, confirms)
       txTimeoutTimer map (_.cancel())
@@ -133,7 +135,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
         context become finishSendingCommits(q)
 
 
-    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, _) =>
+    case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, `bTxId`) =>
       confirms += mem
       if(!sendOnce && confirms.size >= q.minConfirms) {
         log.info("Tx replicated confirms {} min confirms {}", confirms, q.minConfirms)
@@ -141,10 +143,10 @@ private class TxDistributorActor(bTx: BlockChainTx,
         sendOnce = true
       }
 
-    case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, bTx: BlockChainTx) =>
+    case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, `bTx`) =>
       badConfirms += mem
       if(!sendOnce && badConfirms.size >= q.minConfirms) {
-        context.parent ! TxNackReplicated(bTx.toId, badConfirms)
+        context.parent ! TxNackReplicated(bTxId, badConfirms)
         sendOnce = true
         messageEventBus unsubscribe self
         context stop self
@@ -176,7 +178,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
       } else {
         txTimeoutTimer = Option(context.system.scheduler.scheduleOnce(10 seconds,
           self,
-          InternalTxTimeout(bTx.toId)
+          InternalTxTimeout(bTxId)
         )
         )
         context become withQuorum(quorum)

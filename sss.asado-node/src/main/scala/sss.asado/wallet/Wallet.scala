@@ -1,14 +1,21 @@
 package sss.asado.wallet
 
+import akka.actor.ActorRef
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
+import sss.asado.MessageKeys
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
+import sss.asado.chains.TxWriterActor.{InternalCommit, InternalTxResult}
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.asado.wallet.Wallet.PublicKeyFilter
 import sss.asado.wallet.WalletPersistence.Lodgement
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 
 /**
@@ -18,6 +25,11 @@ import sss.asado.wallet.WalletPersistence.Lodgement
 object Wallet {
   type PublicKeyFilter = PublicKey => Boolean
 
+
+  case class Payment(identity: String,
+                     amount: Int,
+                     txIdentifier: Option[String] = None,
+                     blockHeight: Long = 0)
   case class UnSpent(txIndex: TxIndex, out: TxOutput)
 }
 
@@ -27,16 +39,47 @@ class Wallet(identity: NodeIdentity,
              walletPersistence: WalletPersistence,
              currentBlockHeight: () => Long,
              nodeControlsPublicKey: PublicKeyFilter
-            ) extends Logging {
+            )(implicit sendTx: SendTx) extends Logging {
 
   import Wallet._
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  def payAsync(sendingActor: ActorRef, payment: Payment) = {
+    log.info(s"Attempting to create a tx for ${payment.amount} with wallet balance ${balance()}")
+    val tx = createTx(payment.amount)
+    val enc = encumberToIdentity(payment.blockHeight, payment.identity)
+    val finalTxUnsigned = appendOutputs(tx, TxOutput(payment.amount, enc))
+    val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
+    val signedTx = sign(finalTxUnsigned)
+
+    sendTx(LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)).map {
+      case r@InternalCommit(_, blockChainTxId) =>
+        update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
+        r
+      case x => x
+    }.map(sendingActor ! _)
+
+  }
+
+  def pay(payment: Payment)(implicit timeout: Duration): InternalTxResult = {
+    val tx = createTx(payment.amount)
+    val enc = encumberToIdentity(payment.blockHeight, payment.identity)
+    val finalTxUnsigned = appendOutputs(tx, TxOutput(payment.amount, enc))
+    val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
+    val signedTx = sign(finalTxUnsigned)
+
+    val f = sendTx(LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)).map {
+      case r@InternalCommit(_, blockChainTxId) =>
+        update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
+        r
+      case x => x
+    }
+    Await.result(f, timeout)
+
+  }
 
   def credit(lodgement: Lodgement): Unit = {
     walletPersistence.track(lodgement)
-  }
-
-  def trackPublicKey(pKey: PublicKey): Unit = {
-
   }
 
   def markSpent(spentIns: Seq[TxInput]): Unit = {

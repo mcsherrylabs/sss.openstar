@@ -75,7 +75,7 @@ object TxWriterActor {
     override def tempNack(txMsg: TxMessage): Unit =
       listener match {
         case None => log.warn(s"Internal tx has been temp nacked -> ${txMsg.msg}")
-        case Some(listener) =>  listener ! InternalNack(chainId, txMsg)
+        case Some(listener) =>  listener ! InternalTempNack(chainId, txMsg)
       }
 
     override def nack(txMsg: TxMessage): Unit =

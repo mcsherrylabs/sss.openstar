@@ -15,7 +15,7 @@ import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.nodebuilder._
 import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
-import sss.asado.tools.TestnetConfiguration
+import sss.asado.tools.{TestTransactionSender, TestnetConfiguration}
 import sss.asado.util.FutureOps._
 
 import concurrent.ExecutionContext.Implicits.global
@@ -48,6 +48,8 @@ object Main {
       startUnsubscribedHandler
 
       TestnetConfiguration(bootstrapIdentities)
+
+      TestTransactionSender(bootstrapIdentities, wallet)
 
       peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
 

@@ -1,7 +1,7 @@
 package sss.asado.nodebuilder
 
 import sss.asado.account.NodeIdentity
-import sss.asado.wallet.{IntegratedWallet, PublicKeyTracker, Wallet, WalletPersistence}
+import sss.asado.wallet.{PublicKeyTracker, Wallet, WalletPersistence}
 
 /**
   * Created by alan on 6/30/16.
@@ -32,6 +32,7 @@ trait WalletBuilder extends RequireWallet {
     WalletPersistenceBuilder with
     BlockChainBuilder with
     RequireDb with
+    SendTxBuilder with
     PublicKeyTrackerBuilder =>
 
   def buildWallet(nodeIdentity: NodeIdentity): Wallet =
@@ -48,11 +49,3 @@ trait WalletBuilder extends RequireWallet {
 
 }
 
-trait IntegratedWalletBuilder {
-  self :
-    WalletBuilder with
-    MessageEventBusBuilder with
-    RequireActorSystem =>
-
-  lazy val integratedWallet = new IntegratedWallet(wallet, messageEventBus)
-}

@@ -131,9 +131,11 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
     override def receive: Receive = {
 
       case ConnectionLost(nodeId) =>
-        log.info("Connected was {} removing {}", connectedPeers, nodeId)
+        log.info("Connected was {} removing {}, sync peer is {}", connectedPeers, nodeId, synchronizingPeerOpt)
         connectedPeers = connectedPeers.filterNot(_.peer.nodeId == nodeId)
-        if(synchronizingPeerOpt.exists(_.nodeId == nodeId)) reset()
+        if(synchronizingPeerOpt.exists(_.nodeId == nodeId)) {
+          reset()
+        }
 
       case NotSynchronized(`chainId`) => //sent from child
         synchronizingPeerOpt foreach { peer =>
@@ -167,7 +169,6 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         val (leaderRemoved, rest) = connectedPeers.partition(_.peer.nodeId == leader)
         connectedPeers = leaderRemoved.headOption
             .map {
-              synchronizingPeerOpt = None
               self ! StartSync
               _.reset() +: rest
             }.getOrElse(connectedPeers)
