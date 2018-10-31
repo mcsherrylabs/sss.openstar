@@ -102,7 +102,7 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
 
     private var synchronised: IsSynced = {
       val bId = getLatestCommitted()
-      if (chainQuorumCandidates == Set(myNodeId)) Synchronized(chainId, bId.blockHeight, bId.txIndex)
+      if (chainQuorumCandidates == Set(myNodeId)) Synchronized(chainId, bId.blockHeight, bId.txIndex, myNodeId)
       else NotSynchronized(chainId)
     }
 
@@ -146,7 +146,7 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         }
         reset()
 
-      case s @ Synchronized(`chainId`, height, index) => //sent from child
+      case s @ Synchronized(`chainId`, _, _, _) => //sent from child
         // this comes from child actor
         log.info("Now synchronized to {} with {}", s, synchronizingPeerOpt)
         synchronised = s
@@ -157,9 +157,9 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
 
       case _: QuorumLost => reset()
 
-      case LocalLeader(`chainId`, _, height, index, _) =>
+      case LocalLeader(`chainId`, leader, height, index, _) =>
         inProgress = false
-        synchronised = Synchronized(chainId, height, index)
+        synchronised = Synchronized(chainId, height, index, leader)
         log.info("Local Leader {} hence synchronized to {}", myNodeId, synchronised)
         context become waitForleaderLost
         eventMessageBus publish synchronised

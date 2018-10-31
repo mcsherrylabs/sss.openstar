@@ -92,9 +92,9 @@ class ChainDownloadRequestActorSpec extends FlatSpec with Matchers {
   ignore should " emit Synchronized after downloading 3 blocks" in {
 
     TestUtils.addOneBlock(t1.balanceLedger, t1.nodeIdentity, t1.bc)
-    t1.messageEventBus.publish(Synchronized(t1.globalChainId, 5, 10))
+    t1.messageEventBus.publish(Synchronized(t1.globalChainId, 5, 10, ""))
 
-    probe1.expectMsg(Synchronized(t2.globalChainId, 6, 0))
+    probe1.expectMsg(Synchronized(t2.globalChainId, 6, 0, ""))
     val lastHeader = t2.bc.lastBlockHeader
     assert(lastHeader.height == 5, "Should have downloaded another block")
     assert(lastHeader.numTxs == 10, "Should have downloaded 10 txs' in last block")

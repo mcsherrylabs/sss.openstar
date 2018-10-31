@@ -180,11 +180,13 @@ object IdentityService {
 
     override def identify(publicKey: PublicKey): Option[TaggedIdentity] = {
       val pKey = publicKey.toBase64Str
-      keyTable.find(where (publicKeyCol -> pKey)) map { r =>
-        val linkId = r[Long](identityLnkCol)
-        val id = identityTable(linkId)[String](identityCol)
-        val tag = r[String](tagCol)
-        TaggedIdentity(id, tag)
+      keyTable.tx {
+        keyTable.find(where(publicKeyCol -> pKey)) map { r =>
+          val linkId = r[Long](identityLnkCol)
+          val id = identityTable(linkId)[String](identityCol)
+          val tag = r[String](tagCol)
+          TaggedIdentity(id, tag)
+        }
       }
     }
 

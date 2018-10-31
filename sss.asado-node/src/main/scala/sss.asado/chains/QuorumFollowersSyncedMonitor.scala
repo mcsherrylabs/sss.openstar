@@ -79,7 +79,7 @@ private class QuorumFollowersSyncedMonitor(
 
   private def remoteLeader(leader:UniqueNodeIdentifier): Receive = leaderLost(leader) orElse {
 
-    case s@Synchronized(`chainId`, height, index) =>
+    case s@Synchronized(`chainId`, height, index, _) =>
       areWeSynced = Option(s)
       send(MessageKeys.Synchronized, s, leader)
       messageEventBus.publish(BlockChainReady(chainId, leader))
@@ -91,7 +91,7 @@ private class QuorumFollowersSyncedMonitor(
     case IncomingMessage(`chainId`,
               MessageKeys.Synchronized,
               nodeId,
-              s@Synchronized(`chainId`, followerHeight, followerIndex)) =>
+              s@Synchronized(`chainId`, followerHeight, followerIndex, _)) =>
 
       syncedFollowers += nodeId -> s
 
@@ -109,10 +109,10 @@ private class QuorumFollowersSyncedMonitor(
 
   private def waitForLeader: Receive = {
 
-    case IncomingMessage(`chainId`, MessageKeys.Synchronized,  nodeId,  s@Synchronized(`chainId`, followerHeight, followerIndex)) =>
+    case IncomingMessage(`chainId`, MessageKeys.Synchronized,  nodeId,  s@Synchronized(`chainId`, _, _,_)) =>
       syncedFollowers += nodeId -> s
 
-    case s@Synchronized(`chainId`, height, index) =>
+    case s@Synchronized(`chainId`, _, _, _) =>
       areWeSynced = Option(s)
 
     case RemoteLeader(`chainId`, leader, members) =>

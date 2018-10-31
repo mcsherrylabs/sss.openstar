@@ -248,7 +248,7 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
                          MessageKeys.Synced,
                          `syncingWithNode`,
                          p @ GetTxPage(h, i, pageSize)) =>
-      finish(Synchronized(chainId, h, i),
+      finish(Synchronized(chainId, h, i, syncingWithNode),
              s"Downloader is fully synced to tx page $p")
 
   }

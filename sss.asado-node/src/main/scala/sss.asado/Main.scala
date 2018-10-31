@@ -1,25 +1,11 @@
 package sss.asado
 
-import java.util.logging.{Level, Logger}
-
-import akka.actor.ActorRef
-import scorex.crypto.signatures.SigningFunctions.PublicKey
-import sss.ancillary.Logging
-import sss.asado.block.FindLeader
-import sss.asado.block.serialize.FindLeaderSerializer
-import sss.asado.chains.ChainSynchronizer.StartSyncer
-import sss.asado.chains.TxWriterActor.InternalTxResult
-import sss.asado.chains._
-import sss.asado.identityledger.Claim
-import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.nodebuilder._
 import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
 import sss.asado.tools.{TestTransactionSender, TestnetConfiguration}
-import sss.asado.util.FutureOps._
+import sss.asado.wallet.UtxoTracker
 
-import concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.language.postfixOps
 import scala.util.Try
 
@@ -44,6 +30,8 @@ object Main {
       init // <- init delayed until phrase can be initialised.
 
       Try(pKTracker.track(nodeIdentity.publicKey))
+
+      UtxoTracker(wallet)
 
       startUnsubscribedHandler
 

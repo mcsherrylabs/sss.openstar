@@ -504,6 +504,7 @@ trait PartialNode extends Logging
     with NetSendBuilder
     with BalanceLedgerBuilder
     with PeerManagerBuilder
+    with ClaimServletBuilder
     with HttpServerBuilder
     with SendTxBuilder
     with UnsubscribedMessageHandlerBuilder

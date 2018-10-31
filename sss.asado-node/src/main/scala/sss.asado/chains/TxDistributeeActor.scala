@@ -93,7 +93,7 @@ private class TxDistributeeActor(
 
   override def receive: Receive = {
 
-    case Synchronized(`chainId`, height, index) =>
+    case Synchronized(`chainId`, _, _, _) =>
       distributeeNetMsgCodes.subscribe
 
     case NotSynchronized(`chainId`) =>

@@ -3,6 +3,7 @@ package sss.asado.nodebuilder
 import org.hsqldb.server.HsqlServlet
 import sss.ancillary.{DynConfig, InitServlet, ServerConfig, ServerLauncher}
 import sss.asado.console.ConsoleServlet
+import sss.asado.http.ClaimServlet
 
 import collection.JavaConverters._
 
@@ -21,6 +22,7 @@ trait HttpServerBuilder {
           IdentityServiceBuilder with
           SendTxBuilder with
           ConfigBuilder with
+          ClaimServletBuilder with
           NetworkControllerBuilder =>
 
   lazy val httpServer =  {
@@ -29,6 +31,7 @@ trait HttpServerBuilder {
 
   def startHttpServer: Unit = {
     configureServlets
+    addClaimServlet
     httpServer.start
   }
 
@@ -49,22 +52,22 @@ trait HttpServerBuilder {
 
 }
 
-//trait ClaimServletBuilder {
-//
-//
-//  self: NodeConfigBuilder with
-//    MessageEventBusBuilder with
-//    RequireActorSystem with
-//    IntegratedWalletBuilder with
-//    BalanceLedgerBuilder with
-//    HttpServerBuilder =>
-//
-//
-//  def buildClaimServlet: Option[ClaimServlet] = {
-//    Option(new ClaimServlet(actorSystem, stateMachineActor, messageEventBus, balanceLedger,integratedWallet))
-//  }
-//   def addClaimServlet = {
-//    //buildClaimServlet map (let => httpServer.addServlet(InitServlet(let, "/claim/*")))
-//  }
-//
-//}
+trait ClaimServletBuilder {
+
+
+  self: NodeConfigBuilder with
+    MessageEventBusBuilder with
+    RequireActorSystem with
+    WalletBuilder with
+    BalanceLedgerBuilder with
+    HttpServerBuilder =>
+
+
+  def buildClaimServlet: Option[ClaimServlet] = {
+    Option(new ClaimServlet(messageEventBus, balanceLedger,wallet))
+  }
+   def addClaimServlet = {
+    buildClaimServlet map (let => httpServer.addServlet(InitServlet(let, "/claim/*")))
+  }
+
+}

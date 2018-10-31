@@ -44,10 +44,10 @@ class Wallet(identity: NodeIdentity,
   import Wallet._
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def payAsync(sendingActor: ActorRef, payment: Payment) = {
+  def payAsync(sendingActor: ActorRef, payment: Payment): Unit = {
     log.info(s"Attempting to create a tx for ${payment.amount} with wallet balance ${balance()}")
     val tx = createTx(payment.amount)
-    val enc = encumberToIdentity(payment.blockHeight, payment.identity)
+    val enc = encumberToIdentity(payment.blockHeight, payment.identity) //SingleIdentityEnc(someIdentity, atBlockHeight)
     val finalTxUnsigned = appendOutputs(tx, TxOutput(payment.amount, enc))
     val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
     val signedTx = sign(finalTxUnsigned)
@@ -222,6 +222,38 @@ class Wallet(identity: NodeIdentity,
         } else None
     }
   }
+
+  def toLodgement(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
+
+    txOutput.encumbrance match {
+      case SinglePrivateKey(pKey, minBlockHeight) =>
+
+        if(nodeControlsPublicKey(pKey)) {
+          Option(Lodgement(txIndex, txOutput, minBlockHeight))
+        } else {
+          identityServiceQuery.identify(pKey).flatMap { acc =>
+            if (acc.identity == identity.id)
+              Option(Lodgement(txIndex, txOutput, minBlockHeight))
+            else
+              None
+          }
+        }
+
+      case SingleIdentityEnc(id, minBlockHeight) if (id == identity.id) =>
+        Option(Lodgement(txIndex, txOutput, minBlockHeight))
+
+      case SaleOrReturnSecretEnc(_,
+                                  claimant,
+                                  _,
+                                  _) if claimant == identity.id =>
+        Option(Lodgement(txIndex, txOutput, 0))
+
+
+      case NullEncumbrance => Option(Lodgement(txIndex, txOutput, 0))
+      case _ => None
+    }
+  }
+
 
   def balance(atBlockHeight: Long = currentBlockHeight()): Int = findUnSpent(atBlockHeight).foldLeft(0)((acc, e) => acc + e.out.amount)
 

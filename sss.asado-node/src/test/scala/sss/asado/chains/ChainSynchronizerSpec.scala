@@ -29,7 +29,7 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
 
       class TestSyncer extends Actor {
 
-        context.parent ! Synchronized(chainId, 0,0)
+        context.parent ! Synchronized(chainId, 0,0, "")
 
         override def receive: Receive = {
           case x =>
@@ -64,7 +64,7 @@ class ChainSynchronizerSpec extends FlatSpec with Matchers {
 
   "Synchronization" should "be synchronised when quorum is empty" in {
     syncWhenNoQuorumNeededWeAreOwner.startSync
-    probe1.expectMsg(Synchronized(chainId, 0, 0))
+    probe1.expectMsg(Synchronized(chainId, 0, 0, ""))
     syncWhenNoQuorumNeededWeAreOwner.shutdown
   }
 

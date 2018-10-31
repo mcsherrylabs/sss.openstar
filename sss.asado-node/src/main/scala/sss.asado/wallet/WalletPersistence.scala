@@ -49,14 +49,16 @@ class WalletPersistence(uniqueTag :String, db: Db) {
 
   def track(lodgement: Lodgement) = {
 
-    table.insert(Map(txIdCol -> lodgement.txIndex.txId.toBase64Str,
-      txIdIndxCol -> lodgement.txIndex.index,
-      amountCol -> lodgement.txOutput.amount,
-      encumbranceCol -> lodgement.txOutput.encumbrance.toBytes,
-      blockHeightCol -> lodgement.inBlock,
-      createdAtCol -> new Date().getTime,
-      statusCol -> unSpent
-    ))
+    table find where (txIdCol -> lodgement.txIndex.txId.toBase64Str, txIdIndxCol -> lodgement.txIndex.index) getOrElse {
+      table.insert(Map(txIdCol -> lodgement.txIndex.txId.toBase64Str,
+        txIdIndxCol -> lodgement.txIndex.index,
+        amountCol -> lodgement.txOutput.amount,
+        encumbranceCol -> lodgement.txOutput.encumbrance.toBytes,
+        blockHeightCol -> lodgement.inBlock,
+        createdAtCol -> new Date().getTime,
+        statusCol -> unSpent
+      ))
+    }
   }
 
   def listUnSpent: Seq[Lodgement] = tx {

@@ -13,7 +13,8 @@ object SynchronizedSerializer extends Serializer[Synchronized]{
 
     ByteSerializer(sync.chainIdMask) ++
       LongSerializer(sync.height) ++
-      LongSerializer(sync.index)
+      LongSerializer(sync.index) ++
+      StringSerializer(sync.upStreamNodeId)
         .toBytes
 
 
@@ -23,7 +24,8 @@ object SynchronizedSerializer extends Serializer[Synchronized]{
       b.extract(
         ByteDeSerialize,
         LongDeSerialize,
-        LongDeSerialize)
+        LongDeSerialize,
+        StringDeSerialize)
     )
   }
 

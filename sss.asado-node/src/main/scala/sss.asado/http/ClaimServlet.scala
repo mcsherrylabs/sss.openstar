@@ -23,19 +23,17 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 5/7/16.
   */
-class ClaimServlet(actorSystem:ActorSystem,
-                   stateMachine: ActorRef,
+class ClaimServlet(
                    messageRouter: MessageEventBus,
                    balanceLedger: BalanceLedger,
                    integratedWallet: Wallet) extends ScalatraServlet {
 
-  import ClaimServlet._
+
 
   val crlf = System.getProperty("line.separator")
 
   implicit val timeout = Duration(30, SECONDS)
 
-  private val claimsActor = actorSystem.actorOf(Props(classOf[ClaimsResultsActor], stateMachine, messageRouter, integratedWallet))
 
   get("/balanceledger") {
 
@@ -61,7 +59,7 @@ class ClaimServlet(actorSystem:ActorSystem,
     }
   }
 
-  get("/") {
+  /*get("/") {
     params.get("claim") match {
       case None => BadRequest("Param 'claim' not found")
       case Some(claiming) => params.get("pKey") match {
@@ -78,10 +76,10 @@ class ClaimServlet(actorSystem:ActorSystem,
 
       }
     }
-  }
+  }*/
 }
 
-object ClaimServlet {
+/*object ClaimServlet {
 
   case class Claiming(identity: String, txIdHex: String, netMsg: SerializedMessage, p: Promise[String])
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
@@ -143,7 +141,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
       if(claimTracker.claiming.p.isCompleted) log.info(s"${hexId} already completed ")
       else claimTracker.claiming.p.success(s"fail:${txMsg.msg}")
 
-    case TxSuccess(blockChainTxId, txIndex, txTracking) =>
+    /*case TxSuccess(blockChainTxId, txIndex, txTracking) =>
       inFlightClaims.get(txTracking.get) map { claimTracker =>
         log.info(s"Got TxSuccess for $txTracking")
         val indx = TxIndex(blockChainTxId.blockTxId.txId, 0)
@@ -154,7 +152,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
       inFlightClaims.get(txTracking.get) map { claimTracker =>
         if(claimTracker.claiming.p.isCompleted) log.info(s"${txTracking.get} already completed ")
         else claimTracker.claiming.p.success(s"okNoMoney:${txMsg.msg}")
-      }
+      }*/
   }
 
   override def postStop = log.info("ClaimsResultsActor has stopped")
@@ -167,4 +165,4 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
     // TODO, how does this start up now? case ReadyStateEvent => context.become(working)
   }
 
-}
+}*/
