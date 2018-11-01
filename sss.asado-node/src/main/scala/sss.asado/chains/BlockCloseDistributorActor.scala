@@ -16,12 +16,11 @@ import sss.db.Db
 
 import scala.language.postfixOps
 import scala.language.implicitConversions
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration._
+
+import scala.util.{Failure, Success}
 
 object BlockCloseDistributorActor {
-
-
 
   case class CheckedProps(value: Props, name: String)
 
@@ -71,8 +70,6 @@ private class BlockCloseDistributorActor(
     extends Actor
     with ActorLogging
     with ByteArrayComparisonOps
-    with AsadoEventPublishingActor
-    with AsadoEventSubscribedActor
     with SystemPanic {
 
   messageEventBus.subscribe(classOf[Quorum])
@@ -115,29 +112,35 @@ private class BlockCloseDistributorActor(
     case `height` =>
       bc.blockHeaderOpt(height) match {
         case None =>
-          val lastBlock = bc.blockHeader(height - 1)
+          bc.blockHeaderOpt(height - 1) match {
+            case Some(lastBlock) =>
 
-          bc.closeBlock(lastBlock) match {
+              bc.closeBlock(lastBlock) match {
 
-            case Success(newLastBlock) =>
-              publish(BlockClosedEvent(newLastBlock.height))
+                case Success(newLastBlock) =>
+                  messageEventBus.publish(BlockClosedEvent(newLastBlock.height))
 
-              val sig = bc.quorumSigs(newLastBlock.height).sign(nodeIdentity, newLastBlock.hash)
+                  val sig = bc.quorumSigs(newLastBlock.height).sign(nodeIdentity, newLastBlock.hash)
 
-              send(MessageKeys.CloseBlock,
-                   DistributeClose(
-                     Seq(sig),
-                     BlockId(newLastBlock.height, newLastBlock.numTxs)),
-                   currentQuorum.members)
+                  send(MessageKeys.CloseBlock,
+                    DistributeClose(
+                      Seq(sig),
+                      BlockId(newLastBlock.height, newLastBlock.numTxs)),
+                    currentQuorum.members)
 
-              log.info(
-                s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs sending to {}", currentQuorum.members)
+                  log.info(
+                    s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs sending to {}", currentQuorum.members)
 
-              stopIfConfirmed(0)
+                  stopIfConfirmed(0)
 
-            case Failure(e) =>
-              log.error("FAILED TO CLOSE BLOCK! {} {}", height, e)
-              systemPanic()
+                case Failure(e) =>
+                  log.error("FAILED TO CLOSE BLOCK! {} {}", height, e)
+                  systemPanic()
+              }
+            case None =>
+              log.info("Cannot close block {}, previous not yet closed ... retrying ", height)
+              import context.dispatcher
+              context.system.scheduler.scheduleOnce(1 second, self, height)
           }
         case Some(header) =>
           log.info("BlockHeader {} already exists, we are redistributing.",

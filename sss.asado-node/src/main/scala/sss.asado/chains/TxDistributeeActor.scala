@@ -117,7 +117,8 @@ private class TxDistributeeActor(
 
     case IncomingMessage(`chainId`, MessageKeys.ConfirmTx, leader, bTx: BlockChainTx) =>
       val blockLedger = BlockChainLedger(bTx.height)
-      blockLedger.validate(bTx.blockTx.ledgerItem) match {
+
+      blockLedger.validate(bTx.blockTx) match {
         case Failure(e) =>
           val id = e match {
             case LedgerException(ledgerId, _) => ledgerId
@@ -126,11 +127,11 @@ private class TxDistributeeActor(
           log.info(s"Failed to validate tx! ${bTx} ${e.getMessage}")
           send(MessageKeys.NackConfirmTx, bTx.toId, leader)
 
-        case Success((bcTx@BlockChainTx(height, bTx@BlockTx(index, signedTx)), _)) =>
-          blockLedger.journal(bTx)
-          log.info("Journal tx h: {} i: {}", height, bTx.index)
-          txCache += BlockId(height, index) -> signedTx
-          send(MessageKeys.AckConfirmTx, bcTx.toId, leader)
+        case Success(_) =>
+          blockLedger.journal(bTx.blockTx)
+          //log.info("Journal tx h: {} i: {}", height, bTx.index)
+          txCache += BlockId(bTx.height, bTx.blockTx.index) -> bTx.blockTx.ledgerItem
+          send(MessageKeys.AckConfirmTx, bTx.toId, leader)
       }
 
 

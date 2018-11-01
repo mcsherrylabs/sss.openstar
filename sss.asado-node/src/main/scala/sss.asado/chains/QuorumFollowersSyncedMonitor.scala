@@ -67,14 +67,11 @@ private class QuorumFollowersSyncedMonitor(
   private def isBlockChainReady(followers: Seq[VoteLeader],
                                 leaderHeight: Long,
                                 leaderIndex:Long
-                               ): Option[BlockChainReady] = {
+                               ): Boolean = {
 
     //val minusUpToDate = followers.filterNot(follower => follower.height == leaderHeight && follower.committedTxIndex == leaderIndex)
     val minusSynced = followers.filterNot(follower => syncedFollowers.contains(follower.nodeId))
-
-    if(minusSynced.isEmpty) Some(BlockChainReady(chainId, thisNodeId))
-    else None
-
+    minusSynced.isEmpty
   }
 
   private def remoteLeader(leader:UniqueNodeIdentifier): Receive = leaderLost(leader) orElse {
@@ -85,6 +82,8 @@ private class QuorumFollowersSyncedMonitor(
       messageEventBus.publish(BlockChainReady(chainId, leader))
 
   }
+
+  private def blockChainReady : Receive = leaderLost(thisNodeId)
 
   private def weAreLeader(followers: Seq[VoteLeader], height: Long, index: Long): Receive = leaderLost(thisNodeId) orElse {
 
@@ -100,7 +99,11 @@ private class QuorumFollowersSyncedMonitor(
           followerHeight, followerIndex, height, index)
       }
 
-      isBlockChainReady(followers, height, index) foreach (messageEventBus.publish(_))
+      if(isBlockChainReady(followers, height, index)) {
+        messageEventBus.publish(BlockChainReady(chainId, thisNodeId))
+        context become blockChainReady
+      }
+
 
   }
 
@@ -124,8 +127,14 @@ private class QuorumFollowersSyncedMonitor(
 
     case LocalLeader(`chainId`, `thisNodeId`, height, index, followers) =>
 
-      isBlockChainReady(followers, height, index) foreach (messageEventBus.publish(_))
-      context become weAreLeader(followers, height, index)
+      if(isBlockChainReady(followers, height, index)) {
+        messageEventBus.publish(BlockChainReady(chainId, thisNodeId))
+        context become blockChainReady
+      } else {
+        context become weAreLeader(followers, height, index)
+      }
+
+
   }
 
   private def leaderLost(leader: UniqueNodeIdentifier): Receive = {

@@ -136,14 +136,19 @@ class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extend
   def write(index: Long, le: LedgerItem): Long = {
     val bs = le.toBytes
     val hexStr: String = le.txId.toBase64Str
-    val row = blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    val row = Try {
+      blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    } getOrElse {
+      log.info(s"Ledger index $index already exists, try updating...")
+      blockTxTable.update(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    }
     row(id)
   }
 
   def write(le: LedgerItem): Long = {
     val bs = le.toBytes
     val hexStr: String = le.txId.toBase64Str
-    val row = blockTxTable.persist(Map(txid -> hexStr, entry -> bs, committed -> true))
+    val row = blockTxTable.insert(Map(txid -> hexStr, entry -> bs, committed -> true))
     row(id)
   }
 

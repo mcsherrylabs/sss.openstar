@@ -5,8 +5,11 @@ import sss.asado.balanceledger.BalanceLedger.NewUtxo
 import sss.asado.network.MessageEventBus
 
 object UtxoTracker {
-  def apply(wallet:Wallet)(implicit actorSystem: ActorSystem, messageEventBus: MessageEventBus): ActorRef = {
-    actorSystem.actorOf(Props(classOf[UtxoTracker], wallet, messageEventBus))
+  def apply(wallet:Wallet)
+           (implicit actorSystem: ActorSystem,
+            messageEventBus: MessageEventBus): ActorRef = {
+
+    actorSystem.actorOf(Props(classOf[UtxoTracker], wallet, messageEventBus), "UtxoTracker")
   }
 }
 

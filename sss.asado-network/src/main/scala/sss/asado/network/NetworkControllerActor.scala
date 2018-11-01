@@ -185,7 +185,6 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   }
 
   private def disconnect(id: UniqueNodeIdentifier): Unit = {
-    strategies -= id
     connections.filter (_.nodeId.id == id) foreach (_.handlerRef ! Close)
   }
 

@@ -7,7 +7,7 @@ import sss.ancillary.Logging
 import sss.asado._
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.SystemPanic
-import sss.asado.block.{Block, BlockChain, BlockChainLedger, BlockChainSignaturesAccessor}
+import sss.asado.block.{Block, BlockChain, BlockChainLedger, BlockChainSignaturesAccessor, BlockClosedEvent}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.QuorumFollowersSyncedMonitor.BlockChainReady
 import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
@@ -166,8 +166,10 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
   log.info("TxWriter actor has started...")
 
   messageEventBus.subscribe(classOf[Quorum])
+  messageEventBus.subscribe(classOf[BlockClosedEvent])
 
   private var quorum: Option[Quorum] = None
+  private var lastHeightClosed: Long = 0
 
   private var responseMap = Map[BlockId, Response]()
 
@@ -213,6 +215,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       val l = createLedger()
       log.info(s"We are leader ({}) and accepting transactions (at height {}) ...", thisNodeId, l.blockHeight)
 
+      lastHeightClosed = l.blockHeight - 1
       context become acceptTxs(l)
 
       Block(l.blockHeight).getUnCommitted foreach (leftover => {
@@ -302,6 +305,13 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   private def acceptTxs(blockLedger: BlockChainLedger): Receive = stopOnAllStop orElse reset orElse {
 
+    case BlockClosedEvent(heightClosed) =>
+
+      log.info("{} now closed, previous was {}", heightClosed, lastHeightClosed)
+
+      if(heightClosed > lastHeightClosed)
+        lastHeightClosed = heightClosed
+
     case q: Quorum =>
       quorum = Option(q)
 
@@ -317,21 +327,25 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       blocksToClose += blockLedger.blockHeight
       checkConditionsForBlockClose()
 
-      val newLedger = BlockChainLedger(blockLedger.blockHeight + 1)
+      if(lastHeightClosed + 3 >= blockLedger.blockHeight) {
+        val newLedger = BlockChainLedger(blockLedger.blockHeight + 1)
 
-      ledgers.coinbase(nodeIdentity, newLedger.blockHeight) foreach {
+        ledgers.coinbase(nodeIdentity, newLedger.blockHeight) foreach {
 
-        validateAndJournalTx(blockChainSettings.maxTxPerBlock,
-          newLedger,
-          _,
-          createTxDistributingActor(quorum.get),
-          InternalResponse(None)
-        )
+          validateAndJournalTx(blockChainSettings.maxTxPerBlock,
+            newLedger,
+            _,
+            createTxDistributingActor(quorum.get),
+            InternalResponse(None)
+          )
+        }
+
+        context become acceptTxs(newLedger)
+
+        setTimer()
+      } else {
+        log.info("MAXXED OUT DUDE!")
       }
-
-      context become acceptTxs(newLedger)
-
-      setTimer()
 
     case IncomingMessage(`chainId`,
                          MessageKeys.SeqSignedTx,
@@ -370,6 +384,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
     case nack: TxNack => //the quorum has rejected a tx the leader has accepted
 
+      val blockLedger = BlockChainLedger(nack.bTx.height)
       blockLedger.rejected(nack.bTx) match {
         case Failure(e) =>
           log.error("Could not reject tx ")
@@ -394,6 +409,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
     case TxReplicated(bTx) =>
 
+      val blockLedger = BlockChainLedger(bTx.height)
       blockLedger.commit(bTx.blockTx) match {
         case Failure(e) =>
           log.error("Could not apply tx after confirm")
