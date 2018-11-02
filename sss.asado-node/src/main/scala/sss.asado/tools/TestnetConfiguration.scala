@@ -23,7 +23,14 @@ object TestnetConfiguration {
             sendTx: SendTx,
             messageEventBus: MessageEventBus
            ): ActorRef = {
-    actorSystem.actorOf(Props(classOf[TestnetConfiguration], bootstrapIdentities, nodeIdentity, sendTx, messageEventBus))
+    actorSystem.actorOf(
+      Props(classOf[TestnetConfiguration],
+        bootstrapIdentities,
+        nodeIdentity,
+        sendTx,
+        messageEventBus)
+      , "TestnetConfiguration"
+    )
   }
 }
 

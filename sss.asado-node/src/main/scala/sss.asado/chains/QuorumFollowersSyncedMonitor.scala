@@ -1,33 +1,43 @@
 package sss.asado.chains
 
-import java.nio.charset.StandardCharsets
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import sss.asado.block.BlockChainLedger.NewBlockId
 import sss.asado.block.{BlockChain, BlockChainSignatures, BlockChainSignaturesAccessor, Synchronized, VoteLeader}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor.{LeaderFound, LeaderLost, LocalLeader, RemoteLeader}
-import sss.asado.chains.QuorumFollowersSyncedMonitor.BlockChainReady
-import sss.asado.common.block.{BlockChainTxId, BlockTxId}
+import sss.asado.chains.QuorumFollowersSyncedMonitor.{BlockChainReady, QuorumSync, SyncedQuorum}
+import sss.asado.common.block.BlockId
 import sss.asado.ledger._
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.network._
 import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
 import sss.db.Db
-
-import scala.None
-
+import scala.language.postfixOps
 
 /**
   * Created by alan on 3/18/16.
   */
 object QuorumFollowersSyncedMonitor {
 
+  type QuorumSyncs = Seq[QuorumSync]
+
+  case class SyncedQuorum(chainId: GlobalChainIdMask, syncs: QuorumSyncs) extends AsadoEvent {
+    val members: Set[UniqueNodeIdentifier] = syncs map (_.nodeId) toSet
+    val minConfirms: Int = members.size // TODO really?
+  }
+
+  case class QuorumSync(nodeId: UniqueNodeIdentifier, height: Long, index: Long)
+
+  /* Issued by every node *except* the leader to indicate
+     the node has found a leader and is ready to process txs
+   */
   case class BlockChainReady(chainId: GlobalChainIdMask,
                              leader: UniqueNodeIdentifier) extends AsadoEvent
 
   def apply(
              thisNodeId: UniqueNodeIdentifier,
-             bc: BlockChain with BlockChainSignaturesAccessor,
+             disconnect: UniqueNodeIdentifier => Unit
             )(implicit actorSystem: ActorSystem,
               db: Db,
               chainId: GlobalChainIdMask,
@@ -38,6 +48,7 @@ object QuorumFollowersSyncedMonitor {
 
       actorSystem.actorOf(Props(classOf[QuorumFollowersSyncedMonitor],
         thisNodeId,
+        disconnect,
         db,
         ledgers,
         chainId,
@@ -49,6 +60,7 @@ object QuorumFollowersSyncedMonitor {
 
 private class QuorumFollowersSyncedMonitor(
                thisNodeId: UniqueNodeIdentifier,
+               disconnect: UniqueNodeIdentifier => Unit
                )(implicit val db: Db,
                  ledgers: Ledgers,
                  chainId: GlobalChainIdMask,
@@ -58,21 +70,12 @@ private class QuorumFollowersSyncedMonitor(
   log.info("QuorumFollowersSyncedMonitor actor has started...")
 
 
+  messageEventBus.subscribe(classOf[NewBlockId])
   messageEventBus.subscribe(classOf[LeaderLost])
   messageEventBus.subscribe(classOf[Synchronized])
   messageEventBus.subscribe(MessageKeys.Synchronized)
   messageEventBus.subscribe(classOf[LeaderFound])
 
-
-  private def isBlockChainReady(followers: Seq[VoteLeader],
-                                leaderHeight: Long,
-                                leaderIndex:Long
-                               ): Boolean = {
-
-    //val minusUpToDate = followers.filterNot(follower => follower.height == leaderHeight && follower.committedTxIndex == leaderIndex)
-    val minusSynced = followers.filterNot(follower => syncedFollowers.contains(follower.nodeId))
-    minusSynced.isEmpty
-  }
 
   private def remoteLeader(leader:UniqueNodeIdentifier): Receive = leaderLost(leader) orElse {
 
@@ -83,27 +86,36 @@ private class QuorumFollowersSyncedMonitor(
 
   }
 
-  private def blockChainReady : Receive = leaderLost(thisNodeId)
+  private def checkForSyncedQuorum(followers: Seq[VoteLeader]) = {
+    val minusSynced = followers.filterNot(follower => syncedFollowers.contains(follower.nodeId))
+    if (minusSynced.isEmpty) {
+      val sq = SyncedQuorum(chainId, syncedFollowers map (follower => QuorumSync(follower._1, follower._2.height, follower._2.index)) toSeq)
+      messageEventBus publish sq
+    }
+  }
 
   private def weAreLeader(followers: Seq[VoteLeader], height: Long, index: Long): Receive = leaderLost(thisNodeId) orElse {
+
+    case NewBlockId(BlockId(blockHeight, txIndex)) =>
+      context become weAreLeader(followers, blockHeight, txIndex)
 
     case IncomingMessage(`chainId`,
               MessageKeys.Synchronized,
               nodeId,
               s@Synchronized(`chainId`, followerHeight, followerIndex, _)) =>
 
-      syncedFollowers += nodeId -> s
-
       if (followerHeight != height || followerIndex != index + 1) {
-        log.warning(s"Follower $nodeId is 'synchronized' but height {} and index {} don't match leaders {} {}",
+
+        log.warning(s"Follower $nodeId is 'synchronized' but height {} and index {} don't match leaders {} {} - disconnect!",
           followerHeight, followerIndex, height, index)
-      }
+        disconnect(nodeId)
 
-      if(isBlockChainReady(followers, height, index)) {
-        messageEventBus.publish(BlockChainReady(chainId, thisNodeId))
-        context become blockChainReady
-      }
+      } else {
 
+        syncedFollowers += nodeId -> s
+        checkForSyncedQuorum(followers)
+
+      }
 
   }
 
@@ -127,15 +139,10 @@ private class QuorumFollowersSyncedMonitor(
 
     case LocalLeader(`chainId`, `thisNodeId`, height, index, followers) =>
 
-      if(isBlockChainReady(followers, height, index)) {
-        messageEventBus.publish(BlockChainReady(chainId, thisNodeId))
-        context become blockChainReady
-      } else {
-        context become weAreLeader(followers, height, index)
-      }
-
-
+      checkForSyncedQuorum(followers)
+      context become weAreLeader(followers, height, index)
   }
+
 
   private def leaderLost(leader: UniqueNodeIdentifier): Receive = {
 

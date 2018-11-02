@@ -30,7 +30,16 @@ object TestTransactionSender {
             sendTx: SendTx,
             messageEventBus: MessageEventBus
            ): ActorRef = {
-    actorSystem.actorOf(Props(classOf[TestTransactionSender], bootstrapIdentities, wallet, nodeIdentity, sendTx, messageEventBus))
+
+    actorSystem.actorOf(
+      Props(classOf[TestTransactionSender],
+        bootstrapIdentities,
+        wallet,
+        nodeIdentity,
+        sendTx,
+        messageEventBus)
+    , "TestTransactionSender")
+
   }
 }
 

@@ -134,9 +134,7 @@ private class LeaderElectionActor(
         context become findLeader
         self ! FindTheLeader
       }
-
   }
-
 
   private def quorumLostNoLeader:Receive = {
 

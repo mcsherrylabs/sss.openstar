@@ -6,6 +6,7 @@ import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor, Sy
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainSignaturesAccessor, BlockClosedEvent, BlockHeader, DistributeClose}
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.chains.QuorumFollowersSyncedMonitor.SyncedQuorum
 import sss.asado.chains.QuorumMonitor.Quorum
 import sss.asado.common.block._
 import sss.asado.network.MessageEventBus.IncomingMessage
@@ -17,7 +18,6 @@ import sss.db.Db
 import scala.language.postfixOps
 import scala.language.implicitConversions
 import scala.concurrent.duration._
-
 import scala.util.{Failure, Success}
 
 object BlockCloseDistributorActor {
@@ -26,8 +26,6 @@ object BlockCloseDistributorActor {
 
   def props(height: Long,
             ledger: BlockChainLedger,
-            q: Quorum,
-
             bc: BlockChain with BlockChainSignaturesAccessor,
             blockChainSettings: BlockChainSettings,
             nodeIdentity: NodeIdentity)(
@@ -39,8 +37,6 @@ object BlockCloseDistributorActor {
       Props(classOf[BlockCloseDistributorActor],
                    height,
                    ledger,
-                   q,
-
                    bc,
                    blockChainSettings,
                    nodeIdentity,
@@ -59,8 +55,6 @@ object BlockCloseDistributorActor {
 private class BlockCloseDistributorActor(
                                           height: Long,
                                           ledger: BlockChainLedger,
-                                          q: Quorum,
-
                                           bc: BlockChain with BlockChainSignaturesAccessor,
                                           blockChainSettings: BlockChainSettings,
                                           nodeIdentity: NodeIdentity)(implicit db: Db,
@@ -81,35 +75,32 @@ private class BlockCloseDistributorActor(
     log.debug("BlockCloseDistributor actor for {} has stopped", height)
   }
 
-  private var currentQuorum = q
-
-  self ! height
-
-  private def waitForClose: Receive = {
+  private def waitForClose(sq: SyncedQuorum): Receive = {
 
     case IncomingMessage(`chainId`,
-                         MessageKeys.BlockNewSig,
-                         nodeId,
-                         bs@ BlockSignature(_,
-                                        savedAt,
-                                        `height`,
-                                        sigNodeId,
-                                        publicKey,
-                                        signature)) =>
+    MessageKeys.BlockNewSig,
+    nodeId,
+    bs@BlockSignature(_,
+    savedAt,
+    `height`,
+    sigNodeId,
+    publicKey,
+    signature)) =>
 
-      log.info("Add new sig, height {}, from {}", height,  sigNodeId)
+      log.info("Add new sig, height {}, from {}", height, sigNodeId)
 
       bc.quorumSigs(height).addSignature(signature, publicKey, nodeId) match {
         case Failure(e) =>
-            log.error("bc.addSignature failure {}", e)
+          log.error("bc.addSignature failure {}", e)
         case Success(sig) =>
-          send(MessageKeys.BlockSig, sig, currentQuorum.members)
+          send(MessageKeys.BlockSig, sig, sq.members)
           val currentNumSigsForBlock = bc.quorumSigs(height).signatures(Int.MaxValue).size
-          stopIfConfirmed(currentNumSigsForBlock)
+          stopIfConfirmed(currentNumSigsForBlock, sq.minConfirms)
       }
+  }
 
-
-    case `height` =>
+  private def waitForSq: Receive = {
+    case sq: SyncedQuorum =>
       bc.blockHeaderOpt(height) match {
         case None =>
           bc.blockHeaderOpt(height - 1) match {
@@ -126,12 +117,12 @@ private class BlockCloseDistributorActor(
                     DistributeClose(
                       Seq(sig),
                       BlockId(newLastBlock.height, newLastBlock.numTxs)),
-                    currentQuorum.members)
+                    sq.members)
 
                   log.info(
-                    s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs sending to {}", currentQuorum.members)
+                    s"Block ${newLastBlock.height} successfully saved with ${newLastBlock.numTxs} txs sending to {}", sq.members)
 
-                  stopIfConfirmed(0)
+                  stopIfConfirmed(0, sq.minConfirms)
 
                 case Failure(e) =>
                   log.error("FAILED TO CLOSE BLOCK! {} {}", height, e)
@@ -140,21 +131,22 @@ private class BlockCloseDistributorActor(
             case None =>
               log.info("Cannot close block {}, previous not yet closed ... retrying ", height)
               import context.dispatcher
-              context.system.scheduler.scheduleOnce(1 second, self, height)
+              context.system.scheduler.scheduleOnce(1 second, self, sq)
           }
         case Some(header) =>
           log.info("BlockHeader {} already exists, we are redistributing.",
                    header)
       }
+      context become waitForClose(sq)
   }
 
-  private def stopIfConfirmed(numConfirms: Int) = {
+  private def stopIfConfirmed(numConfirms: Int, minConfirms: Int) = {
     //TODO put a time limit on when this should end, can't accept sigs' indefinitely.
-    if (q.minConfirms <= numConfirms) {
+    if (minConfirms <= numConfirms) {
 
       log.debug(
         "stop block close distributor height:{} minconfirms: {} numconfirms: {}",
-        height, q.minConfirms, numConfirms
+        height, minConfirms, numConfirms
       )
 
       messageEventBus.unsubscribe(self)
@@ -162,11 +154,7 @@ private class BlockCloseDistributorActor(
     }
   }
 
-  private def updateQuorum: Receive = {
-    case quorum: Quorum =>
-      currentQuorum = quorum
-  }
 
-  override def receive: Receive = updateQuorum orElse waitForClose
+  override def receive: Receive = waitForSq
 
 }

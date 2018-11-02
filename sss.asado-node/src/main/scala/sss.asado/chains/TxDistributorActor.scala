@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Cancellable, Pro
 import sss.asado.common.block._
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.chains.QuorumFollowersSyncedMonitor.SyncedQuorum
 import sss.asado.chains.QuorumMonitor.{Quorum, QuorumLost}
 import sss.asado.chains.TxDistributorActor._
 import sss.asado.network.MessageEventBus.IncomingMessage
@@ -49,16 +50,14 @@ object TxDistributorActor {
 
   case class CheckedProps(value:Props, name:String)
 
-  def props(bTx: BlockChainTx,
-            q: Quorum,
-           )
+  def props(bTx: BlockChainTx)
            (implicit db: Db,
             chainId: GlobalChainIdMask,
             send: Send,
             messageEventBus: MessageEventBus
             ): CheckedProps =
 
-    CheckedProps(Props(classOf[TxDistributorActor], bTx, q, db, chainId, messageEventBus, send),
+    CheckedProps(Props(classOf[TxDistributorActor], bTx, db, chainId, messageEventBus, send),
       s"TxDistributorActor_${chainId}_${bTx.height}_${bTx.blockTx.index}")
 
 
@@ -67,9 +66,7 @@ object TxDistributorActor {
   }
 }
 
-private class TxDistributorActor(bTx: BlockChainTx,
-                                 q: Quorum,
-
+private class TxDistributorActor(bTx: BlockChainTx
                     )(implicit db: Db,
                       chainId: GlobalChainIdMask,
                       messageEventBus: MessageEventBus,
@@ -79,7 +76,6 @@ private class TxDistributorActor(bTx: BlockChainTx,
     with ByteArrayComparisonOps
     with AsadoEventSubscribedActor {
 
-  self ! q
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
 
@@ -98,18 +94,18 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   override def postStop(): Unit = { log.debug("TxDistributor {} actor stopped ", bTx.toId)}
 
-  private def finishSendingCommits(q: Quorum) : Receive = {
+  private def finishSendingCommits(sq: SyncedQuorum) : Receive = {
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, member, `bTxId`) if(!confirms.contains(member)) =>
       confirms += member
       send(MessageKeys.CommittedTxId, bTxId, member)
 
-      if(confirms.size + badConfirms.size == q.members.size)
+      if(confirms.size + badConfirms.size == sq.members.size)
         messageEventBus unsubscribe self
         context stop self
 
   }
 
-  private def withQuorum(q: Quorum): Receive = onQuorum orElse {
+  private def withQuorum(sq: SyncedQuorum): Receive = onQuorum orElse {
 
     case InternalTxTimeout(`bTxId`) =>
       context stop self
@@ -119,7 +115,7 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
     case TxRejected(`bTxId`, _) =>
       log.warning("Quorum REJECTING {}", bTxId)
-      send(MessageKeys.QuorumRejectedTx, bTxId, q.members)
+      send(MessageKeys.QuorumRejectedTx, bTxId, sq.members)
       txTimeoutTimer map (_.cancel())
       context stop self
 
@@ -129,23 +125,23 @@ private class TxDistributorActor(bTx: BlockChainTx,
       send(MessageKeys.CommittedTxId, bTxId, confirms)
       txTimeoutTimer map (_.cancel())
 
-      if(confirms.size + badConfirms.size == q.members.size)
+      if(confirms.size + badConfirms.size == sq.members.size)
         context stop self
       else
-        context become finishSendingCommits(q)
+        context become finishSendingCommits(sq)
 
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, `bTxId`) =>
       confirms += mem
-      if(!sendOnce && confirms.size >= q.minConfirms) {
-        log.info("Tx replicated confirms {} min confirms {}", confirms, q.minConfirms)
+      if(!sendOnce && confirms.size >= sq.minConfirms) {
+        log.info("Tx replicated confirms {} min confirms {}", confirms, sq.minConfirms)
         context.parent ! TxReplicated(bTx)
         sendOnce = true
       }
 
     case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, `bTx`) =>
       badConfirms += mem
-      if(!sendOnce && badConfirms.size >= q.minConfirms) {
+      if(!sendOnce && badConfirms.size >= sq.minConfirms) {
         context.parent ! TxNackReplicated(bTxId, badConfirms)
         sendOnce = true
         messageEventBus unsubscribe self
@@ -157,13 +153,13 @@ private class TxDistributorActor(bTx: BlockChainTx,
 
   private def onQuorum: Receive = {
 
-    case QuorumLost(leader) =>
-      log.info("QuorumLost ({}) during Distribution of tx {}", leader, bTx)
+    case QuorumLost(`chainId`) =>
+      log.info("QuorumLost during Distribution of tx {}",  bTx)
       txTimeoutTimer map (_.cancel())
       messageEventBus unsubscribe self
       context stop self
 
-    case quorum: Quorum =>
+    case quorum: SyncedQuorum =>
 
       val remainingMembers = quorum.members.diff(confirms)
       log.info(s"Q members ${quorum.members}, remaining $remainingMembers")

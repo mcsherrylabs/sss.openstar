@@ -535,7 +535,7 @@ trait PartialNode extends Logging
 
     TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
 
-    QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
+    QuorumFollowersSyncedMonitor(nodeIdentity.id, net.disconnect)
 
     QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
 
