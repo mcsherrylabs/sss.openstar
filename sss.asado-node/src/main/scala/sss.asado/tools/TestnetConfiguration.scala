@@ -51,6 +51,8 @@ class TestnetConfiguration(bootstrapIdentities: List[BootstrapIdentity])(implici
   }
 
 
+  var once = false
+
   override def receive: Receive = {
 
     case Failure(e) =>
@@ -61,7 +63,8 @@ class TestnetConfiguration(bootstrapIdentities: List[BootstrapIdentity])(implici
 
     case _ :BlockChainReady =>
 
-      if(nodeIdentity.id == "bob") {
+      if(nodeIdentity.id == "bob" && !once) {
+        once = true
         claim(nodeIdentity.id, nodeIdentity.publicKey) pipeTo self
         bootstrapIdentities
           .map(bootId => claim(bootId.nodeId, bootId.pKey))

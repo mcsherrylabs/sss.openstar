@@ -88,7 +88,7 @@ private class TxDistributorActor(bTx: BlockChainTx
 
   private val bTxId = bTx.toId
 
-  Seq(classOf[QuorumLost], classOf[Quorum]).subscribe
+  Seq(classOf[QuorumLost]).subscribe
   Seq(MessageKeys.AckConfirmTx, MessageKeys.NackConfirmTx).subscribe
 
 
@@ -125,15 +125,16 @@ private class TxDistributorActor(bTx: BlockChainTx
       send(MessageKeys.CommittedTxId, bTxId, confirms)
       txTimeoutTimer map (_.cancel())
 
-      if(confirms.size + badConfirms.size == sq.members.size)
+      if(confirms.size + badConfirms.size == sq.members.size) {
+        messageEventBus unsubscribe self
         context stop self
-      else
+      } else
         context become finishSendingCommits(sq)
 
 
     case IncomingMessage(`chainId`, MessageKeys.AckConfirmTx, mem, `bTxId`) =>
       confirms += mem
-      if(!sendOnce && confirms.size >= sq.minConfirms) {
+      if(!sendOnce && confirms.size == sq.members.size) {
         log.info("Tx replicated confirms {} min confirms {}", confirms, sq.minConfirms)
         context.parent ! TxReplicated(bTx)
         sendOnce = true
@@ -141,7 +142,7 @@ private class TxDistributorActor(bTx: BlockChainTx
 
     case IncomingMessage(`chainId`, MessageKeys.NackConfirmTx, mem, `bTx`) =>
       badConfirms += mem
-      if(!sendOnce && badConfirms.size >= sq.minConfirms) {
+      if(!sendOnce && badConfirms.size == sq.members.size) {
         context.parent ! TxNackReplicated(bTxId, badConfirms)
         sendOnce = true
         messageEventBus unsubscribe self
@@ -169,7 +170,10 @@ private class TxDistributorActor(bTx: BlockChainTx
 
       if(remainingMembers.isEmpty) {
         // don't need more confirms, we are done!
-        context.parent ! TxReplicated(bTx)
+        if(!sendOnce) {
+          context.parent ! TxReplicated(bTx)
+          sendOnce = true
+        }
         context become withQuorum(quorum)
       } else {
         txTimeoutTimer = Option(context.system.scheduler.scheduleOnce(10 seconds,

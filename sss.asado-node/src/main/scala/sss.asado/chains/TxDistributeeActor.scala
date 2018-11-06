@@ -171,7 +171,9 @@ private class TxDistributeeActor(
         case None =>
           bc.closeBlock(blockId) match {
 
-            case Failure(e) => log.error("Couldn't close block {} {}", blockId, e)
+            case Failure(e) =>
+              log.error("Couldn't close block {} {}", blockId, e)
+              systemPanic(e)
 
             case Success(header) =>
               log.info("Close block h:{} numTxs: {}", header.height, header.numTxs)

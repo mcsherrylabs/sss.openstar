@@ -52,7 +52,7 @@ class TestServer(id: String, newPort: Int)(
   val testServer = this
   import akka.pattern.pipe
 
-  val msgBus = new MessageEventBus(TestActorSystem.decoder)
+  val msgBus = new MessageEventBus(TestActorSystem.decoder, Seq.empty)
   val settings = new BindControllerSettings {
     override val applicationName: String = "TestServer"
     override val declaredAddressOpt: Option[String] = None

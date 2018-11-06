@@ -32,7 +32,9 @@ object LeaderElectionActor {
                          leader: UniqueNodeIdentifier,
                          height: Long,
                          index:Long,
-                         followers: Seq[VoteLeader]) extends LeaderFound
+                         followers: Seq[VoteLeader],
+                         minConfirms: Int
+                        ) extends LeaderFound
 
   case class RemoteLeader(chainId: GlobalChainIdMask,
                           leader: String,
@@ -117,7 +119,7 @@ private class LeaderElectionActor(
 
   private def waitForQuorum: Receive = {
 
-    case Quorum(`chainId`, connected, _) =>
+    case Quorum(`chainId`, connected, minConfirms) =>
 
       connectedMembers = connected
       messageBus.subscribe(classOf[QuorumLost])
@@ -128,10 +130,10 @@ private class LeaderElectionActor(
 
       if(connectedMembers.isEmpty) {
         //Special case where there is a quorum and it's just us.
-        context.become(handle(thisNodeId))
-        publishLeaderEvents(getLatestCommittedBlockId())
+        context become (handle(thisNodeId, minConfirms))
+        publishLeaderEvents(getLatestCommittedBlockId(), minConfirms)
       } else {
-        context become findLeader
+        context become findLeader(minConfirms)
         self ! FindTheLeader
       }
   }
@@ -152,6 +154,7 @@ private class LeaderElectionActor(
   private def updateQuorum: Receive = {
     case Quorum(`chainId`, connected, _) =>
       connectedMembers = connected
+
   }
 
   private def quorumLost(leader: UniqueNodeIdentifier):Receive = {
@@ -164,7 +167,7 @@ private class LeaderElectionActor(
   }
 
 
-  private def findLeader: Receive = updateQuorum orElse quorumLostNoLeader orElse {
+  private def findLeader(minConfirms: Int): Receive = updateQuorum orElse quorumLostNoLeader orElse {
 
     case FindTheLeader =>
       val findMsg = createFindLeader()
@@ -201,47 +204,49 @@ private class LeaderElectionActor(
         if (leaderVotes.size == connectedMembers.size) {
           // I am the leader.
           context.setReceiveTimeout(Duration.Undefined)
-          context.become(handle(thisNodeId))
+          context.become(handle(thisNodeId, minConfirms))
 
           send(MessageKeys.Leader, Leader(thisNodeId), connectedMembers)
 
           val latestBlockId = getLatestCommittedBlockId()
 
-          publishLeaderEvents(latestBlockId)
+          publishLeaderEvents(latestBlockId, minConfirms)
 
         }
       } else log.info(s"Strangely $thisNodeId got a duplicate vote from ${vl.nodeId}")
 
 
-    case IncomingMessage(`chainId`, MessageKeys.Leader, leader, _) =>
+    case IncomingMessage(`chainId`, MessageKeys.Leader, someNode, Leader(leader)) =>
 
       context.setReceiveTimeout(Duration.Undefined)
-      context.become(handle(leader))
+      context.become(handle(leader, minConfirms))
       log.info(s"The leader is ${leader}")
       messageBus publish RemoteLeader(`chainId`, leader, connectedMembers)
 
   }
 
-  private def publishLeaderEvents(latestBlockId: BlockId) = {
+  private def publishLeaderEvents(latestBlockId: BlockId, minConfirms: Int) = {
 
     messageBus publish LocalLeader(chainId,
       thisNodeId,
       latestBlockId.blockHeight,
       latestBlockId.txIndex,
-      leaderVotes)
+      leaderVotes,
+      minConfirms
+    )
   }
 
-  private def handle(leader: UniqueNodeIdentifier): Receive = updateQuorum orElse quorumLost(leader) orElse {
+  private def handle(leader: UniqueNodeIdentifier, minConfirms: Int): Receive = updateQuorum orElse quorumLost(leader) orElse {
 
     case ConnectionLost(`leader`) =>
       connectedMembers -= leader
-      context become findLeader
+      context become findLeader(minConfirms)
       self ! FindTheLeader
       messageBus.publish(LeaderLost(chainId, leader))
 
     case IncomingMessage(`chainId`, MessageKeys.FindLeader, from, _) =>
-      if (leader == thisNodeId)
-        send(MessageKeys.Leader, Leader(thisNodeId), Set(from))
+      if (connectedMembers.contains(from))
+        send(MessageKeys.Leader, Leader(leader), Set(from))
 
     case IncomingMessage(`chainId`, MessageKeys.VoteLeader, from , _) =>
       log.info(

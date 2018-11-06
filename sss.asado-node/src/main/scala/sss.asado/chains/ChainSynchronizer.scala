@@ -58,7 +58,7 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
 
   final private case object StartSync
 
-  val maxWaitInterval: Long = 30 * 1000
+  val maxWaitInterval: Long = 3 * 1000
 
   private lazy val stream: Stream[Long] = {
     (10l) #:: (20l) #:: stream.zip(stream.tail).map { n =>
@@ -155,9 +155,9 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         //in the case a conn is lost before processing this message.
         synchronizingPeerOpt.getOrElse(reset())
 
-      case _: QuorumLost => reset()
+      case _: QuorumLost | _: LeaderLost => reset()
 
-      case LocalLeader(`chainId`, leader, height, index, _) =>
+      case LocalLeader(`chainId`, leader, height, index, _, _) =>
         inProgress = false
         synchronised = Synchronized(chainId, height, index, leader)
         log.info("Local Leader {} hence synchronized to {}", myNodeId, synchronised)

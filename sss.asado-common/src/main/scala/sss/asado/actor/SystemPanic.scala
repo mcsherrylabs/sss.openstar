@@ -23,6 +23,7 @@ trait SystemPanic  {
   def systemPanic(): Unit = {
     log.error(s"***** Game over man, game over *****")
     context.system.eventStream.publish(AllStop)
+    context.system.terminate()
   }
 
   def stopOnAllStop: Receive = {

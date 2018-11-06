@@ -21,8 +21,8 @@ import sss.asado.network._
 import sss.db.Db
 
 import scala.collection.SortedSet
-import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success, Try}
+
+import scala.util.{Failure, Success}
 import scala.language.postfixOps
 
 /**
@@ -172,7 +172,6 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
   messageEventBus.subscribe(classOf[QuorumLost])
 
 
-  //private var quorum: Option[Quorum] = None
   private var lastHeightClosed: Long = 0
 
   private var responseMap = Map[BlockId, Response]()
@@ -206,7 +205,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   private def waitForUp: Receive = reset orElse {
 
-    case sq @ SyncedQuorum(`chainId`, _) =>
+    case sq @ SyncedQuorum(`chainId`, _, _) =>
       //start listening for
       messageEventBus.subscribe(MessageKeys.SignedTx)
       messageEventBus.subscribe(MessageKeys.SeqSignedTx)
@@ -303,7 +302,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
       blockTxsToDistribute.values.flatten foreach (_ ! updated)
       context become acceptTxs(blockLedger, updated)
 
-    case newSq@SyncedQuorum(`chainId`, _) =>
+    case newSq@SyncedQuorum(`chainId`, _, _) =>
       // send to all children?
       blockTxsToDistribute.values.flatten foreach (_ ! newSq)
       context become acceptTxs(blockLedger, newSq)
@@ -438,7 +437,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   }
 
-  override def postStop = log.warning(s"Tx Writer ($self) is down.")
+  override def postStop = log.warning(s"Tx Writer is down. ($self)")
 
 
   private def validateAndJournalTx(maxTxPerBlock: Int,

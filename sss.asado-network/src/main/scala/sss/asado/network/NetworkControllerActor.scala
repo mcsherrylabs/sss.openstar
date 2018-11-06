@@ -109,7 +109,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
         .foreach(_.handlerRef ! nm)
 
     case c @ ConnectTo(n @ NodeId(nodeId, addr), reconnnectStrategy) =>
-      log.info(s"ConnectTo $nodeId @ $addr")
+
       if (!isConnected(n) &&
           !isBlackListed(n.address) &&
           !isBlackListed(nodeId)) {

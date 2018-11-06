@@ -91,7 +91,7 @@ object MessageEventBus {
 }
 
 
-class MessageEventBus (decoder: Byte => Option[MessageInfo])(
+class MessageEventBus (decoder: Byte => Option[MessageInfo], loggingSuppressedClasses: Seq[Class[_]] = Seq.empty)(
     implicit actorSystem: ActorSystem)
     extends NetworkMessagePublish
     with EventPublish
@@ -241,7 +241,8 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
       case (acc: Boolean, (k: Class[_], subs: Set[ActorRef])) if k.isAssignableFrom(clazz) =>
 
         log.whenDebugEnabled({
-          subs.foreach(sub => log.debug(s"$event -> ${sub.path.name}"))
+          if (!loggingSuppressedClasses.exists(_.isAssignableFrom(clazz)))
+            subs.foreach(sub => log.debug(s"$event -> ${sub.path.name}"))
         })
 
         subs foreach (_ ! event)

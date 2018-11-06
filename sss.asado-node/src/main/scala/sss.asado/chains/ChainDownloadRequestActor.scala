@@ -212,13 +212,16 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
               systemPanic()
 
             case Success(blockHeader) =>
-              val first = blockSigs.head
+              blockSigs.headOption match {
+                case Some(first) =>
 
-              assert(
-                PublicKeyAccount(first.publicKey)
-                  .verify(first.signature, blockHeader.hash),
-                s"Our block header h ${blockHeader.height} num ${blockHeader.numTxs} did not match the sig"
-              )
+                assert(
+                  PublicKeyAccount(first.publicKey)
+                    .verify(first.signature, blockHeader.hash),
+                  s"Our block header h ${blockHeader.height} num ${blockHeader.numTxs} did not match the sig"
+                )
+                case None => log.warning("No sig found for blockheader, {}", blockHeader)
+              }
 
               //lastWrittenBlockId = getLastCommitted()
               publish(BlockClosedEvent(blockHeader.height))

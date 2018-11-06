@@ -86,7 +86,7 @@ class TestTransactionSender(bootstrapIdentities: List[BootstrapIdentity], wallet
       wallet.payAsync(self, Payment(nodeIdentity.id, 1))
 
     case _ : Synchronized =>
-      if(!running && nodeIdentity.id == "karl") {
+      if(nodeIdentity.id == "karl") {
         self ! FireTx
       }
   }

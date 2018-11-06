@@ -271,7 +271,8 @@ trait MessageEventBusBuilder extends RequireMessageEventBus {
   self: RequireActorSystem with
     RequireDecoder =>
 
-  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
+  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder,
+    Seq(classOf[ConnectionFailed]))
 
 }
 

@@ -7,11 +7,11 @@ import sss.asado.ledger._
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db._
 
-
 import scala.util.{Failure, Success, Try}
 
 
 object Block extends Logging {
+
   private val blockTableNamePrefix = "block_"
   //private lazy val blockCache = new SynchronizedLruMap[(GlobalChainIdMask, Long), Block](100)
   def makeTableName(height: Long, chainId: GlobalChainIdMask) = s"$blockTableNamePrefix${height}_${chainId}"
@@ -77,7 +77,11 @@ class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extend
 
   def count = blockTxTable.count
 
-  def validateTx[T](f: => T): Try[T] = blockTxTable.validateTx(f)
+  def validateTx[T](f: => T): Try[T] = {
+      val r = blockTxTable.validateTx(f)
+      blockTxTable.setNextIdToMaxIdPlusOne()
+      r
+  }
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 

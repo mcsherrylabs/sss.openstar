@@ -1,6 +1,6 @@
 package sss.asado.chains
 
-import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, Props, SupervisorStrategy}
+import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, PoisonPill, Props, SupervisorStrategy}
 import sss.asado.account.NodeIdentity
 import sss.asado.actor.{AsadoEventPublishingActor, AsadoEventSubscribedActor, SystemPanic}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
@@ -66,7 +66,7 @@ private class BlockCloseDistributorActor(
     with ByteArrayComparisonOps
     with SystemPanic {
 
-  messageEventBus.subscribe(classOf[Quorum])
+  //messageEventBus.subscribe(classOf[Quorum])
   messageEventBus.subscribe(MessageKeys.BlockNewSig)
 
   override val supervisorStrategy = SupervisorStrategy.stoppingStrategy
@@ -141,7 +141,7 @@ private class BlockCloseDistributorActor(
   }
 
   private def stopIfConfirmed(numConfirms: Int, minConfirms: Int) = {
-    //TODO put a time limit on when this should end, can't accept sigs' indefinitely.
+
     if (minConfirms <= numConfirms) {
 
       log.debug(
@@ -149,8 +149,8 @@ private class BlockCloseDistributorActor(
         height, minConfirms, numConfirms
       )
 
-      messageEventBus.unsubscribe(self)
-      context stop self
+      import context.dispatcher
+      context.system.scheduler.scheduleOnce(3 seconds, self, PoisonPill)
     }
   }
 

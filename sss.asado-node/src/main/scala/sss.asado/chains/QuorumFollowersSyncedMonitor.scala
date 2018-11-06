@@ -3,7 +3,7 @@ package sss.asado.chains
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.asado.block.BlockChainLedger.NewBlockId
-import sss.asado.block.{BlockChain, BlockChainSignatures, BlockChainSignaturesAccessor, Synchronized, VoteLeader}
+import sss.asado.block.{Synchronized, VoteLeader}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor.{LeaderFound, LeaderLost, LocalLeader, RemoteLeader}
 import sss.asado.chains.QuorumFollowersSyncedMonitor.{BlockChainReady, QuorumSync, SyncedQuorum}
@@ -22,9 +22,8 @@ object QuorumFollowersSyncedMonitor {
 
   type QuorumSyncs = Seq[QuorumSync]
 
-  case class SyncedQuorum(chainId: GlobalChainIdMask, syncs: QuorumSyncs) extends AsadoEvent {
+  case class SyncedQuorum(chainId: GlobalChainIdMask, syncs: QuorumSyncs, minConfirms: Int) extends AsadoEvent {
     val members: Set[UniqueNodeIdentifier] = syncs map (_.nodeId) toSet
-    val minConfirms: Int = members.size // TODO really?
   }
 
   case class QuorumSync(nodeId: UniqueNodeIdentifier, height: Long, index: Long)
@@ -73,6 +72,7 @@ private class QuorumFollowersSyncedMonitor(
   messageEventBus.subscribe(classOf[NewBlockId])
   messageEventBus.subscribe(classOf[LeaderLost])
   messageEventBus.subscribe(classOf[Synchronized])
+  messageEventBus.subscribe(classOf[ConnectionLost])
   messageEventBus.subscribe(MessageKeys.Synchronized)
   messageEventBus.subscribe(classOf[LeaderFound])
 
@@ -86,18 +86,25 @@ private class QuorumFollowersSyncedMonitor(
 
   }
 
-  private def checkForSyncedQuorum(followers: Seq[VoteLeader]) = {
+  private def checkForSyncedQuorum(followers: Seq[VoteLeader], minConfirms: Int) = {
     val minusSynced = followers.filterNot(follower => syncedFollowers.contains(follower.nodeId))
     if (minusSynced.isEmpty) {
-      val sq = SyncedQuorum(chainId, syncedFollowers map (follower => QuorumSync(follower._1, follower._2.height, follower._2.index)) toSeq)
+      val sq = SyncedQuorum(chainId, syncedFollowers map (follower => QuorumSync(follower._1, follower._2.height, follower._2.index)) toSeq, minConfirms)
       messageEventBus publish sq
     }
   }
 
-  private def weAreLeader(followers: Seq[VoteLeader], height: Long, index: Long): Receive = leaderLost(thisNodeId) orElse {
+  private def weAreLeader(followers: Seq[VoteLeader], height: Long, index: Long, minConfirms: Int): Receive = leaderLost(thisNodeId) orElse {
+
+    // it possible a connection is lot during wait for sync
+    // but this might not result in QuorumLost of Leader lost.
+    case ConnectionLost(nodeId) =>
+      syncedFollowers = syncedFollowers filterNot (_._1 == nodeId)
+      context become weAreLeader(followers.filterNot(_.nodeId == nodeId), height, index, minConfirms)
+      checkForSyncedQuorum(followers, minConfirms)
 
     case NewBlockId(BlockId(blockHeight, txIndex)) =>
-      context become weAreLeader(followers, blockHeight, txIndex)
+      context become weAreLeader(followers, blockHeight, txIndex, minConfirms)
 
     case IncomingMessage(`chainId`,
               MessageKeys.Synchronized,
@@ -113,7 +120,7 @@ private class QuorumFollowersSyncedMonitor(
       } else {
 
         syncedFollowers += nodeId -> s
-        checkForSyncedQuorum(followers)
+        checkForSyncedQuorum(followers, minConfirms)
 
       }
 
@@ -121,6 +128,7 @@ private class QuorumFollowersSyncedMonitor(
 
   private var areWeSynced: Option[Synchronized] = None
   private var syncedFollowers: Map[UniqueNodeIdentifier, Synchronized] = Map()
+
 
   private def waitForLeader: Receive = {
 
@@ -137,10 +145,10 @@ private class QuorumFollowersSyncedMonitor(
         messageEventBus.publish(BlockChainReady(chainId, leader))
       }
 
-    case LocalLeader(`chainId`, `thisNodeId`, height, index, followers) =>
+    case LocalLeader(`chainId`, `thisNodeId`, height, index, followers, min) =>
 
-      checkForSyncedQuorum(followers)
-      context become weAreLeader(followers, height, index)
+      checkForSyncedQuorum(followers, min)
+      context become weAreLeader(followers, height, index, min)
   }
 
 
@@ -149,7 +157,6 @@ private class QuorumFollowersSyncedMonitor(
     case LeaderLost(`chainId`, `leader`) =>
       context become waitForLeader
       syncedFollowers = Map()
-      areWeSynced = None //TODO check this?
 
   }
 
