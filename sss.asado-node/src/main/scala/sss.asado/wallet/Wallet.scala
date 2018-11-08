@@ -3,7 +3,7 @@ package sss.asado.wallet
 import akka.actor.ActorRef
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
 import sss.asado.chains.TxWriterActor.{InternalCommit, InternalTxResult}
@@ -33,13 +33,63 @@ object Wallet {
   case class UnSpent(txIndex: TxIndex, out: TxOutput)
 }
 
-class Wallet(identity: NodeIdentity,
+class WalletTracking(nodeControlsPublicKey: PublicKeyFilter,
+                     identityServiceQuery: IdentityServiceQuery,
+                     val id: UniqueNodeIdentifier,
+                     walletPersistence: WalletPersistence
+                    ) extends ((TxIndex, TxOutput) => Option[Lodgement]) {
+
+
+  override def apply(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
+    toLodgement(txIndex, txOutput)
+      .map (credit (_))
+  }
+
+  def credit(lodgement: Lodgement): Lodgement = {
+    walletPersistence.track(lodgement)
+  }
+
+  def toLodgement(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
+
+    txOutput.encumbrance match {
+      case SinglePrivateKey(pKey, minBlockHeight) =>
+
+        if(nodeControlsPublicKey(pKey)) {
+          Option(Lodgement(txIndex, txOutput, minBlockHeight))
+        } else {
+          identityServiceQuery.identify(pKey).flatMap { acc =>
+            if (acc.identity == id)
+              Option(Lodgement(txIndex, txOutput, minBlockHeight))
+            else
+              None
+          }
+        }
+
+      case SingleIdentityEnc(nId, minBlockHeight) if (nId == id) =>
+        Option(Lodgement(txIndex, txOutput, minBlockHeight))
+
+      case SaleOrReturnSecretEnc(_,
+      claimant,
+      _,
+      _) if claimant == id =>
+        Option(Lodgement(txIndex, txOutput, 0))
+
+
+      case NullEncumbrance => Option(Lodgement(txIndex, txOutput, 0))
+      case _ => None
+    }
+  }
+}
+
+class Wallet(val identity: NodeIdentity,
              balanceLedger: BalanceLedgerQuery,
              identityServiceQuery: IdentityServiceQuery,
              walletPersistence: WalletPersistence,
              currentBlockHeight: () => Long,
              nodeControlsPublicKey: PublicKeyFilter
             )(implicit sendTx: SendTx) extends Logging {
+
+  val walletTracker: WalletTracking = new WalletTracking(nodeControlsPublicKey, identityServiceQuery, identity.id, walletPersistence)
 
   import Wallet._
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -61,6 +111,8 @@ class Wallet(identity: NodeIdentity,
 
   }
 
+  def credit(lodgement: Lodgement): Unit = walletTracker.credit(lodgement)
+
   def pay(payment: Payment)(implicit timeout: Duration): InternalTxResult = {
     val tx = createTx(payment.amount)
     val enc = encumberToIdentity(payment.blockHeight, payment.identity)
@@ -78,9 +130,6 @@ class Wallet(identity: NodeIdentity,
 
   }
 
-  def credit(lodgement: Lodgement): Unit = {
-    walletPersistence.track(lodgement)
-  }
 
   def markSpent(spentIns: Seq[TxInput]): Unit = {
     spentIns.foreach { in =>
@@ -94,7 +143,7 @@ class Wallet(identity: NodeIdentity,
              inBlock: Long = currentBlockHeight()): Unit = walletPersistence.tx {
     markSpent(debits)
     creditsOrderedByIndex.indices foreach { i =>
-      credit(Lodgement(TxIndex(txId, i), creditsOrderedByIndex(i), inBlock))
+      walletTracker.credit(Lodgement(TxIndex(txId, i), creditsOrderedByIndex(i), inBlock))
     }
   }
 
@@ -223,36 +272,6 @@ class Wallet(identity: NodeIdentity,
     }
   }
 
-  def toLodgement(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
-
-    txOutput.encumbrance match {
-      case SinglePrivateKey(pKey, minBlockHeight) =>
-
-        if(nodeControlsPublicKey(pKey)) {
-          Option(Lodgement(txIndex, txOutput, minBlockHeight))
-        } else {
-          identityServiceQuery.identify(pKey).flatMap { acc =>
-            if (acc.identity == identity.id)
-              Option(Lodgement(txIndex, txOutput, minBlockHeight))
-            else
-              None
-          }
-        }
-
-      case SingleIdentityEnc(id, minBlockHeight) if (id == identity.id) =>
-        Option(Lodgement(txIndex, txOutput, minBlockHeight))
-
-      case SaleOrReturnSecretEnc(_,
-                                  claimant,
-                                  _,
-                                  _) if claimant == identity.id =>
-        Option(Lodgement(txIndex, txOutput, 0))
-
-
-      case NullEncumbrance => Option(Lodgement(txIndex, txOutput, 0))
-      case _ => None
-    }
-  }
 
 
   def balance(atBlockHeight: Long = currentBlockHeight()): Int = findUnSpent(atBlockHeight).foldLeft(0)((acc, e) => acc + e.out.amount)

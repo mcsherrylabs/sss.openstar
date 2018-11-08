@@ -1,31 +1,46 @@
 package sss.asado.wallet
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.asado.balanceledger.BalanceLedger.NewUtxo
 import sss.asado.network.MessageEventBus
+import sss.asado.wallet.UtxoTracker.{NewLodgement, NewWallet}
+import sss.asado.wallet.WalletPersistence.Lodgement
 
 object UtxoTracker {
-  def apply(wallet:Wallet)
+
+  case class NewLodgement(nodeId: UniqueNodeIdentifier, l: Lodgement) extends AsadoEvent
+
+  case class NewWallet(walletTracking:WalletTracking) extends AsadoEvent
+
+  def apply(walletTracking:WalletTracking)
            (implicit actorSystem: ActorSystem,
             messageEventBus: MessageEventBus): ActorRef = {
 
-    actorSystem.actorOf(Props(classOf[UtxoTracker], wallet, messageEventBus), "UtxoTracker")
+    actorSystem.actorOf(
+      Props(classOf[UtxoTracker], walletTracking, messageEventBus)
+        .withDispatcher("blocking-dispatcher"), "UtxoTracker")
   }
 }
 
-private class UtxoTracker(wallet:Wallet)(implicit messageEventBus: MessageEventBus) extends Actor with ActorLogging{
+private class UtxoTracker(walletTracking: WalletTracking)(implicit messageEventBus: MessageEventBus) extends Actor with ActorLogging{
 
   messageEventBus.subscribe(classOf[NewUtxo])
+  messageEventBus.subscribe(classOf[NewWallet])
 
-  override def receive: Receive = {
+  override def receive = withWallets(Seq(walletTracking))
+
+  private def withWallets(wallets: Seq[WalletTracking]): Receive = {
+
+    case NewWallet(w) =>
+      val newWallets = w +: (wallets filterNot (_.id == w.id))
+      context become withWallets(newWallets)
 
     case NewUtxo(txIndex, txOutput) => {
-      wallet
-        .toLodgement(txIndex, txOutput)
-        .foreach  { l =>
-          wallet credit(l)
-          log.info("Added to wallet {}, balance now {}", l, wallet.balance())
-        }
+      wallets foreach { wallet =>
+        wallet(txIndex, txOutput)
+          .foreach(l => messageEventBus.publish(NewLodgement(wallet.id, l)))
+      }
     }
   }
 }

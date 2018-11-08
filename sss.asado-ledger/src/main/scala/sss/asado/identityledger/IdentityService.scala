@@ -2,7 +2,8 @@ package sss.asado.identityledger
 
 
 import java.sql.SQLIntegrityConstraintViolationException
-import java.util.Date
+import java.util.regex.Pattern
+import java.util.{Date, Locale}
 
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
@@ -14,7 +15,6 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 5/30/16.
   */
-
 trait IdentityServiceQuery {
   val defaultTag = IdentityService.defaultTag
   def matches(identity: String, publicKey: PublicKey): Boolean
@@ -54,7 +54,7 @@ object IdentityService {
 
   import sss.asado.util.ByteArrayEncodedStrOps._
 
-  def apply(maxKeysPerIdentity: Int = 10, maxRescuersPerIdentity: Int = 5)(implicit db:Db): IdentityService = new IdentityService {
+  def apply(maxKeysPerIdentity: Int = 10, maxRescuersPerIdentity: Int = 5, identityRegex: String = "^[\\p{L}0-9_]*$")(implicit db:Db): IdentityService = new IdentityService {
 
     private val createIdentityTableSql =
       s"""CREATE TABLE IF NOT EXISTS $identityTableName
@@ -88,12 +88,17 @@ object IdentityService {
 
     db.executeSqls(Seq(createIdentityTableSql, createKeyTableSql, createRecoveryTableSql))
 
-
+    private def norm(str: String): String = {
+      val lower = str.toLowerCase(Locale.ENGLISH)
+      if(!pattern.matcher(lower).matches()) throw new IllegalArgumentException(s"$str is not a valid identity, alpha numeric plus underscore only allowed.")
+      lower
+    }
+    private val pattern = Pattern.compile(identityRegex)
     private lazy val identityTable = db.table(identityTableName)
     private lazy val keyTable = db.table(keyTableName)
     private lazy val recoveryTable = db.table(recoveryIdentitiesTableName)
 
-    private def toIdOpt(identity: String): Option[Long] = identityTable.toLongIdOpt(s"$identityCol" -> identity)
+    private def toIdOpt(identity: String): Option[Long] = identityTable.toLongIdOpt(s"$identityCol" -> norm(identity))
 
     private def toId(identity: String): Long = toIdOpt(identity).get
 
@@ -126,17 +131,17 @@ object IdentityService {
     }
 
     def rescuers(identity: String): Seq[String] = {
-      val fk = identityTable.toLongId(identityCol -> identity)
+      val fk = identityTable.toLongId(identityCol -> norm(identity))
       recoveryTable.filter(identityLnkCol -> fk).map(_[String](identityCol))
     }
 
     private def freeIdentityIfNoKeysOrRescuers(identity: String): Unit = {
       if(accounts(identity).isEmpty &&
         rescuers(identity).isEmpty) {
-        identityTable delete where(s"$identityCol = ?").using(identity)
+        identityTable delete where(s"$identityCol = ?").using(norm(identity))
         // remove this identity from being a rescuer, otherwise a reclaimed identity
         // could be a valid rescuer for an identity
-        recoveryTable delete where(s"$identityCol = ?").using(identity)
+        recoveryTable delete where(s"$identityCol = ?").using(norm(identity))
       }
 
     }
@@ -192,7 +197,7 @@ object IdentityService {
 
     override def claim(identity: String, publicKey: PublicKey, tag: String): Unit = db.tx {
       Try {
-        val newRow = identityTable.insert(Map(identityCol -> identity, createdCol -> new Date().getTime))
+        val newRow = identityTable.insert(Map(identityCol -> norm(identity), createdCol -> new Date().getTime))
         keyTable.insert(Map(identityLnkCol -> newRow[Long](id), publicKeyCol -> publicKey.toBase64Str,
           tagCol -> tag, createdCol -> new Date().getTime))
       } match {

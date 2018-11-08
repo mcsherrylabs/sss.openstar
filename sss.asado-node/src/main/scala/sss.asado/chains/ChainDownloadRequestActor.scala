@@ -85,7 +85,6 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
     ledgers: Ledgers,
 ) extends Actor
     with ActorLogging
-    with AsadoEventPublishingActor
     with SystemPanic {
 
   //private case class CommitBlock(blockId: BlockId, retryCount: Int = 0)
@@ -224,7 +223,7 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
               }
 
               //lastWrittenBlockId = getLastCommitted()
-              publish(BlockClosedEvent(blockHeader.height))
+              messageEventBus publish(BlockClosedEvent(chainId, blockHeader.height))
               events foreach messageEventBus.publish
 
               log.info(

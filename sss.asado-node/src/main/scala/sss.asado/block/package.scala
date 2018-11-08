@@ -15,7 +15,7 @@ package object block {
   trait GetLatestCommittedBlockId extends (() => BlockId)
   type GetLatestRecordedBlockId = () => BlockId
 
-  case class BlockClosedEvent(heightClosed: Long) extends AsadoEvent
+  case class BlockClosedEvent(chainId: GlobalChainIdMask, heightClosed: Long) extends AsadoEvent
 
   // Fired when the client has downloaded up to the latest
   case object ClientSynced

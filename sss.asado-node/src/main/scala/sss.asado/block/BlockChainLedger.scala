@@ -15,7 +15,7 @@ import scala.util.Try
 
 object BlockChainLedger {
 
-  case class NewBlockId(newId: BlockId) extends AsadoEvent
+  case class NewBlockId(chainId: GlobalChainIdMask, newId: BlockId) extends AsadoEvent
 
   def apply(height: Long)
            (implicit db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask): BlockChainLedger =

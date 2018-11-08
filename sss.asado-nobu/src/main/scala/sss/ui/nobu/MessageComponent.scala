@@ -140,36 +140,33 @@ class IdentityClaimComponent(parentLayout: Layout,
   replyMsgBtn.setIcon(FontAwesome.THUMBS_O_DOWN)
   forwardMsgBtn.setIcon(FontAwesome.THUMBS_O_UP)
 
-  replyMsgBtn.addClickListener(new ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
-      parentLayout.removeComponent(IdentityClaimComponent.this)
-      mainActorRef ! MessageToArchive(msg.index)
-    }
+  replyMsgBtn.addClickListener(_ => {
+    parentLayout.removeComponent(IdentityClaimComponent.this)
+    mainActorRef ! MessageToArchive(msg.index)
   })
 
-  forwardMsgBtn.addClickListener(new ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
+  forwardMsgBtn.addClickListener(_ => {
 
-      Try(new Resty().text(s"${homeDomain.http}/claim?claim=${identityClaimMessagePayload.claimedIdentity}" +
-        s"&tag=${identityClaimMessagePayload.tag}" +
-        s"&pKey=${identityClaimMessagePayload.publicKey.toBase64Str}")) match {
-        case Success(resultText) =>
-          resultText.toString match {
-            case msgStr if msgStr.startsWith("ok:") =>
-              val asAry = msgStr.substring(3).split(":")
-              val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
-              val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(identityClaimMessagePayload.claimedIdentity, 0))
-              val inBlock = asAry(3).toLong
-              val walletPersistence = new WalletPersistence(identityClaimMessagePayload.claimedIdentity, db)
-              walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
-              mainActorRef ! MessageToArchive(msg.index)
-              Notification.show(s"$resultText")
-            case msgStr => Notification.show(s"$msgStr")
-          }
-        case Failure(e) => Notification.show(s"$e")
-      }
-      parentLayout.removeComponent(IdentityClaimComponent.this)
+    Try(new Resty().text(s"${homeDomain.http}/claim?claim=${identityClaimMessagePayload.claimedIdentity}" +
+      s"&tag=${identityClaimMessagePayload.tag}" +
+      s"&pKey=${identityClaimMessagePayload.publicKey.toBase64Str}")) match {
+      case Success(resultText) =>
+        resultText.toString match {
+          case msgStr if msgStr.startsWith("ok:") =>
+            val asAry = msgStr.substring(3).split(":")
+            val txIndx = TxIndex(asAry(0).asTxId, asAry(1).toInt)
+            val txOutput = TxOutput(asAry(2).toInt, SingleIdentityEnc(identityClaimMessagePayload.claimedIdentity, 0))
+            val inBlock = asAry(3).toLong
+            val walletPersistence = new WalletPersistence(identityClaimMessagePayload.claimedIdentity, db)
+            walletPersistence.track(Lodgement(txIndx, txOutput, inBlock))
+            mainActorRef ! MessageToArchive(msg.index)
+            Notification.show(s"$resultText")
+          case msgStr => Notification.show(s"$msgStr")
+        }
+      case Failure(e) => Notification.show(s"$e")
     }
+    parentLayout.removeComponent(IdentityClaimComponent.this)
+
   })
 
 }

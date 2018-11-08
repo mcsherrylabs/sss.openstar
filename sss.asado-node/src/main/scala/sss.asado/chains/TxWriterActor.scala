@@ -290,7 +290,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
 
   private def acceptTxs(blockLedger: BlockChainLedger, sq: SyncedQuorum): Receive = stopOnAllStop orElse reset orElse {
 
-    case BlockClosedEvent(heightClosed) =>
+    case BlockClosedEvent(`chainId`, heightClosed) =>
 
       log.info("{} now closed, previous was {}", heightClosed, lastHeightClosed)
 
@@ -431,7 +431,7 @@ private class TxWriterActor(blockChainSettings: BlockChainSettings,
           val bId = BlockId(bTx.height, bTx.blockTx.index)
           responseMap(bId).confirm(bTx.toId)
           events foreach (messageEventBus.publish)
-          messageEventBus.publish(NewBlockId(bId))
+          messageEventBus.publish(NewBlockId(chainId, bId))
 
       }
 

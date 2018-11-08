@@ -11,6 +11,7 @@ import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.{MessageKeys, Send}
 import sss.asado.account.{NodeIdentity, PublicKeyAccount}
+import sss.asado.block.BlockChainLedger.NewBlockId
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
@@ -159,7 +160,8 @@ private class TxDistributeeActor(
         case Success(events) =>
           log.info("Commit tx h: {} i: {}", bId.blockHeight, blockTx.index)
           messageEventBus publish SouthboundTx(BlockChainTx(bTx.height, blockTx))
-          events foreach messageEventBus.publish
+          messageEventBus publish NewBlockId(chainId, bId)
+            events foreach messageEventBus.publish
       }
 
       txCache -= bId

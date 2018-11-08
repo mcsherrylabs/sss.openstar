@@ -27,6 +27,7 @@ import sss.asado._
 import sss.asado.chains.ChainSynchronizer.StartSyncer
 import sss.asado.tools.{DownloadSeedNodes, SendTxSupport}
 import sss.asado.tools.SendTxSupport.SendTx
+import sss.asado.wallet.UtxoTracker
 import sss.db.Db
 import sss.db.datasource.DataSource
 
@@ -538,6 +539,8 @@ trait PartialNode extends Logging
 
     QuorumFollowersSyncedMonitor(nodeIdentity.id, net.disconnect)
 
+    synchronization // Init this to allow it to register for events before QuorumMontor starts.
+
     QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
 
     TxForwarderActor(1000)
@@ -545,6 +548,8 @@ trait PartialNode extends Logging
     SouthboundTxDistributorActor(
       SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(), bc, net.disconnect)
     )
+
+    UtxoTracker(buildWalletTracking(nodeIdentity.id))
   }
 }
 

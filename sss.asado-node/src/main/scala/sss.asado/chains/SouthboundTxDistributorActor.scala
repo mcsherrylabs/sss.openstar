@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorContext, ActorLogging, ActorRef, ActorSystem, Pro
 import org.joda.time.DateTime
 import sss.asado.account.{NodeIdentity, PublicKeyAccount}
 import sss.asado.block.signature.BlockSignatures
-import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainSignaturesAccessor, DistributeClose, NotSynchronized}
+import sss.asado.block.{BlockChain, BlockChainLedger, BlockChainSignatures, BlockChainSignaturesAccessor, BlockClosedEvent, DistributeClose, NotSynchronized}
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
@@ -132,6 +132,8 @@ private class SouthboundTxDistributorActor(
 
             case Success(header) =>
               log.info("Close block h:{} numTxs: {}", header.height, header.numTxs)
+              messageEventBus.publish(BlockClosedEvent(chainId, header.height))
+
               val sigsOk = blockSigs.forall {
                 sig =>
                   val isOk = PublicKeyAccount(sig.publicKey).verify(sig.signature, header.hash)

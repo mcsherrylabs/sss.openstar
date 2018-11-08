@@ -16,12 +16,15 @@ import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageInBox.MessagePage
 import sss.asado.message.{Message, MessageEcryption, MessageInBox, SavedAddressedMessage, _}
+import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
+import sss.asado.wallet.UtxoTracker.NewLodgement
 import sss.asado.wallet.Wallet
 import sss.db.Db
 import sss.ui.design.NobuMainDesign
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
+import sss.ui.nobu.NobuUI.Detach
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -47,7 +50,8 @@ class NobuMainLayout(uiReactor: UIReactor,
                     implicit db: Db,
                     identityService: IdentityServiceQuery,
                     conf: Config, homeDomain: HomeDomain,
-                    currentBlockHeight: () => Long
+                    currentBlockHeight: () => Long,
+                    messageEventBus: MessageEventBus
 ) extends NobuMainDesign with View with Logging {
 
 
@@ -159,6 +163,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   object NobuMainActor extends UIEventActor {
 
+    messageEventBus subscribe classOf[Detach]
 
     def createFundedTx(amount: Int): Tx = {
       userWallet.createTx(amount)
@@ -186,6 +191,9 @@ class NobuMainLayout(uiReactor: UIReactor,
     var pager: MessagePage[_] = initInBoxPager
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
+
+      case Detach(Some(uiId)) if (ui.getEmbedId == uiId) =>
+        context stop self
 
       case Show(s) => push(Notification.show(s))
 
@@ -256,11 +264,12 @@ class NobuMainLayout(uiReactor: UIReactor,
         ui.getNavigator().navigateTo(UnlockClaimView.name)
       }
 
+      case NewLodgement(`nId`, _) => self ! ShowBalance
 
       case ShowBalance =>
         val bal =  userWallet.balance()
         push(balBtnLbl.setCaption(bal.toString))
-        context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
+        //context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
 
       case ClaimBounty(sTx, secret) => Try {
 

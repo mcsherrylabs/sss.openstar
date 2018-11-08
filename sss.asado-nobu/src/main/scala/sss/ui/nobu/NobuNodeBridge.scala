@@ -8,7 +8,7 @@ import sss.asado.ledger._
 import sss.asado.message._
 import sss.asado.wallet.Wallet
 import sss.ui.reactor.Event
-
+import com.vaadin.ui.Notification
 /**
   * Created by alan on 6/15/16.
   */
@@ -21,6 +21,7 @@ object NobuNodeBridge {
     override val category: String = NobuCategory
   }
 
+  case class Notify(msg:String, t: Notification.Type = Notification.Type.HUMANIZED_MESSAGE)
   case class Connected(who:String) extends NobuEvent
   case object LostConnection extends NobuEvent
   case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])

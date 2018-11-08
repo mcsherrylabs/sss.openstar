@@ -25,13 +25,12 @@ object Main {
       override val phrase: Option[String] =
         if (withArgs.length > 1) Option(withArgs(1)) else None
 
-      Try(QuorumService.create(globalChainId, "bob", "alice", "eve"))
+      Try(QuorumService.create(globalChainId, "alice", "bob"))
 
       init // <- init delayed until phrase can be initialised.
 
       Try(pKTracker.track(nodeIdentity.publicKey))
 
-      UtxoTracker(wallet)
 
       startUnsubscribedHandler
 

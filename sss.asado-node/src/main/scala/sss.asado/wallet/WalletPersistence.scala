@@ -47,26 +47,37 @@ class WalletPersistence(uniqueTag :String, db: Db) {
   }
 
 
-  def track(lodgement: Lodgement) = {
+  def track(lodgement: Lodgement): Lodgement = {
 
-    table find where (txIdCol -> lodgement.txIndex.txId.toBase64Str, txIdIndxCol -> lodgement.txIndex.index) getOrElse {
-      table.insert(Map(txIdCol -> lodgement.txIndex.txId.toBase64Str,
-        txIdIndxCol -> lodgement.txIndex.index,
-        amountCol -> lodgement.txOutput.amount,
-        encumbranceCol -> lodgement.txOutput.encumbrance.toBytes,
-        blockHeightCol -> lodgement.inBlock,
-        createdAtCol -> new Date().getTime,
-        statusCol -> unSpent
-      ))
-    }
+    toLodgement (
+      table find where (txIdCol -> lodgement.txIndex.txId.toBase64Str, txIdIndxCol -> lodgement.txIndex.index) getOrElse {
+        table.insert(Map(txIdCol -> lodgement.txIndex.txId.toBase64Str,
+          txIdIndxCol -> lodgement.txIndex.index,
+          amountCol -> lodgement.txOutput.amount,
+          encumbranceCol -> lodgement.txOutput.encumbrance.toBytes,
+          blockHeightCol -> lodgement.inBlock,
+          createdAtCol -> new Date().getTime,
+          statusCol -> unSpent
+        ))
+      }
+    )
   }
 
   def listUnSpent: Seq[Lodgement] = tx {
     table.filter(
       where(s"$statusCol = ?") using (unSpent))
-      .map(r => Lodgement(TxIndex(r[String](txIdCol).asTxId, r[Int](txIdIndxCol)), TxOutput(r[Int](amountCol), r[Array[Byte]](encumbranceCol).toEncumbrance), r[Long](blockHeightCol)))
+      .map(toLodgement)
   }
 
+  private def toLodgement(r: Row): Lodgement = {
+    Lodgement(
+      TxIndex(r[String](txIdCol).asTxId,
+        r[Int](txIdIndxCol)),
+      TxOutput(r[Int](amountCol),
+        r[Array[Byte]](encumbranceCol).toEncumbrance),
+      r[Long](blockHeightCol)
+    )
+  }
 
   private val createTableSql =
     s"""CREATE TABLE IF NOT EXISTS ${tableName}

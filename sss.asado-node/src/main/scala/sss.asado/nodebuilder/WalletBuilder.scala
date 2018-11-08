@@ -1,7 +1,9 @@
 package sss.asado.nodebuilder
 
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.account.NodeIdentity
-import sss.asado.wallet.{PublicKeyTracker, Wallet, WalletPersistence}
+import sss.asado.balanceledger.{TxIndex, TxOutput}
+import sss.asado.wallet.{PublicKeyTracker, Wallet, WalletPersistence, WalletTracking}
 
 /**
   * Created by alan on 6/30/16.
@@ -34,6 +36,16 @@ trait WalletBuilder extends RequireWallet {
     RequireDb with
     SendTxBuilder with
     PublicKeyTrackerBuilder =>
+
+  def buildWalletTracking(nodeId: UniqueNodeIdentifier): WalletTracking = {
+
+    new WalletTracking(
+      pKTracker.isTracked,
+      identityService,
+      nodeId,
+      walletPersistence
+    )
+  }
 
   def buildWallet(nodeIdentity: NodeIdentity): Wallet =
 

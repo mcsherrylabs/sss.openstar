@@ -6,13 +6,14 @@ import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
 import sss.asado.block.Block
+import sss.asado.chains.TxWriterActor.InternalCommit
 import sss.asado.contract.SingleIdentityEnc
 import sss.asado.eventbus.EventPublish
 import sss.asado.identityledger.{Claim, IdentityService}
 import sss.asado.network.{NetworkRef, NodeId}
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.asado.wallet.{WalletPersistence}
+import sss.asado.wallet.WalletPersistence
 import sss.db._
 import sss.asado.util.FutureOps._
 import sss.asado.ledger._
@@ -105,7 +106,10 @@ class ConsoleServlet(
         //val sig = nodeIdentity.sign(tx.txId)
         val ste = SignedTxEntry(tx.toBytes, Seq())
         val le = LedgerItem(MessageKeys.IdentityLedger, tx.txId, ste.toBytes)
-        Seq(sendTx(le).await().toString)
+        Seq(sendTx(le).await() match {
+          case _: InternalCommit => "ok"
+          case _ => ""
+        })
       }
     },
     "connectpeer" -> new Cmd {

@@ -66,6 +66,7 @@ private class BlockCloseDistributorActor(
     with ByteArrayComparisonOps
     with SystemPanic {
 
+  //TODO subscribe to SyncedQuorum.
   //messageEventBus.subscribe(classOf[Quorum])
   messageEventBus.subscribe(MessageKeys.BlockNewSig)
 
@@ -109,7 +110,7 @@ private class BlockCloseDistributorActor(
               bc.closeBlock(lastBlock) match {
 
                 case Success(newLastBlock) =>
-                  messageEventBus.publish(BlockClosedEvent(newLastBlock.height))
+                  messageEventBus.publish(BlockClosedEvent(chainId, newLastBlock.height))
 
                   val sig = bc.quorumSigs(newLastBlock.height).sign(nodeIdentity, newLastBlock.hash)
 

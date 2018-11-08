@@ -103,7 +103,7 @@ private class QuorumFollowersSyncedMonitor(
       context become weAreLeader(followers.filterNot(_.nodeId == nodeId), height, index, minConfirms)
       checkForSyncedQuorum(followers, minConfirms)
 
-    case NewBlockId(BlockId(blockHeight, txIndex)) =>
+    case NewBlockId(`chainId`, BlockId(blockHeight, txIndex)) =>
       context become weAreLeader(followers, blockHeight, txIndex, minConfirms)
 
     case IncomingMessage(`chainId`,
