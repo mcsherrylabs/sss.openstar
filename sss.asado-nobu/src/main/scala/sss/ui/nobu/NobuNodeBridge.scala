@@ -21,12 +21,14 @@ object NobuNodeBridge {
     override val category: String = NobuCategory
   }
 
+
+  case class Fail(msg:String)
   case class Notify(msg:String, t: Notification.Type = Notification.Type.HUMANIZED_MESSAGE)
   case class Connected(who:String) extends NobuEvent
   case object LostConnection extends NobuEvent
   case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
   case class ClaimBounty(stx: SignedTxEntry, secret: Array[Byte]) extends NobuEvent
-  case class MessageToSend(to : Identity, account: PublicKeyAccount, text: String, amount: Int) extends NobuEvent
+  case class MessageToSend(to : Identity, account: PublicKeyAccount, text: String, amount: Int, sender: ActorRef) extends NobuEvent
   case class SentMessageToDelete(index:Long) extends NobuEvent
   case class MessageToDelete(index:Long) extends NobuEvent
   case class MessageToArchive(index:Long) extends NobuEvent

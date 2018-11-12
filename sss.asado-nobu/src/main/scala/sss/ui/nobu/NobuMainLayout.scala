@@ -51,7 +51,8 @@ class NobuMainLayout(uiReactor: UIReactor,
                     identityService: IdentityServiceQuery,
                     conf: Config, homeDomain: HomeDomain,
                     currentBlockHeight: () => Long,
-                    messageEventBus: MessageEventBus
+                    messageEventBus: MessageEventBus,
+                    blockingWorkers: BlockingWorkers
 ) extends NobuMainDesign with View with Logging {
 
 
@@ -95,6 +96,7 @@ class NobuMainLayout(uiReactor: UIReactor,
     logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl, schedulesBtn)
 
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
+  messageEventBus.subscribe (classOf[Detach])(mainNobuRef)
 
   private lazy val nId = userId.id
   private lazy val inBox = MessageInBox(nId)
@@ -163,11 +165,9 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   object NobuMainActor extends UIEventActor {
 
-    messageEventBus subscribe classOf[Detach]
 
     def createFundedTx(amount: Int): Tx = {
       userWallet.createTx(amount)
-
     }
 
     private def createPaymentOuts(to: Identity, secret: Array[Byte], amount: Int): Seq[TxOutput] = {
@@ -290,7 +290,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         case Success(_) =>
       }
 
-      case MessageToSend(to, account, text, amount) => Try {
+      case MessageToSend(to, account, text, amount, sender) => Try {
 
         log.info("MessageToSend begins")
         val baseTx = createFundedTx(amount)

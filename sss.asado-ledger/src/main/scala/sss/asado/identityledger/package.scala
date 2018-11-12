@@ -15,8 +15,8 @@ package object identityledger {
 
   abstract class IdentityLedgerTx(toCheck: String*) {
     val txId: Array[Byte] = SecureCryptographicHash.hash(this.toBytes)
-    require(toCheck.forall(_.forall(c => c.isLower || c.isDigit)),
-      s"Unsupported character used, simple lowercase alpha numerics only. ($toCheck)")
+    require(toCheck.forall(IdentityService.validateIdentity(_)),
+      s"Unsupported character used, simple lowercase alpha numerics and _ only. ($toCheck)")
     private[identityledger] val uniqueMessage = System.nanoTime()
   }
 

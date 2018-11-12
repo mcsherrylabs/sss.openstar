@@ -7,7 +7,6 @@ import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
 import com.vaadin.ui.UI
-import sss.ancillary.Configure
 import sss.asado.AsadoEvent
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
@@ -43,8 +42,9 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener {
     val waitSyncView = new WaitSyncedView()
     navigator.addView(WaitSyncedView.name, waitSyncView)
     navigator.addView(UnlockClaimView.name, claimUnlockView)
+    navigator.addView(WaitKeyGenerationView.name, new WaitKeyGenerationView())
 
-    navigator.navigateTo(WaitSyncedView.name)
+    navigator.navigateTo(UnlockClaimView.name)
   }
 
   override def afterViewChange(viewChangeEvent: ViewChangeEvent): Unit = Unit
@@ -52,6 +52,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener {
   override def beforeViewChange(viewChangeEvent: ViewChangeEvent): Boolean = {
 
     (Option(getSession().getAttribute(UnlockClaimView.identityAttr)), viewChangeEvent.getViewName) match {
+      case (_, WaitKeyGenerationView.name) => true
       case (_, WaitSyncedView.name) => true
       case (_, UnlockClaimView.name) => true
       case (None, _) =>

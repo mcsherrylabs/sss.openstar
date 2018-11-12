@@ -33,9 +33,21 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
 
   private val ref = uiReactor.actorOf(Props(WaitSyncActor), btn)
 
+  messageEventBus.subscribe(classOf[BlockClosedEvent])(ref)
+  messageEventBus.subscribe(classOf[NewBlockId])(ref)
+  messageEventBus.subscribe(classOf[Synchronized])(ref)
+  messageEventBus.subscribe(classOf[Status])(ref)
+  messageEventBus.subscribe(classOf[PeerConnection])(ref)
+  messageEventBus.subscribe(classOf[ConnectionLost])(ref)
+
+  messageEventBus.publish(StateQueryStatus)
+
+  val bar = new ProgressBar()
+  bar.setIndeterminate(true)
+
   setSizeFull()
   setDefaultComponentAlignment(Alignment.MIDDLE_CENTER)
-  addComponent(btn)
+  addComponents(bar, btn)
 
   override def enter(event: ViewChangeListener.ViewChangeEvent): Unit = {
     messageEventBus.publish(StateQueryStatus)
@@ -43,14 +55,6 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
 
   object WaitSyncActor extends UIEventActor {
 
-    messageEventBus.subscribe(classOf[BlockClosedEvent])
-    messageEventBus.subscribe(classOf[NewBlockId])
-    messageEventBus.subscribe(classOf[Synchronized])
-    messageEventBus.subscribe(classOf[Status])
-    messageEventBus.subscribe(classOf[PeerConnection])
-    messageEventBus.subscribe(classOf[ConnectionLost])
-
-    messageEventBus.publish(StateQueryStatus)
     /*import concurrent.duration._
     import context.dispatcher
     import scala.language.postfixOps

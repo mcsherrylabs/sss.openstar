@@ -1,12 +1,11 @@
 package sss.asado.network
 
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props, Terminated}
 import sss.ancillary.Logging
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.{AsadoEvent, PublishedMessageKeys, UniqueNodeIdentifier}
+import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.asado.eventbus.{EventPublish, MessageInfo}
 import sss.asado.network.MessageEventBus._
 
@@ -257,7 +256,6 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo], loggingSuppressedCl
             v foreach (_ ! UnsubscribedEvent(event))
       }
     }
-
   }
 
   private[network] override def publish(networkMessage: IncomingSerializedMessage): Unit = {

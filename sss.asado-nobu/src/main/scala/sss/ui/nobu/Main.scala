@@ -22,7 +22,10 @@ import scala.util.Try
 object Main {
 
   trait ClientNode extends PartialNode with HomeDomainBuilder {
-    lazy implicit val blockingWorkers = BlockingWorkers(new CreateIdentity().createIdentity)
+    lazy implicit val blockingWorkers =
+      BlockingWorkers(
+        new CreateIdentity().createIdentity orElse new SendMessage(currentBlockHeight).sendMessage
+      )
 
 
     val keyFolder = config.getString("keyfolder")

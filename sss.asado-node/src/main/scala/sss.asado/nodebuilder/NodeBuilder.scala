@@ -357,7 +357,8 @@ trait MessageQueryHandlerActorBuilder {
     with NodeIdentityBuilder
     with BlockChainBuilder
     with ConfigBuilder
-    with IdentityServiceBuilder =>
+    with IdentityServiceBuilder
+    with RequireNetSend =>
 
   lazy val minNumBlocksInWhichToClaim =
     conf.getInt("messagebox.minNumBlocksInWhichToClaim")
@@ -372,9 +373,10 @@ trait MessageQueryHandlerActorBuilder {
   lazy val messageServiceActor =
     actorSystem.actorOf(
       Props(classOf[MessageQueryHandlerActor],
-            messageEventBus,
-            messagePaywall,
-            db))
+        messagePaywall,
+        db,
+        messageEventBus,
+        send))
 
 }
 
@@ -515,7 +517,8 @@ trait PartialNode extends Logging
     with ShutdownHookBuilder
     with PublicKeyTrackerBuilder
     with ChainBuilder
-    with ChainSynchronizerBuilder {
+    with ChainSynchronizerBuilder
+    with MessageQueryHandlerActorBuilder {
 
 
   def shutdown: Unit = {
@@ -550,6 +553,8 @@ trait PartialNode extends Logging
     )
 
     UtxoTracker(buildWalletTracking(nodeIdentity.id))
+
+    messageServiceActor
   }
 }
 

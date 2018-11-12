@@ -27,6 +27,6 @@ class BlockingWorker(r: Receive) extends Actor with ActorLogging {
 
 class BlockingWorkers(router: ActorRef) {
 
-  def submit(a: Any)(implicit sender: ActorRef) = router.tell(a, sender)
+  def submit(a: Any)(implicit sender: ActorRef = ActorRef.noSender) = router.tell(a, sender)
 
 }

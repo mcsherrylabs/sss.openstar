@@ -17,9 +17,10 @@ import sss.asado.wallet.{Wallet, WalletTracking}
 import sss.ui.design.CenteredAccordianDesign
 import sss.ui.reactor.{ComponentEvent, UIReactor}
 import sss.db.Db
-import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, NewClaimedIdentity}
-import sss.ui.nobu.NobuNodeBridge.Notify
+import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded, NewClaimedIdentity}
+import sss.ui.nobu.NobuNodeBridge.{Fail, Notify}
 import sss.ui.nobu.NobuUI.Detach
+import sss.ui.nobu.WaitKeyGenerationView.Update
 
 import scala.util.{Failure, Success, Try}
 
@@ -61,7 +62,9 @@ class UnlockClaimView(userDir: UserDirectory,
   claimInfoTextArea.setRows(8)
 
 
-  uiReactor.actorOf(Props(UnlockClaimViewActor), claimBtnVal, unlockBtnVal)
+  val ref = uiReactor.actorOf(Props(UnlockClaimViewActor), claimBtnVal, unlockBtnVal)
+
+  messageEventBus.subscribe (classOf[Detach])(ref)
 
   private def showClaim = {
     rhsClaim.setVisible(true)
@@ -90,20 +93,23 @@ class UnlockClaimView(userDir: UserDirectory,
 
   object UnlockClaimViewActor extends sss.ui.reactor.UIEventActor {
 
-    messageEventBus subscribe classOf[Detach]
-
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI) = {
 
       case Detach(Some(uiId)) if (ui.getEmbedId == uiId) =>
         context stop self
 
+      case Fail(m) =>
+        push(Notification.show(m, Notification.Type.ERROR_MESSAGE))
+        push(ui.getNavigator.navigateTo(UnlockClaimView.name))
+
       case Notify(msg, t) =>
         push(Notification.show(msg, t))
 
       case NewClaimedIdentity(nId) =>
-        self ! Notify(s"Identity ${nId.id} successfully claimed, funding wallet ...")
         messageEventBus publish NewWallet(buildWallet(nId).walletTracker)
-        blockingWorkers.submit(Fund(nId.id, self))
+        blockingWorkers.submit(Fund(Option(ui.getEmbedId), nId, self))
+
+      case Funded(Some(uiId), nId, amount) =>
         gotoMainView(ui, nId)
 
       case ComponentEvent(`claimBtnVal`, _) =>
@@ -113,7 +119,10 @@ class UnlockClaimView(userDir: UserDirectory,
         val phrase = claimPhrase.getValue
         val phraseRetype = claimPhraseRetype.getValue
         if (phrase != phraseRetype) self ! Notify(s"The passwords do not match!", Notification.Type.ERROR_MESSAGE)
-        else blockingWorkers.submit(ClaimIdentity(claim, claimTag, phrase, self))
+        else {
+          blockingWorkers.submit(ClaimIdentity(Option(ui.getEmbedId), claim, claimTag, phrase, self))
+          push(ui.getNavigator.navigateTo(WaitKeyGenerationView.name))
+        }
 
 
       case ComponentEvent(`unlockBtnVal`, _) =>
@@ -139,12 +148,17 @@ class UnlockClaimView(userDir: UserDirectory,
 
     def gotoMainView(ui: UI, nId: NodeIdentity): Unit = {
       val userWallet = createWallet(nId)
-      getSession().setAttribute(UnlockClaimView.identityAttr, nId.id)
-      UserSession.note(nId, userWallet)
-      val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId)
-      push {
-        ui.getNavigator.addView(mainView.name, mainView)
-        ui.getNavigator.navigateTo(mainView.name)
+      Option(ui.getSession()) match {
+        case Some(sess) =>
+          UserSession.note(nId, userWallet)
+          sess.setAttribute(UnlockClaimView.identityAttr, nId.id)
+          val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId)
+          push {
+            ui.getNavigator.addView(mainView.name, mainView)
+            ui.getNavigator.navigateTo(mainView.name)
+          }
+        case None =>
+          log.error("Couldn't get ui session?")
       }
     }
   }

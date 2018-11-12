@@ -38,6 +38,19 @@ trait IdentityService extends IdentityServiceQuery {
 
 object IdentityService {
 
+  private[identityledger] def validateIdentity(id: String): Boolean = {
+    Try(norm(id) == id).getOrElse(false)
+  }
+
+  private[identityledger] def norm(str: String): String = {
+    val lower = str.toLowerCase(Locale.ENGLISH)
+    if(!pattern.matcher(lower).matches()) throw new IllegalArgumentException(s"$str is not a valid identity, alpha numeric plus underscore only allowed.")
+    lower
+  }
+
+  private[identityledger] val identityRegex = "^[\\p{L}0-9_]*$"
+  private[identityledger] val pattern = Pattern.compile(identityRegex)
+
   val defaultTag = "defaultTag"
 
   private val id = "id"
@@ -54,7 +67,9 @@ object IdentityService {
 
   import sss.asado.util.ByteArrayEncodedStrOps._
 
-  def apply(maxKeysPerIdentity: Int = 10, maxRescuersPerIdentity: Int = 5, identityRegex: String = "^[\\p{L}0-9_]*$")(implicit db:Db): IdentityService = new IdentityService {
+  def apply(maxKeysPerIdentity: Int = 10,
+            maxRescuersPerIdentity: Int = 5,
+            identityRegex: String = IdentityService.identityRegex)(implicit db:Db): IdentityService = new IdentityService {
 
     private val createIdentityTableSql =
       s"""CREATE TABLE IF NOT EXISTS $identityTableName
@@ -88,12 +103,6 @@ object IdentityService {
 
     db.executeSqls(Seq(createIdentityTableSql, createKeyTableSql, createRecoveryTableSql))
 
-    private def norm(str: String): String = {
-      val lower = str.toLowerCase(Locale.ENGLISH)
-      if(!pattern.matcher(lower).matches()) throw new IllegalArgumentException(s"$str is not a valid identity, alpha numeric plus underscore only allowed.")
-      lower
-    }
-    private val pattern = Pattern.compile(identityRegex)
     private lazy val identityTable = db.table(identityTableName)
     private lazy val keyTable = db.table(keyTableName)
     private lazy val recoveryTable = db.table(recoveryIdentitiesTableName)

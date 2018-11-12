@@ -19,13 +19,15 @@ import scala.util.{Failure, Success, Try}
 
 
 class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: UserDirectory)
-                 (implicit identityQuery: IdentityServiceQuery) extends WriteDesign with Logging {
+                 (implicit identityQuery: IdentityServiceQuery,
+                  blockingWorkers: BlockingWorkers) extends WriteDesign with Logging {
 
 
   import NobuUI.CRLF
 
   scheduleCombo.setNullSelectionAllowed(false)
   scheduleCombo.setValue(Scheduler.once)
+  scheduleCombo.setVisible(false)
   toCombo.setNullSelectionAllowed(false)
   userDir.loadCombo(toCombo)
 
@@ -57,17 +59,8 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                       case Some(text) =>
                         sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
-                        val mts = MessageToSend(to, ac, text, amount)
-                        mainNobuRef ! mts
-                        Option(scheduleCombo.getValue.toString) match {
-                          case None | Some(Scheduler.once) =>
-                          case Some(schedule) =>
-                            val from = getSession().getAttribute(UnlockClaimView.identityAttr).toString
-                            val serialised = Scheduler.serialiseDetails(from, schedule, mts)
-                            SchedulerPersistence().persist(serialised)
+                        blockingWorkers.submit(MessageToSend(to, ac, text, amount, mainNobuRef))
 
-
-                        }
                     }
                 }
             }

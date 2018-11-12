@@ -1,5 +1,6 @@
 package sss.ui.nobu
 
+import com.vaadin.server.VaadinSession
 import sss.asado.account.NodeIdentity
 import sss.asado.wallet.Wallet
 
@@ -8,7 +9,7 @@ import sss.asado.wallet.Wallet
   */
 object UserSession {
 
-  def apply(user: String): Option[UserSession] = allSessions.get(user)
+  def apply(user: String = VaadinSession.getCurrent.getAttribute(UnlockClaimView.identityAttr).toString): Option[UserSession] = allSessions.get(user)
 
 
   def note(nodeId: NodeIdentity, userWallet: Wallet) = synchronized {
