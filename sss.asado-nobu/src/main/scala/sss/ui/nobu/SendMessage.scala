@@ -10,6 +10,7 @@ import sss.asado.account.PublicKeyAccount
 import sss.asado.balanceledger.TxOutput
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
+import sss.asado.crypto.SeedBytes
 import sss.asado.ledger.LedgerItem
 import sss.asado.message.{MessageEcryption, MessageInBox, SavedAddressedMessage}
 import sss.asado.message._
@@ -22,14 +23,13 @@ import sss.ui.nobu.NobuNodeBridge.{Fail, MessageToSend, WalletUpdate}
 import scala.util.{Failure, Random, Success, Try}
 
 class SendMessage(currentBlockHeight: () => Long,
+                  conf: Config
                  )
                  (implicit homeDomain: HomeDomain,
                   db:Db,
-                  conf: Config,
                   sendTx: SendTx,
                   send: Send,
                   chainId: GlobalChainIdMask
-
 ) extends Logging {
 
 
@@ -38,39 +38,42 @@ class SendMessage(currentBlockHeight: () => Long,
   private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
 
   def sendMessage: Receive = {
-    case MessageToSend(to , account, text, amount, sender) =>
+    case MessageToSend(from, to, account, text, amount, sender) =>
 
       Try {
 
-        log.info("MessageToSend begins")
-        val us = UserSession().get
-        val userWallet: Wallet = us.userWallet
-        val nodeIdentity = us.nodeId
-        val inBox = MessageInBox(nodeIdentity.id)
-        val baseTx = userWallet.createTx(amount)
-        val changeTxOut = baseTx.outs.take(1)
-        val secret = new Array[Byte](8) //SeedBytes(16)
-        Random.nextBytes(secret)
+        log.info("Message To Send begins")
+        UserSession(from) match {
+          case Some(us) =>
 
-        val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
-        val paymentOuts = Seq(
-          TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
-          TxOutput(amount, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
-            currentBlockHeight() + minNumBlocksInWhichToClaim))
-        )
-        val tx = userWallet.appendOutputs(baseTx, paymentOuts : _*)
-        val signedSTx = userWallet.sign(tx, secret)
-        val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
-        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
+            val userWallet: Wallet = us.userWallet
+            val nodeIdentity = us.nodeId
+            val inBox = MessageInBox(nodeIdentity.id)
+            val baseTx = userWallet.createTx(amount)
+            val changeTxOut = baseTx.outs.take(1)
+            val secret = SeedBytes.secureSeed(16)
 
-        send(MessageKeys.MessageAddressed, m.addrMsg, homeDomain.nodeId.id)
 
-        // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
-        log.info("MessageToSend finished, sending bag")
-        //FIXME clientEventActor ! bag FIXME
+            val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
+            val paymentOuts = Seq(
+              TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
+              TxOutput(amount, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
+                currentBlockHeight() + minNumBlocksInWhichToClaim))
+            )
+            val tx = userWallet.appendOutputs(baseTx, paymentOuts: _*)
+            val signedSTx = userWallet.sign(tx, secret)
+            val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
+            val m: SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
 
+            send(MessageKeys.MessageAddressed, m.addrMsg, homeDomain.nodeId.id)
+
+          case None =>
+            sender ! Fail("No user session, log out and log in again.")
+        }
       } match {
-        case Failure(e) => sender ! Fail("Couldn't send the message")
+        case Failure(e) =>
+          log.error(e.toString)
+          sender ! Fail("Couldn't send the message")
         case Success(_) =>
       }
 

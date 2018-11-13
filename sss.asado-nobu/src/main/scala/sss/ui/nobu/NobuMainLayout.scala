@@ -1,21 +1,23 @@
 package sss.ui.nobu
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.server.FontAwesome
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, Send}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.chains.BlockChainSettings
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
+import sss.asado.crypto.SeedBytes
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageInBox.MessagePage
-import sss.asado.message.{Message, MessageEcryption, MessageInBox, SavedAddressedMessage, _}
+import sss.asado.message._
 import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.UtxoTracker.NewLodgement
@@ -47,13 +49,18 @@ class NobuMainLayout(uiReactor: UIReactor,
                      userWallet: Wallet,
                      userId: NodeIdentity
                      ) (
-                    implicit db: Db,
+                    implicit actorSystem: ActorSystem,
+                    db: Db,
                     identityService: IdentityServiceQuery,
-                    conf: Config, homeDomain: HomeDomain,
+                    conf: Config,
+                    homeDomain: HomeDomain,
                     currentBlockHeight: () => Long,
                     messageEventBus: MessageEventBus,
-                    blockingWorkers: BlockingWorkers
+                    blockingWorkers: BlockingWorkers,
+                    send: Send,
+                    chainId: GlobalChainIdMask
 ) extends NobuMainDesign with View with Logging {
+
 
 
   private implicit val nodeIdentity = userId
@@ -97,9 +104,12 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
   messageEventBus.subscribe (classOf[Detach])(mainNobuRef)
+  messageEventBus.subscribe (classOf[NewLodgement])(mainNobuRef)
+  messageEventBus.subscribe (classOf[MessageResponse])(mainNobuRef)
 
   private lazy val nId = userId.id
   private lazy val inBox = MessageInBox(nId)
+  private val msgDownloadActor = MessageDownloadActor(nId, homeDomain)
 
   balanceCptnBtn.setCaption(nId)
 
@@ -113,7 +123,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
     pager.messages.reverse foreach {
 
-      case msg @ Message(_, msgPayload, _, _, _) if(isForDeletion) =>
+      case msg @ Message(_, _, msgPayload, _, _, _) if(isForDeletion) =>
         val tried = Try(MessagePayloadDecoder.decode.apply(msgPayload))
         if(tried.isSuccess) {
           itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
@@ -121,7 +131,7 @@ class NobuMainLayout(uiReactor: UIReactor,
         }
 
 
-      case msg @ Message(_, msgPayload, _, _, _) =>
+      case msg @ Message(_, _, msgPayload, _, _, _) =>
         val res = Try {
           val a = Try(MessagePayloadDecoder.decode.apply(msgPayload))
           val b = Try(PayloadDecoder.decode.apply(msgPayload))
@@ -166,24 +176,6 @@ class NobuMainLayout(uiReactor: UIReactor,
   object NobuMainActor extends UIEventActor {
 
 
-    def createFundedTx(amount: Int): Tx = {
-      userWallet.createTx(amount)
-    }
-
-    private def createPaymentOuts(to: Identity, secret: Array[Byte], amount: Int): Seq[TxOutput] = {
-      // Add 4 blocks to min to allow for the local ledger being some blocks behind the
-      // up to date ledger.
-      Seq(
-        TxOutput(chargePerMessage, SingleIdentityEnc(homeDomain.nodeId.id)),
-        TxOutput(amount, SaleOrReturnSecretEnc(nodeIdentity.id, to, secret,
-          currentBlockHeight() + minNumBlocksInWhichToClaim + 4))
-      )
-    }
-
-    private def signOutputs(tx:Tx, secret: Array[Byte]): SignedTxEntry = {
-      userWallet.sign(tx, secret)
-    }
-
     def initInBoxPager = inBox.inBoxPager(4)
     def initSentPager = inBox.sentPager(4)
     def initArchivedPager = inBox.archivedPager(4)
@@ -194,6 +186,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case Detach(Some(uiId)) if (ui.getEmbedId == uiId) =>
         context stop self
+        context stop msgDownloadActor
 
       case Show(s) => push(Notification.show(s))
 
@@ -271,6 +264,12 @@ class NobuMainLayout(uiReactor: UIReactor,
         push(balBtnLbl.setCaption(bal.toString))
         //context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
 
+      case SuccessResponse(_) =>
+        self ! Show(s"Message away!")
+
+      case FailureResponse(_, info) =>
+        self ! Show(s"Failed to send message - $info")
+
       case ClaimBounty(sTx, secret) => Try {
 
         val tx = sTx.txEntryBytes.toTx
@@ -290,41 +289,6 @@ class NobuMainLayout(uiReactor: UIReactor,
         case Success(_) =>
       }
 
-      case MessageToSend(to, account, text, amount, sender) => Try {
-
-        log.info("MessageToSend begins")
-        val baseTx = createFundedTx(amount)
-        val changeTxOut = baseTx.outs.take(1)
-        val secret = new Array[Byte](8) //SeedBytes(16)
-        Random.nextBytes(secret)
-
-        val encryptedMessage = MessageEcryption.encryptWithEmbeddedSecret(nodeIdentity, account.publicKey, text, secret)
-        val paymentOuts = createPaymentOuts(to, secret, amount)
-        val tx = userWallet.appendOutputs(baseTx, paymentOuts : _*)
-        val signedSTx = signOutputs(tx, secret)
-        val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
-        val m : SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
-        val bag = Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), userId.id)
-
-        /*val msg = Message(bag.from,
-          bag.msg.addrMsg.msgPayload,
-          bag.sTx.toBytes,
-          0, bag.msg.savedAt)
-
-        val newMsg = MessageInBox(bag.msg.to).addNew(msg)
-        val msgP = newMsg.msgPayload
-        val enc1 = MessageEcryption.encryptedMessage(msgP.payload)
-        val n = NodeIdentity(to, "defaultTag", "password")
-        val twithsec = enc1.decrypt(n, account.publicKey)*/
-
-        // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
-        log.info("MessageToSend finished, sending bag")
-        //FIXME clientEventActor ! bag FIXME
-
-      } match {
-        case Failure(e) => push(Notification.show(e.getMessage.take(80)))
-        case Success(_) =>
-      }
 
       case MessageToDelete(index) => inBox.delete(index)
       case MessageToArchive(index) => inBox.archive(index)

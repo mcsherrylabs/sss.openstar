@@ -1,5 +1,7 @@
 package sss.ui.nobu
 
+import java.util.concurrent.atomic.AtomicReference
+
 import com.vaadin.server.VaadinSession
 import sss.asado.account.NodeIdentity
 import sss.asado.wallet.Wallet
@@ -9,14 +11,17 @@ import sss.asado.wallet.Wallet
   */
 object UserSession {
 
-  def apply(user: String = VaadinSession.getCurrent.getAttribute(UnlockClaimView.identityAttr).toString): Option[UserSession] = allSessions.get(user)
+  def apply(user: String): Option[UserSession] = allSessions.get().get(user)
 
 
-  def note(nodeId: NodeIdentity, userWallet: Wallet) = synchronized {
-    allSessions = allSessions + (nodeId.id -> UserSession(nodeId, userWallet))
+  def note(nodeId: NodeIdentity, userWallet: Wallet) = {
+    allSessions.updateAndGet(
+      _ + (nodeId.id -> UserSession(nodeId, userWallet))
+    )
   }
+
 
   case class UserSession(nodeId: NodeIdentity, userWallet: Wallet)
 
-  private var allSessions: Map[String, UserSession] = Map()
+  private val allSessions: AtomicReference[Map[String, UserSession]] = new AtomicReference(Map())
 }

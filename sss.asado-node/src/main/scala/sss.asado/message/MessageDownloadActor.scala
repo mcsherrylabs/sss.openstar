@@ -2,10 +2,10 @@ package sss.asado.message
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.{MessageKeys, Send}
-import sss.asado.MessageKeys._
-import sss.asado.network.{MessageEventBus, NetworkRef, SerializedMessage}
+import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -18,27 +18,44 @@ import scala.concurrent.duration._
 case object CheckForMessages
 case object ForceCheckForMessages
 
+object MessageDownloadActor {
+  def apply(who: String,
+            homeDomain: HomeDomain)(implicit actorSystem: ActorSystem,
+                                    db: Db,
+                                    messageRouter: MessageEventBus,
+                                    send: Send,
+                                    chainId: GlobalChainIdMask): ActorRef = {
+    actorSystem.actorOf(
+      Props(classOf[MessageDownloadActor],
+        who,
+        homeDomain,
+        db,
+        messageRouter,
+        send,
+        chainId)
+    )
+  }
+}
 class MessageDownloadActor(who: String,
                            homeDomain: HomeDomain,
                            )(implicit db: Db,
                              messageRouter: MessageEventBus,
-                             send: Send)
+                             send: Send,
+                             chainId: GlobalChainIdMask)
     extends Actor
     with ActorLogging {
 
-  messageRouter.subscribe(MessageKeys.MessageMsg)
-  messageRouter.subscribe(MessageKeys.EndMessagePage)
-  messageRouter.subscribe(MessageKeys.EndMessageQuery)
+  messageRouter.subscribe(classOf[Message])
+  messageRouter.subscribe(classOf[EndMessagePage])
+  messageRouter.subscribe(classOf[EndMessageQuery])
 
   log.info("MessageDownload actor has started...")
 
   private val inBox = MessageInBox(who)
 
-  import SerializedMessage.noChain
-
   private var isQuiet = true
 
-  def createQuery: MessageQuery = MessageQuery(inBox.maxInIndex, 25)
+  def createQuery: MessageQuery = MessageQuery(who, inBox.maxInIndex, 25)
 
   override def receive: Receive = {
 
@@ -56,20 +73,18 @@ class MessageDownloadActor(who: String,
         isQuiet = false
       }
 
-    case SerializedMessage(_, MessageKeys.EndMessagePage, bytes) =>
+    case EndMessagePage(`who`) =>
       isQuiet = true
       self ! CheckForMessages
 
-    case SerializedMessage(_, MessageKeys.EndMessageQuery, bytes) =>
+    case EndMessageQuery(`who`) =>
       isQuiet = true
       context.system.scheduler.scheduleOnce(FiniteDuration(5, TimeUnit.SECONDS),
                                             self,
                                             CheckForMessages)
 
-    case SerializedMessage(_, MessageKeys.MessageMsg, bytes) =>
-      /*decode(MessageKeys.MessageMsg, bytes.toMessage) { msg: Message =>
-        inBox.addNew(msg)
-      }*/
+
+    case msg: Message if(msg.to == who) => inBox.addNew(msg)
 
   }
 }

@@ -4,13 +4,13 @@ import org.joda.time.LocalDateTime
 import sss.asado.balanceledger._
 import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.message.serialize._
-import sss.asado.util.Serialize.ToBytes
+import sss.asado.util.Serialize._
 /**
   * Created by alan on 6/6/16.
   */
 package object message {
 
-  case class MessageQuery(lastIndex: Long, pageSize: Int)
+  case class MessageQuery(who: UniqueNodeIdentifier, lastIndex: Long, pageSize: Int)
 
   trait MessageResponse {
     val success: Boolean
@@ -27,29 +27,29 @@ package object message {
     override def hashCode(): Int = success.hashCode() + txId.hash
   }
   case class SuccessResponse(txId: TxId) extends MessageResponse {
-    val success = true
+    final val success = true
   }
 
   case class FailureResponse(txId: TxId, info: String) extends MessageResponse {
-    val success = false
+    final val success = false
   }
 
   trait TypedMessagePayload {
     def toMessagePayLoad: MessagePayload
   }
 
-  case object EndMessagePage extends ToBytes {
-    override def toBytes: Array[Byte] = Array.emptyByteArray
+  case class EndMessagePage(who: UniqueNodeIdentifier) extends ToBytes {
+    override def toBytes: Array[Byte] = StringSerializer(who).toBytes
   }
 
-  case object EndMessageQuery extends ToBytes {
-    override def toBytes: Array[Byte] = Array.emptyByteArray
+  case class EndMessageQuery(who: UniqueNodeIdentifier) extends ToBytes {
+    override def toBytes: Array[Byte] =  StringSerializer(who).toBytes
   }
 
-  type Identity = String
 
-  case class SavedAddressedMessage(to: Identity, index: Long, savedAt: LocalDateTime, addrMsg: AddressedMessage)
-  case class AddressedMessage(ledgerItem: LedgerItem, msgPayload : MessagePayload)
+
+  case class SavedAddressedMessage(to: UniqueNodeIdentifier, index: Long, savedAt: LocalDateTime, addrMsg: AddressedMessage)
+  case class AddressedMessage(from: UniqueNodeIdentifier, ledgerItem: LedgerItem, msgPayload : MessagePayload)
 
   case class MessagePayload(payloadType: Byte, payload: Array[Byte]) {
     override def equals(obj: scala.Any): Boolean = {
@@ -63,7 +63,8 @@ package object message {
     override def hashCode(): Int = payloadType.hashCode() + payload.hash
   }
 
-  case class Message(from: Identity,
+  case class Message(to: UniqueNodeIdentifier,
+                     from: UniqueNodeIdentifier,
                      msgPayload: MessagePayload,
                      tx: Array[Byte],
                      index: Long,
@@ -74,6 +75,7 @@ package object message {
         case that: Message =>
           (that.index == index) &&
             (that.createdAt == createdAt) &&
+            (that.to == to) &&
             (that.from == from) &&
             (that.tx isSame tx) &&
             (that.msgPayload == msgPayload)
@@ -85,6 +87,14 @@ package object message {
 
   }
 
+
+  implicit class ToEndMessageQuery(bs: Array[Byte]) {
+    def toEndMessageQuery: EndMessageQuery = EndMessageQuery(bs.extract(StringDeSerialize))
+  }
+
+  implicit class ToEndMessagePage(bs: Array[Byte]) {
+    def toEndMessagePage: EndMessagePage = EndMessagePage(bs.extract(StringDeSerialize))
+  }
 
   implicit class ToMsgPayload(bs: Array[Byte]) {
     def toMessagePayload: MessagePayload = MsgPayloadSerializer.fromBytes(bs)

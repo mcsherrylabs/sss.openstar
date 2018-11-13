@@ -376,7 +376,7 @@ trait MessageQueryHandlerActorBuilder {
         messagePaywall,
         db,
         messageEventBus,
-        send))
+        send).withDispatcher("blocking-dispatcher"))
 
 }
 

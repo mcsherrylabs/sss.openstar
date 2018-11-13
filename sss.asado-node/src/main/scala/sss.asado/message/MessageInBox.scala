@@ -24,15 +24,8 @@ object MessageInBox {
 
   private val messageTableNamePrefix = "message_"
 
-  def apply(identity: Identity)(implicit db:Db): MessageInBox = new MessageInBox(messageTableNamePrefix + identity)
+  def apply(identity: Identity)(implicit db:Db): MessageInBox = new MessageInBox(identity)
 
-
-  private def toMsg(r:Row): Message = Message(
-    r[String](fromCol),
-    r[Array[Byte]](messageCol).toMessagePayload,
-    r[Array[Byte]](txCol),
-    r[Long](idCol),
-    new LocalDateTime(r[Long](createdAtCol)))
 
   class MessagePage[M](page: Page, f: Row => M) {
     lazy val hasNext: Boolean = page.hasNext
@@ -43,10 +36,12 @@ object MessageInBox {
   }
 }
 
-class MessageInBox(tableName: String)(implicit val db: Db)  {
+class MessageInBox(id: Identity)(implicit val db: Db)  {
+
 
   import MessageInBox._
 
+  private val tableName = s"${messageTableNamePrefix}${id}"
   private val sentTableName =  s"${tableName}_sent"
 
   db.executeSql (s"CREATE TABLE IF NOT EXISTS $sentTableName (" +
@@ -71,7 +66,16 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
   lazy private val sentTable = db.table(sentTableName)
 
 
+  private def toMsg(r:Row): Message = Message(
+    id,
+    r[String](fromCol),
+    r[Array[Byte]](messageCol).toMessagePayload,
+    r[Array[Byte]](txCol),
+    r[Long](idCol),
+    new LocalDateTime(r[Long](createdAtCol)))
+
   private def toAddressedMsg(r:Row): AddressedMessage = AddressedMessage(
+    id,
     r[Array[Byte]](txCol).toLedgerItem,
     r[Array[Byte]](messageCol).toMessagePayload)
 
@@ -102,9 +106,14 @@ class MessageInBox(tableName: String)(implicit val db: Db)  {
   }
 
   def pageSent(lastReadindex: Long, pageSize: Int): Seq[AddressedMessage] = {
+
     sentTable.filter(
-      where(s"$idCol > ? AND $statusCol = ? ORDER BY $idCol ASC LIMIT $pageSize")
-      using(lastReadindex, statusNew)).map(toAddressedMsg)
+
+      where(s"$idCol > ? AND $statusCol = ?)", lastReadindex, statusNew)
+        .orderBy(OrderAsc(idCol))
+          .limit(pageSize)
+
+    ).map(toAddressedMsg)
   }
 
   def sentPager(pageSize: Int) =

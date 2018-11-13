@@ -53,8 +53,8 @@ object MessageKeys extends PublishedMessageKeys with Logging {
 
   private val localMessages: MessageInfos =  {
         MessageInfoComposite[MessageResponse](MessageResponse, classOf[MessageResponse], _.toMessageResponse) +:
-        MessageInfoComposite[EndMessageQueryObj.type](EndMessageQuery, EndMessageQueryObj.getClass.asInstanceOf[Class[EndMessageQueryObj.type]], _ => EndMessageQueryObj) +:
-        MessageInfoComposite[EndMessagePageObj.type](EndMessagePage, EndMessagePageObj.getClass.asInstanceOf[Class[EndMessagePageObj.type]], _ => EndMessagePageObj) :+
+        MessageInfoComposite[EndMessageQuery](EndMessageQuery, classOf[EndMessageQuery], _.toEndMessageQuery) +:
+        MessageInfoComposite[EndMessagePage](EndMessagePage, classOf[EndMessagePage], _.toEndMessagePage) :+
         MessageInfoComposite[AddressedMessage](MessageAddressed, classOf[AddressedMessage],_.toMessageAddressed) :+
         MessageInfoComposite[Message](MessageMsg, classOf[Message] , _.toMessage) :+
         MessageInfoComposite[MessageQuery](MessageQuery, classOf[MessageQuery] , _.toMessageQuery) :+

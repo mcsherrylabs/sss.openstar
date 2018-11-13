@@ -27,7 +27,18 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener {
 
   override def init(vaadinRequest: VaadinRequest): Unit = {
 
-    import clientNode.{blockingWorkers, users, messageEventBus, nodeIdentityManager, identityService, globalChainId, db, homeDomain}
+    import clientNode.{actorSystem,
+      globalChainId,
+      send,
+      blockingWorkers,
+      users,
+      messageEventBus,
+      nodeIdentityManager,
+      identityService,
+      db,
+      homeDomain
+    }
+
     implicit val conf = clientNode.conf
     implicit val currentBlockHeight = () => clientNode.currentBlockHeight()
 

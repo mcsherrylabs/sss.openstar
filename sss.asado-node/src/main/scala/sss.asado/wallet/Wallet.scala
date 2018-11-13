@@ -250,9 +250,9 @@ class Wallet(val identity: NodeIdentity,
         case SaleOrReturnSecretEnc(returnIdentity,
         claimant,
         hashOfSecret,
-        returnBlockHeight) if returnIdentity == identity.id &&
-          returnBlockHeight <= atBlockHeight =>
-          Option(UnSpent(lodgement.txIndex, txOut))
+        returnBlockHeight) if returnIdentity == identity.id =>
+          if(returnBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
+          else None
 
         case SaleOrReturnSecretEnc(returnIdentity,
         claimant,

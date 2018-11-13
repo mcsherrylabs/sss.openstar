@@ -1,14 +1,15 @@
 package sss.ui.nobu
 
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.ui._
 import sss.ancillary.Logging
-import sss.asado.UniqueNodeIdentifier
+import sss.asado.{Send, UniqueNodeIdentifier}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager}
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.identityledger.IdentityService
 import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
@@ -37,7 +38,9 @@ private case class IdTagValue(str: String) {
 class UnlockClaimView(userDir: UserDirectory,
                       buildWallet: NodeIdentity => Wallet
                      )(
-                      implicit uiReactor: UIReactor,
+                      implicit actorSystem:ActorSystem,
+                      send: Send,
+                      uiReactor: UIReactor,
                       nodeIdentityManager: NodeIdentityManager,
                       identityService: IdentityService,
                       homeDomain: HomeDomain,
@@ -45,7 +48,8 @@ class UnlockClaimView(userDir: UserDirectory,
                       conf:Config,
                       currentBlockHeight: () => Long,
                       blockingWorkers: BlockingWorkers,
-                      messageEventBus: MessageEventBus
+                      messageEventBus: MessageEventBus,
+                      chainId: GlobalChainIdMask
                       ) extends CenteredAccordianDesign with View with Logging {
 
   private val claimBtnVal = claimBtn
