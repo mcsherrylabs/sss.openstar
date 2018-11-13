@@ -10,29 +10,28 @@ import sss.ancillary.Logging
 import sss.asado.{MessageKeys, Send}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
-import sss.asado.chains.BlockChainSettings
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.contract.{SaleOrReturnSecretEnc, SaleSecretDec, SingleIdentityEnc}
-import sss.asado.crypto.SeedBytes
+import sss.asado.chains.TxWriterActor._
+import sss.asado.contract.{SaleSecretDec}
+
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
+import sss.asado.message.MessageDownloadActor.{CheckForMessages, NewInBoxMessage}
 import sss.asado.message.MessageInBox.MessagePage
 import sss.asado.message._
 import sss.asado.network.MessageEventBus
+import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.UtxoTracker.NewLodgement
 import sss.asado.wallet.Wallet
 import sss.db.Db
 import sss.ui.design.NobuMainDesign
-import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.nobu.NobuUI.Detach
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 6/10/16.
@@ -41,8 +40,6 @@ case class ShowWrite(to: String = "", text: String = "")
 case class Show(s: String)
 case object ShowBalance
 case object ShowSchedules
-
-case class Bag(userWallet: Wallet, sTx: SignedTxEntry, msg: SavedAddressedMessage, walletUpdate: WalletUpdate, from: String)
 
 class NobuMainLayout(uiReactor: UIReactor,
                      userDir: UserDirectory,
@@ -105,11 +102,14 @@ class NobuMainLayout(uiReactor: UIReactor,
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
   messageEventBus.subscribe (classOf[Detach])(mainNobuRef)
   messageEventBus.subscribe (classOf[NewLodgement])(mainNobuRef)
-  messageEventBus.subscribe (classOf[MessageResponse])(mainNobuRef)
+  messageEventBus.subscribe (MessageKeys.MessageResponse)(mainNobuRef)
+  messageEventBus.subscribe (classOf[NewInBoxMessage])(mainNobuRef)
 
   private lazy val nId = userId.id
   private lazy val inBox = MessageInBox(nId)
   private val msgDownloadActor = MessageDownloadActor(nId, homeDomain)
+
+  msgDownloadActor ! CheckForMessages
 
   balanceCptnBtn.setCaption(nId)
 
@@ -180,6 +180,8 @@ class NobuMainLayout(uiReactor: UIReactor,
     def initSentPager = inBox.sentPager(4)
     def initArchivedPager = inBox.archivedPager(4)
 
+    var bounties: Map[Long, String] = Map()
+
     var pager: MessagePage[_] = initInBoxPager
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
@@ -199,6 +201,9 @@ class NobuMainLayout(uiReactor: UIReactor,
         itemPanelVerticalLayout.removeAllComponents()
         itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id))
       }
+
+      case _: NewInBoxMessage =>
+        self ! ShowInBox
 
       case ShowInBox =>
         pager = initInBoxPager
@@ -264,25 +269,38 @@ class NobuMainLayout(uiReactor: UIReactor,
         push(balBtnLbl.setCaption(bal.toString))
         //context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
 
-      case SuccessResponse(_) =>
+      case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, _:SuccessResponse) =>
         self ! Show(s"Message away!")
 
-      case FailureResponse(_, info) =>
+      case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, FailureResponse(_, info)) =>
         self ! Show(s"Failed to send message - $info")
 
-      case ClaimBounty(sTx, secret) => Try {
+      case InternalCommit(`chainId`, _)   =>
+        log.debug("Bounty commited ok!")
 
-        val tx = sTx.txEntryBytes.toTx
-        val adjustedIndex = tx.outs.size - 1
-        val ourBounty = tx.outs(adjustedIndex)
-        val inIndex = TxIndex(tx.txId, adjustedIndex)
-        val in = TxInput(inIndex, ourBounty.amount, SaleSecretDec)
-        val out = TxOutput(ourBounty.amount, userWallet.encumberToIdentity())
-        val newTx = StandardTx(Seq(in), Seq(out))
-        val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
-        val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
-        val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-        // FIXME clientEventActor ! BountyTracker(self, userWallet, TxIndex(signedTx.txId, 0),out, le)
+      case InternalNack(`chainId`, m) =>
+        self ! Show(s"Problem claiming bounty - ${m.msg}")
+
+      case InternalTempNack(`chainId`, m) =>
+
+        self ! Show(s"Temporary Problem claiming bounty - ${m.msg}")
+
+      case ClaimBounty(index, sTx, secret) => Try {
+
+        if(bounties.get(index).isEmpty) {
+          val tx = sTx.txEntryBytes.toTx
+          val adjustedIndex = tx.outs.size - 1
+          val ourBounty = tx.outs(adjustedIndex)
+          val inIndex = TxIndex(tx.txId, adjustedIndex)
+          val in = TxInput(inIndex, ourBounty.amount, SaleSecretDec)
+          val out = TxOutput(ourBounty.amount, userWallet.encumberToIdentity())
+          val newTx = StandardTx(Seq(in), Seq(out))
+          val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
+          val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
+          val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
+          messageEventBus publish InternalLedgerItem(chainId, le, Some(self))
+          bounties += index -> le.txIdHexStr
+        }
 
       } match {
         case Failure(e) => push(Notification.show(e.getMessage.take(80)))

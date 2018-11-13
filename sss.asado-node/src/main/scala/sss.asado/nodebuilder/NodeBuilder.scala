@@ -16,7 +16,7 @@ import sss.asado.crypto.SeedBytes
 import sss.asado.eventbus.{MessageInfo, PureEvent}
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
-import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
+import sss.asado.message.{EndMessageQuery, MessageDownloadActor, MessagePaywall, MessageQuery, MessageQueryHandlerActor}
 import sss.asado.network.NetworkInterface.BindControllerSettings
 import sss.asado.network.{MessageEventBus, _}
 import sss.asado.peers.{PeerManager, PeerQuery}
@@ -273,7 +273,11 @@ trait MessageEventBusBuilder extends RequireMessageEventBus {
     RequireDecoder =>
 
   implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder,
-    Seq(classOf[ConnectionFailed]))
+    Seq(classOf[ConnectionFailed],
+      classOf[EndMessageQuery],
+      classOf[MessageQuery]
+    )
+  )
 
 }
 
@@ -515,7 +519,6 @@ trait PartialNode extends Logging
     with SendTxBuilder
     with UnsubscribedMessageHandlerBuilder
     with WalletBuilder
-    with WalletPersistenceBuilder
     with ShutdownHookBuilder
     with PublicKeyTrackerBuilder
     with ChainBuilder
@@ -554,7 +557,7 @@ trait PartialNode extends Logging
       SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(), bc, net.disconnect)
     )
 
-    UtxoTracker(buildWalletTracking(nodeIdentity.id))
+    UtxoTracker(buildWalletIndexTracker(nodeIdentity.id))
 
     messageServiceActor
   }

@@ -88,13 +88,17 @@ class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db)  {
 
   def addNew(msg: Message): Message = table.tx {
 
-    toMsg(table.persist(Map(
+    val bs = msg.msgPayload.toBytes
+
+    val mp = Map(
       idCol -> msg.index,
       fromCol -> msg.from,
       statusCol -> statusNew,
-      messageCol -> msg.msgPayload.toBytes,
+      messageCol -> bs,
       txCol -> msg.tx,
-      createdAtCol -> msg.createdAt.toDate.getTime)))
+      createdAtCol -> msg.createdAt.toDate.getTime)
+
+    toMsg(table.insert(mp))
   }
 
   def addSent(to: UniqueNodeIdentifier, msgPayload: MessagePayload, txBytes: Array[Byte]): SavedAddressedMessage = {

@@ -77,7 +77,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode, clientEventActor: ActorRef) 
       val m: SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
       // TODO watchingMsgSpends += le.txIdHexStr -> WalletUpdate(tx.txId, tx.ins, changeTxOut)
       log.info("MessageToSend finished, sending bag")
-      clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), senderIdentity.id)
+      //clientEventActor ! Bag(userWallet, signedSTx, m, WalletUpdate(self, tx.txId, tx.ins, changeTxOut), senderIdentity.id)
 
     } match {
       case Failure(e) => log.error(e.toString)

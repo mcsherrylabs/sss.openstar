@@ -56,16 +56,9 @@ object MessageComponent extends Logging {
 
   def toDetails(msg: Message)
            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
-    //val le = msg.tx.toLedgerItem
 
-    //require(le.ledgerId == MessageKeys.BalanceLedger, s"Message download expecting a balance ledger entry ${MessageKeys.BalanceLedger}, but got ${le.ledgerId}")
-
-    //val sTx = le.txEntryBytes.toSignedTxEntry
-    //val tx = sTx.txEntryBytes.toTx
     val tx = msg.tx.toSignedTxEntry.txEntryBytes.toTx
     val bount = tx.outs(1).amount
-
-    val enc1 = MessageEcryption.encryptedMessage(msg.msgPayload.payload)
 
     val enc = MessagePayloadDecoder.decode(msg.msgPayload).asInstanceOf[EncryptedMessage]
 
@@ -103,18 +96,13 @@ class MessageComponent(parentLayout: Layout,
                        protected val msgDetails: MsgDetails
                        ) extends MessageDesign {
 
-
-
-  forwardMsgBtn.addClickListener(new Button.ClickListener {
-    def buttonClick(event: Button.ClickEvent): Unit = {
+  forwardMsgBtn.addClickListener(_ => {
       mainActorRef ! ShowWrite(to = "", text = msgDetails.text)
     }
-  })
+  )
 
-  replyMsgBtn.addClickListener(new Button.ClickListener {
-    def buttonClick(event: Button.ClickEvent): Unit = {
-      mainActorRef ! ShowWrite(to = msgDetails.fromTo, text = msgDetails.text)
-    }
+  replyMsgBtn.addClickListener(_ => {
+    mainActorRef ! ShowWrite(to = msgDetails.fromTo, text = msgDetails.text)
   })
 
   messageText.setValue(msgDetails.text)
@@ -178,13 +166,11 @@ class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Mess
     mainActorRef,
     toDetails(msg)) {
 
-  if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.tx.toSignedTxEntry, msgDetails.secret)
+  if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.index, msg.tx.toSignedTxEntry, msgDetails.secret)
 
-  deleteMsgBtn.addClickListener(new ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
+  deleteMsgBtn.addClickListener(_ => {
       mainActorRef ! MessageToArchive(msg.index)
       parentLayout.removeComponent(NewMessageComponent.this)
-    }
   })
 
 }
@@ -196,12 +182,9 @@ class DeleteMessageComponent(parentLayout: Layout,mainActorRef: ActorRef, msg:Me
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
 
-
-  deleteMsgBtn.addClickListener(new ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
-      mainActorRef ! MessageToDelete(msg.index)
-      parentLayout.removeComponent(DeleteMessageComponent.this)
-    }
+  deleteMsgBtn.addClickListener(_ => {
+    mainActorRef ! MessageToDelete(msg.index)
+    parentLayout.removeComponent(DeleteMessageComponent.this)
   })
 }
 
@@ -211,10 +194,8 @@ class SentMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Sav
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
 
-  deleteMsgBtn.addClickListener(new ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
-      mainActorRef ! SentMessageToDelete(msg.index)
-      parentLayout.removeComponent(SentMessageComponent.this)
-    }
+  deleteMsgBtn.addClickListener(_ => {
+    mainActorRef ! SentMessageToDelete(msg.index)
+    parentLayout.removeComponent(SentMessageComponent.this)
   })
 }

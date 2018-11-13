@@ -4,8 +4,10 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.{MessageKeys, Send}
+import sss.asado.message.MessageDownloadActor.{CheckForMessages, ForceCheckForMessages, NewInBoxMessage}
+import sss.asado.{AsadoEvent, MessageKeys, Send}
 import sss.asado.network.MessageEventBus
+import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.state.HomeDomain
 import sss.db.Db
 
@@ -15,10 +17,14 @@ import scala.concurrent.duration._
 /**
   * Created by alan on 6/8/16.
   */
-case object CheckForMessages
-case object ForceCheckForMessages
+
 
 object MessageDownloadActor {
+
+  case object CheckForMessages
+  case object ForceCheckForMessages
+  case class NewInBoxMessage(msg: Message) extends AsadoEvent
+
   def apply(who: String,
             homeDomain: HomeDomain)(implicit actorSystem: ActorSystem,
                                     db: Db,
@@ -45,9 +51,9 @@ class MessageDownloadActor(who: String,
     extends Actor
     with ActorLogging {
 
-  messageRouter.subscribe(classOf[Message])
-  messageRouter.subscribe(classOf[EndMessagePage])
-  messageRouter.subscribe(classOf[EndMessageQuery])
+  messageRouter.subscribe(MessageKeys.MessageMsg)
+  messageRouter.subscribe(MessageKeys.EndMessageQuery)
+  messageRouter.subscribe(MessageKeys.EndMessagePage)
 
   log.info("MessageDownload actor has started...")
 
@@ -73,18 +79,19 @@ class MessageDownloadActor(who: String,
         isQuiet = false
       }
 
-    case EndMessagePage(`who`) =>
+    case IncomingMessage(_, _, _, EndMessagePage(`who`)) =>
       isQuiet = true
       self ! CheckForMessages
 
-    case EndMessageQuery(`who`) =>
+    case IncomingMessage(_, _, _, EndMessageQuery(`who`)) =>
       isQuiet = true
       context.system.scheduler.scheduleOnce(FiniteDuration(5, TimeUnit.SECONDS),
                                             self,
                                             CheckForMessages)
 
 
-    case msg: Message if(msg.to == who) => inBox.addNew(msg)
-
+    case IncomingMessage(_, _, _, msg: Message) if(msg.to == who) =>
+      inBox.addNew(msg)
+      messageRouter publish(NewInBoxMessage(msg))
   }
 }

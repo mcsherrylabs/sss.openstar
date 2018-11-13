@@ -280,11 +280,13 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo], loggingSuppressedCl
         val subs = msgCodeSubs(msgCode)
 
         log.whenDebugEnabled {
-          log.debug(s"IncomingMessage: ${incomingMessage.msg}")
-          subs.foreach(sub => log.debug(s"Chain:${incomingMessage.chainCode} " +
-            s"(${incomingMessage.code} " +
-            s"${info.clazz.getSimpleName.padTo(20, ' ')}) " +
-            s"from:${incomingMessage.nodeId} -> ${sub.path.name}"))
+          if (!loggingSuppressedClasses.exists(_.getSimpleName == info.clazz.getSimpleName)) {
+            log.debug(s"IncomingMessage: ${incomingMessage.msg}")
+            subs.foreach(sub => log.debug(s"Chain:${incomingMessage.chainCode} " +
+              s"(${incomingMessage.code} " +
+              s"${info.clazz.getSimpleName.padTo(20, ' ')}) " +
+              s"from:${incomingMessage.nodeId} -> ${sub.path.name}"))
+          }
         }
 
         subs foreach (_ ! incomingMessage)

@@ -132,7 +132,6 @@ class MessageQueryHandlerActor(messagePaywall: MessagePaywall)(
                             nId,
                             MessageQuery(who, lastIndex, pageSize)) =>
 
-
       val page = MessagePersist(who).page(lastIndex, pageSize)
 
       page.foreach(m =>

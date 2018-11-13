@@ -28,7 +28,7 @@ object NobuNodeBridge {
   case class Connected(who:String) extends NobuEvent
   case object LostConnection extends NobuEvent
   case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
-  case class ClaimBounty(stx: SignedTxEntry, secret: Array[Byte]) extends NobuEvent
+  case class ClaimBounty(index: Long, stx: SignedTxEntry, secret: Array[Byte]) extends NobuEvent
 
   case class MessageToSend(from: UniqueNodeIdentifier,
                            to : UniqueNodeIdentifier,

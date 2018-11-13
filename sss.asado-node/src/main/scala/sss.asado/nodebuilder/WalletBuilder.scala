@@ -3,17 +3,11 @@ package sss.asado.nodebuilder
 import sss.asado.UniqueNodeIdentifier
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{TxIndex, TxOutput}
-import sss.asado.wallet.{PublicKeyTracker, Wallet, WalletPersistence, WalletTracking}
+import sss.asado.wallet.{PublicKeyTracker, Wallet, WalletPersistence, WalletIndexTracker}
 
 /**
   * Created by alan on 6/30/16.
   */
-
-trait WalletPersistenceBuilder {
-
-  self: NodeIdentityBuilder with RequireDb =>
-  lazy val walletPersistence = new WalletPersistence(nodeIdentity.id, db)
-}
 
 trait RequireWallet {
   val wallet: Wallet
@@ -31,19 +25,21 @@ trait WalletBuilder extends RequireWallet {
   self: RequireNodeIdentity with
     BalanceLedgerBuilder with
     IdentityServiceBuilder with
-    WalletPersistenceBuilder with
     BlockChainBuilder with
     RequireDb with
     SendTxBuilder with
     PublicKeyTrackerBuilder =>
 
-  def buildWalletTracking(nodeId: UniqueNodeIdentifier): WalletTracking = {
+  def buildWalletPersistence(nodeId: UniqueNodeIdentifier): WalletPersistence =
+    new WalletPersistence(nodeId, db)
 
-    new WalletTracking(
+  def buildWalletIndexTracker(nodeId: UniqueNodeIdentifier): WalletIndexTracker = {
+
+    new WalletIndexTracker(
       pKTracker.isTracked,
       identityService,
       nodeId,
-      walletPersistence
+      buildWalletPersistence(nodeId)
     )
   }
 
@@ -52,7 +48,7 @@ trait WalletBuilder extends RequireWallet {
     new Wallet(nodeIdentity,
       balanceLedger,
       identityService,
-      walletPersistence,
+      buildWalletPersistence(nodeIdentity.id),
       currentBlockHeight _,
       pKTracker.isTracked
     )

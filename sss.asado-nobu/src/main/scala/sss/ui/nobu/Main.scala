@@ -53,7 +53,7 @@ object Main {
 
       users.listUsers.foreach(u =>
         messageEventBus publish NewWallet(
-          buildWalletTracking(u))
+          buildWalletIndexTracker(u))
       )
 
       Try(pKTracker.track(nodeIdentity.publicKey))

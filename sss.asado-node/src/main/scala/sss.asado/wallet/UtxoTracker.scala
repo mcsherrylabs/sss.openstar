@@ -11,9 +11,9 @@ object UtxoTracker {
 
   case class NewLodgement(nodeId: UniqueNodeIdentifier, l: Lodgement) extends AsadoEvent
 
-  case class NewWallet(walletTracking:WalletTracking) extends AsadoEvent
+  case class NewWallet(walletTracking:WalletIndexTracker) extends AsadoEvent
 
-  def apply(walletTracking:WalletTracking)
+  def apply(walletTracking:WalletIndexTracker)
            (implicit actorSystem: ActorSystem,
             messageEventBus: MessageEventBus): ActorRef = {
 
@@ -23,14 +23,14 @@ object UtxoTracker {
   }
 }
 
-private class UtxoTracker(walletTracking: WalletTracking)(implicit messageEventBus: MessageEventBus) extends Actor with ActorLogging{
+private class UtxoTracker(walletTracking: WalletIndexTracker)(implicit messageEventBus: MessageEventBus) extends Actor with ActorLogging{
 
   messageEventBus.subscribe(classOf[NewUtxo])
   messageEventBus.subscribe(classOf[NewWallet])
 
   override def receive = withWallets(Seq(walletTracking))
 
-  private def withWallets(wallets: Seq[WalletTracking]): Receive = {
+  private def withWallets(wallets: Seq[WalletIndexTracker]): Receive = {
 
     case NewWallet(w) =>
       val newWallets = w +: (wallets filterNot (_.id == w.id))

@@ -33,10 +33,10 @@ object Wallet {
   case class UnSpent(txIndex: TxIndex, out: TxOutput)
 }
 
-class WalletTracking(nodeControlsPublicKey: PublicKeyFilter,
-                     identityServiceQuery: IdentityServiceQuery,
-                     val id: UniqueNodeIdentifier,
-                     walletPersistence: WalletPersistence
+class WalletIndexTracker(nodeControlsPublicKey: PublicKeyFilter,
+                         identityServiceQuery: IdentityServiceQuery,
+                         val id: UniqueNodeIdentifier,
+                         walletPersistence: WalletPersistence
                     ) extends ((TxIndex, TxOutput) => Option[Lodgement]) {
 
 
@@ -65,15 +65,11 @@ class WalletTracking(nodeControlsPublicKey: PublicKeyFilter,
           }
         }
 
-      case SingleIdentityEnc(nId, minBlockHeight) if (nId == id) =>
+      case SingleIdentityEnc(nId, minBlockHeight) if nId == id =>
         Option(Lodgement(txIndex, txOutput, minBlockHeight))
 
-      case SaleOrReturnSecretEnc(_,
-      claimant,
-      _,
-      _) if claimant == id =>
+      case SaleOrReturnSecretEnc(returnIdentity, _, _, _) if returnIdentity == id =>
         Option(Lodgement(txIndex, txOutput, 0))
-
 
       case NullEncumbrance => Option(Lodgement(txIndex, txOutput, 0))
       case _ => None
@@ -89,7 +85,7 @@ class Wallet(val identity: NodeIdentity,
              nodeControlsPublicKey: PublicKeyFilter
             )(implicit sendTx: SendTx) extends Logging {
 
-  val walletTracker: WalletTracking = new WalletTracking(nodeControlsPublicKey, identityServiceQuery, identity.id, walletPersistence)
+  val walletTracker: WalletIndexTracker = new WalletIndexTracker(nodeControlsPublicKey, identityServiceQuery, identity.id, walletPersistence)
 
   import Wallet._
   import scala.concurrent.ExecutionContext.Implicits.global

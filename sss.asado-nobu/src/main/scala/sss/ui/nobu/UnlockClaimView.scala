@@ -14,7 +14,7 @@ import sss.asado.identityledger.IdentityService
 import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.UtxoTracker.NewWallet
-import sss.asado.wallet.{Wallet, WalletTracking}
+import sss.asado.wallet.{Wallet, WalletIndexTracker}
 import sss.ui.design.CenteredAccordianDesign
 import sss.ui.reactor.{ComponentEvent, UIReactor}
 import sss.db.Db
