@@ -48,14 +48,6 @@ class EncoderSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
 
   }
 
-  it should "allow encoding case objects " in {
-
-    val sMsg = sut(MessageKeys.EndMessageQuery, EndMessageQuery)
-    assert(sMsg.data === Array())
-    assert(sMsg.chainId === chainId)
-    assert(sMsg.msgCode === MessageKeys.EndMessageQuery)
-  }
-
   it should "work with String messages" in {
     val sm = StringMessage("Some string ")
     val sMsg = sut(MessageKeys.MalformedMessage, sm)
