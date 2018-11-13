@@ -8,13 +8,15 @@ import sss.asado.util.Serialize._
   */
 object MsgQuerySerializer extends Serializer[MessageQuery]{
   def toBytes(o: MessageQuery): Array[Byte] =
-    (LongSerializer(o.lastIndex) ++
+    (StringSerializer(o.who) ++
+      LongSerializer(o.lastIndex) ++
       IntSerializer(o.pageSize)).toBytes
 
   def fromBytes(bs: Array[Byte]): MessageQuery = {
 
     MessageQuery.tupled(
       bs.extract(
+        StringDeSerialize,
         LongDeSerialize,
         IntDeSerialize
       )

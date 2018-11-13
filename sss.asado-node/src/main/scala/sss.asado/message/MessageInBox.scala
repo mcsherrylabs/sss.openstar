@@ -3,6 +3,7 @@ package sss.asado.message
 import java.util.Date
 
 import org.joda.time.LocalDateTime
+import sss.asado.UniqueNodeIdentifier
 import sss.asado.ledger._
 import sss.db._
 
@@ -24,7 +25,7 @@ object MessageInBox {
 
   private val messageTableNamePrefix = "message_"
 
-  def apply(identity: Identity)(implicit db:Db): MessageInBox = new MessageInBox(identity)
+  def apply(identity: UniqueNodeIdentifier)(implicit db:Db): MessageInBox = new MessageInBox(identity)
 
 
   class MessagePage[M](page: Page, f: Row => M) {
@@ -36,7 +37,7 @@ object MessageInBox {
   }
 }
 
-class MessageInBox(id: Identity)(implicit val db: Db)  {
+class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db)  {
 
 
   import MessageInBox._
@@ -96,7 +97,7 @@ class MessageInBox(id: Identity)(implicit val db: Db)  {
       createdAtCol -> msg.createdAt.toDate.getTime)))
   }
 
-  def addSent(to: Identity, msgPayload: MessagePayload, txBytes: Array[Byte]): SavedAddressedMessage = {
+  def addSent(to: UniqueNodeIdentifier, msgPayload: MessagePayload, txBytes: Array[Byte]): SavedAddressedMessage = {
     toSavedAddressedMsg(sentTable.insert(Map(
       toCol -> to,
       statusCol -> statusNew,

@@ -4,12 +4,12 @@ package sss.ui.nobu
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import org.joda.time.DateTime
 import scorex.crypto.signatures.SigningFunctions.PublicKey
-import sss.asado.MessageKeys
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.TxOutput
 import sss.asado.contract.{SaleOrReturnSecretEnc, SingleIdentityEnc}
 import sss.asado.ledger.LedgerItem
-import sss.asado.message.{Identity, MessageEcryption, MessageInBox, SavedAddressedMessage}
+import sss.asado.message.{MessageEcryption, MessageInBox, SavedAddressedMessage}
 import sss.asado.wallet.Wallet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge.WalletUpdate
@@ -25,7 +25,7 @@ import scala.util.{Failure, Random, Success, Try}
 object ScheduledTransfersActor {
   case class DetailedMessageToSend(senderIdentity:NodeIdentity,
                                    userWallet: Wallet,
-                                   to : Identity,
+                                   to : UniqueNodeIdentifier,
                                    account: PublicKey,
                                    text: String, amount: Int)
 }
@@ -48,7 +48,7 @@ class ScheduledTransfersActor(nobuNode: ClientNode, clientEventActor: ActorRef) 
     self, RunCronTransfers)
 
 
-  private def createPaymentOuts(from: Identity, to: Identity, secret: Array[Byte], amount: Int): Seq[TxOutput] = {
+  private def createPaymentOuts(from: UniqueNodeIdentifier, to: UniqueNodeIdentifier, secret: Array[Byte], amount: Int): Seq[TxOutput] = {
     // Add 4 blocks to min to allow for the local ledger being some blocks behind the
     // up to date ledger.
     Seq(

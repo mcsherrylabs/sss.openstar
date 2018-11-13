@@ -192,7 +192,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case ShowWrite(to, text) => push {
         itemPanelVerticalLayout.removeAllComponents()
-        itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, to, text, userDir))
+        itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, userId.id, to, text, userDir))
       }
 
       case ShowSchedules => push {

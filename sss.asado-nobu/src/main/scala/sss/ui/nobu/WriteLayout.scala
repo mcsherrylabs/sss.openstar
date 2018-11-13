@@ -18,7 +18,7 @@ import scala.util.{Failure, Success, Try}
   */
 
 
-class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: UserDirectory)
+class WriteLayout(mainNobuRef: ActorRef, from: String, to: String, text: String, userDir: UserDirectory)
                  (implicit identityQuery: IdentityServiceQuery,
                   blockingWorkers: BlockingWorkers) extends WriteDesign with Logging {
 
@@ -59,7 +59,7 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                       case Some(text) =>
                         sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
-                        blockingWorkers.submit(MessageToSend(to, ac, text, amount, mainNobuRef))
+                        blockingWorkers.submit(MessageToSend(from, to, ac, text, amount, mainNobuRef))
 
                     }
                 }
