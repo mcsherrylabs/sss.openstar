@@ -358,7 +358,8 @@ trait MessageQueryHandlerActorBuilder {
     with BlockChainBuilder
     with ConfigBuilder
     with IdentityServiceBuilder
-    with RequireNetSend =>
+    with RequireNetSend
+    with RequireGlobalChainId =>
 
   lazy val minNumBlocksInWhichToClaim =
     conf.getInt("messagebox.minNumBlocksInWhichToClaim")
@@ -376,7 +377,8 @@ trait MessageQueryHandlerActorBuilder {
         messagePaywall,
         db,
         messageEventBus,
-        send).withDispatcher("blocking-dispatcher"))
+        send,
+        globalChainId).withDispatcher("blocking-dispatcher"))
 
 }
 
