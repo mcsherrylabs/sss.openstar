@@ -9,9 +9,6 @@ import com.vaadin.ui.ComboBox
   */
 class UserDirectory(keyFolder: String) {
 
-
-  lazy val administrator: String = "ronan"
-
   private def getKeyNames(keyFolder: String): Array[String] = {
     val folder = new File(keyFolder)
     folder.listFiles().filter(_.isFile).map(_.getName)

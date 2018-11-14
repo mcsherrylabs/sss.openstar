@@ -26,7 +26,7 @@ class WriteLayout(mainNobuRef: ActorRef, from: String, to: String, text: String,
   import NobuUI.CRLF
 
   scheduleCombo.setNullSelectionAllowed(false)
-  scheduleCombo.setValue(Scheduler.once)
+
   scheduleCombo.setVisible(false)
   toCombo.setNullSelectionAllowed(false)
   userDir.loadCombo(toCombo)
@@ -40,7 +40,10 @@ class WriteLayout(mainNobuRef: ActorRef, from: String, to: String, text: String,
       Option(amountField.getValue) match {
         case None => Notification.show("'Amount' cannot be empty", Notification.Type.WARNING_MESSAGE)
         case Some(amountStr) => Try(Integer.parseInt(amountStr)) match {
-          case Failure(e) => Notification.show("'Amount' must be a number", Notification.Type.WARNING_MESSAGE)
+          case Failure(e) =>
+            Notification.show("'Amount' must be a number > than 0", Notification.Type.WARNING_MESSAGE)
+          case Success(amount) if amount < 1 =>
+            Notification.show("'Amount' must be 1 or more", Notification.Type.WARNING_MESSAGE)
           case Success(amount) =>
 
             Option(toCombo.getValue.toString) match {

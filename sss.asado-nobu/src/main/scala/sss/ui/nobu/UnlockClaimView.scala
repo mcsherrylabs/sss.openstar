@@ -11,6 +11,8 @@ import sss.asado.{Send, UniqueNodeIdentifier}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.identityledger.IdentityService
+import sss.asado.message.MessageDownloadActor
+import sss.asado.message.MessageDownloadActor.CheckForMessages
 import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.UtxoTracker.NewWallet
@@ -18,6 +20,7 @@ import sss.asado.wallet.{Wallet, WalletIndexTracker}
 import sss.ui.design.CenteredAccordianDesign
 import sss.ui.reactor.{ComponentEvent, UIReactor}
 import sss.db.Db
+import sss.ui.Servlet
 import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded, NewClaimedIdentity}
 import sss.ui.nobu.NobuNodeBridge.{Fail, Notify}
 import sss.ui.nobu.NobuUI.Detach
@@ -90,9 +93,20 @@ class UnlockClaimView(userDir: UserDirectory,
   unlockBtnVal.addClickListener(uiReactor)
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
-    val keyNames = userDir.listUsers
-    if(keyNames.isEmpty) showClaim
-    else showUnlock
+    Option(getSession().getAttribute(Servlet.SessionAttr)) match {
+      case None =>
+        val keyNames = userDir.listUsers
+        if(keyNames.isEmpty) showClaim
+        else showUnlock
+      case Some(loggedIn: String) =>
+        UserSession(loggedIn) foreach { us =>
+          val mainView = new NobuMainLayout(uiReactor, userDir, us.userWallet, us.nodeId)
+          getUI().getNavigator.addView(mainView.name, mainView)
+          getUI().getNavigator.navigateTo(mainView.name)
+        }
+
+    }
+
   }
 
   object UnlockClaimViewActor extends sss.ui.reactor.UIEventActor {
@@ -150,12 +164,24 @@ class UnlockClaimView(userDir: UserDirectory,
       buildWallet(nId)
     }
 
+
+    /*
+    Trivial acceptance of messages if the amount is greater than 0
+    no matter who they are from
+     */
+    def validateBounty(amount: Long, from: UniqueNodeIdentifier): Boolean = amount > 0
+
+
     def gotoMainView(ui: UI, nId: NodeIdentity): Unit = {
       val userWallet = createWallet(nId)
       Option(ui.getSession()) match {
         case Some(sess) =>
+
+          //TODO Make This actor die on session expiry.
+          MessageDownloadActor(validateBounty, nId, userWallet, homeDomain) ! CheckForMessages
+
           UserSession.note(nId, userWallet)
-          sess.setAttribute(UnlockClaimView.identityAttr, nId.id)
+          sess.setAttribute(Servlet.SessionAttr, nId.id)
           val mainView = new NobuMainLayout(uiReactor, userDir, userWallet, nId)
           push {
             ui.getNavigator.addView(mainView.name, mainView)
@@ -171,5 +197,4 @@ class UnlockClaimView(userDir: UserDirectory,
 
 object UnlockClaimView {
   val name = "unlockClaimView"
-  val identityAttr = "nodeIdentity"
 }

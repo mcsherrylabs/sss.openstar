@@ -135,14 +135,21 @@ trait NodeConfigBuilder extends RequireNodeConfig {
 
 trait HomeDomainBuilder {
 
-  self: NodeConfigBuilder =>
+  self: NodeConfigBuilder
+    with SeedNodesBuilder =>
 
   implicit lazy val homeDomain: HomeDomain = {
     val conf =
       DynConfig[HomeDomainConfig](nodeConfig.conf.getConfig("homeDomain"))
     new HomeDomain {
+
       override val identity: String = conf.identity
-      override val dns: String = conf.dns
+
+      override val fallbackIp: String =
+        seedNodesFromDns.find(_.id == conf.identity)
+          .map(_.address.getHostAddress())
+          .getOrElse(conf.fallbackIp)
+
       override val tcpPort: Int = conf.tcpPort
       override val httpPort: Int = conf.httpPort
     }
@@ -249,15 +256,20 @@ trait RequirePeerManager {
   val peerManager: PeerManager
 }
 
+trait SeedNodesBuilder {
+
+  self: RequireNodeConfig =>
+
+  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
+}
+
 trait PeerManagerBuilder extends RequirePeerManager {
   self: NetworkControllerBuilder with
   RequireActorSystem with
   ChainBuilder with
   RequireNodeConfig with
-
+  SeedNodesBuilder with
   MessageEventBusBuilder =>
-
-  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
 
   lazy val peerManager: PeerManager = new PeerManager(net,
     nodeConfig.peersList ++ seedNodesFromDns,
@@ -514,6 +526,7 @@ trait PartialNode extends Logging
     with NetSendBuilder
     with BalanceLedgerBuilder
     with PeerManagerBuilder
+    with SeedNodesBuilder
     with ClaimServletBuilder
     with HttpServerBuilder
     with SendTxBuilder

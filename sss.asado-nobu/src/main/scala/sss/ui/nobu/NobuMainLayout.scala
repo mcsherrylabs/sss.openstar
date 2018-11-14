@@ -4,16 +4,14 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
-import com.vaadin.server.FontAwesome
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
-import sss.asado.{MessageKeys, Send}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.chains.TxWriterActor._
-import sss.asado.contract.{SaleSecretDec}
-
+import sss.asado.contract.SaleSecretDec
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger.{LedgerItem, SignedTxEntry}
 import sss.asado.message.MessageDownloadActor.{CheckForMessages, NewInBoxMessage}
@@ -25,22 +23,27 @@ import sss.asado.state.HomeDomain
 import sss.asado.wallet.UtxoTracker.NewLodgement
 import sss.asado.wallet.Wallet
 import sss.db.Db
+import sss.ui.Servlet
 import sss.ui.design.NobuMainDesign
+import sss.ui.nobu.NobuMainLayout.{Show, ShowBalance, ShowWrite}
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.nobu.NobuUI.Detach
 import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
 
+import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 6/10/16.
   */
-case class ShowWrite(to: String = "", text: String = "")
-case class Show(s: String)
-case object ShowBalance
-case object ShowSchedules
 
+object NobuMainLayout {
+  case class ShowWrite(to: String = "", text: String = "")
+  case class Show(s: String)
+  case object ShowBalance
+
+}
 class NobuMainLayout(uiReactor: UIReactor,
                      userDir: UserDirectory,
                      userWallet: Wallet,
@@ -59,25 +62,22 @@ class NobuMainLayout(uiReactor: UIReactor,
 ) extends NobuMainDesign with View with Logging {
 
 
-
   private implicit val nodeIdentity = userId
-  private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
+  //private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
-  private lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
-  private lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
-  private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
-
-  schedulesButton.setIcon(FontAwesome.CALENDAR_CHECK_O)
+  //private lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
+  //private lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
+  //private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
 
   statusButton.setVisible(false)
   settingsButton.setVisible(false)
 
   val name = "main"
 
-  val schedulesBtn = schedulesButton
   val inBoxBtn = inboxButton
   val writeBtn = writeButton
   val archiveBtn = archiveButton
+  val junkBtn = junkButton
   val sentBtn = sentButton
   val logoutBtn = logoutButton
   val prevBtn = prevButton
@@ -86,18 +86,18 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   writeBtn.addClickListener(uiReactor)
   inBoxBtn.addClickListener(uiReactor)
-  schedulesBtn.addClickListener(uiReactor)
   archiveBtn.addClickListener(uiReactor)
   sentBtn.addClickListener(uiReactor)
   logoutBtn.addClickListener(uiReactor)
   nextBtn.addClickListener(uiReactor)
   prevBtn.addClickListener(uiReactor)
   balBtnLbl.addClickListener(uiReactor)
+  junkBtn.addClickListener(uiReactor)
 
 
 
   val mainNobuRef = uiReactor.actorOf(Props(NobuMainActor),
-    logoutButton, inBoxBtn, writeBtn, archiveBtn, sentBtn, nextBtn, prevBtn, balBtnLbl, schedulesBtn)
+    logoutButton, inBoxBtn, writeBtn, archiveBtn, junkBtn, sentBtn, nextBtn, prevBtn, balBtnLbl)
 
   mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
   messageEventBus.subscribe (classOf[Detach])(mainNobuRef)
@@ -107,9 +107,6 @@ class NobuMainLayout(uiReactor: UIReactor,
 
   private lazy val nId = userId.id
   private lazy val inBox = MessageInBox(nId)
-  private val msgDownloadActor = MessageDownloadActor(nId, homeDomain)
-
-  msgDownloadActor ! CheckForMessages
 
   balanceCptnBtn.setCaption(nId)
 
@@ -144,18 +141,6 @@ class NobuMainLayout(uiReactor: UIReactor,
             itemPanelVerticalLayout.addComponent(new IdentityClaimComponent(itemPanelVerticalLayout,
               mainNobuRef, msg, homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
           }
-
-          /*val newMsg = msgDecoders(msgPayload) match {
-            case EncryptedMessage(enc, iv) =>
-              new NewMessageComponent(itemPanelVerticalLayout,
-                mainNobuRef, msg)
-            case idClaim @ IdentityClaimMessagePayload(claimedIdentity, tag, publicKey, supportingText) =>
-              new IdentityClaimComponent(itemPanelVerticalLayout,
-                mainNobuRef, msg, nobuNode.homeDomain, idClaim)
-            case x => log.warn("WHAT?"); throw new RuntimeException("")
-          }
-          itemPanelVerticalLayout.addComponent(newMsg)*/
-
         }
 
         res match {
@@ -179,6 +164,7 @@ class NobuMainLayout(uiReactor: UIReactor,
     def initInBoxPager = inBox.inBoxPager(4)
     def initSentPager = inBox.sentPager(4)
     def initArchivedPager = inBox.archivedPager(4)
+    def initJunkPager = inBox.junkPager(4)
 
     var bounties: Map[Long, String] = Map()
 
@@ -188,7 +174,7 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case Detach(Some(uiId)) if (ui.getEmbedId == uiId) =>
         context stop self
-        context stop msgDownloadActor
+
 
       case Show(s) => push(Notification.show(s))
 
@@ -197,10 +183,6 @@ class NobuMainLayout(uiReactor: UIReactor,
         itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, userId.id, to, text, userDir))
       }
 
-      case ShowSchedules => push {
-        itemPanelVerticalLayout.removeAllComponents()
-        itemPanelVerticalLayout.addComponent(new ScheduleLayout(mainNobuRef, userDir, userId.id))
-      }
 
       case _: NewInBoxMessage =>
         self ! ShowInBox
@@ -241,11 +223,15 @@ class NobuMainLayout(uiReactor: UIReactor,
           case _ =>
         }
 
-      case ComponentEvent(`schedulesBtn`, _) =>
-        self ! ShowSchedules
-
       case ComponentEvent(`inBoxBtn`, _) =>
         self ! ShowInBox
+
+      case ComponentEvent(`junkBtn`, _) =>
+        pager = initJunkPager
+        Try(push(updatePagingAreas(pager)))  match {
+          case Failure(e) => push(Notification.show(e.getMessage))
+          case _ =>
+        }
 
       case ComponentEvent(`archiveBtn`, _) =>
         pager = initArchivedPager
@@ -258,8 +244,10 @@ class NobuMainLayout(uiReactor: UIReactor,
 
 
       case ce @ ComponentEvent(`logoutBtn`, _) => push {
-        ui.getSession.setAttribute(UnlockClaimView.identityAttr, null)
+        ui.getSession.setAttribute(Servlet.SessionAttr, null)
         ui.getNavigator().navigateTo(UnlockClaimView.name)
+        import context.dispatcher
+        context.system.scheduler.scheduleOnce(4 seconds, self, {ui.close()})
       }
 
       case NewLodgement(`nId`, _) => self ! ShowBalance
@@ -274,39 +262,6 @@ class NobuMainLayout(uiReactor: UIReactor,
 
       case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, FailureResponse(_, info)) =>
         self ! Show(s"Failed to send message - $info")
-
-      case InternalCommit(`chainId`, _)   =>
-        log.debug("Bounty commited ok!")
-
-      case InternalNack(`chainId`, m) =>
-        self ! Show(s"Problem claiming bounty - ${m.msg}")
-
-      case InternalTempNack(`chainId`, m) =>
-
-        self ! Show(s"Temporary Problem claiming bounty - ${m.msg}")
-
-      case ClaimBounty(index, sTx, secret) => Try {
-
-        if(bounties.get(index).isEmpty) {
-          val tx = sTx.txEntryBytes.toTx
-          val adjustedIndex = tx.outs.size - 1
-          val ourBounty = tx.outs(adjustedIndex)
-          val inIndex = TxIndex(tx.txId, adjustedIndex)
-          val in = TxInput(inIndex, ourBounty.amount, SaleSecretDec)
-          val out = TxOutput(ourBounty.amount, userWallet.encumberToIdentity())
-          val newTx = StandardTx(Seq(in), Seq(out))
-          val sig = SaleSecretDec.createUnlockingSignature(newTx.txId, nodeIdentity.tag, nodeIdentity.sign, secret)
-          val signedTx = SignedTxEntry(newTx.toBytes, Seq(sig))
-          val le = LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)
-          messageEventBus publish InternalLedgerItem(chainId, le, Some(self))
-          bounties += index -> le.txIdHexStr
-        }
-
-      } match {
-        case Failure(e) => push(Notification.show(e.getMessage.take(80)))
-        case Success(_) =>
-      }
-
 
       case MessageToDelete(index) => inBox.delete(index)
       case MessageToArchive(index) => inBox.archive(index)

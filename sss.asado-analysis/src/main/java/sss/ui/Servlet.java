@@ -1,6 +1,8 @@
 package sss.ui;
 
 import com.vaadin.annotations.VaadinServletConfiguration;
+import com.vaadin.server.SessionDestroyEvent;
+import com.vaadin.server.SessionDestroyListener;
 import com.vaadin.server.VaadinServlet;
 import sss.ui.MainUI;
 

@@ -1,13 +1,14 @@
 package sss.ui.nobu
 
-import java.io.File
 
-import com.vaadin.annotations.{Push, Theme}
+import com.vaadin.annotations.{PreserveOnRefresh, Push, Theme}
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
 import com.vaadin.ui.UI
+import sss.ancillary.Logging
 import sss.asado.AsadoEvent
+import sss.ui.Servlet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
 import sss.ui.reactor.UIReactor
@@ -18,14 +19,22 @@ import sss.ui.reactor.UIReactor
 object NobuUI {
   case class Detach(ui: Option[String]) extends AsadoEvent
 
+  case class SessionEnd(str: String)  extends AsadoEvent
+
   lazy val CRLF = System.getProperty("line.separator")
 }
 
 @Theme("template")
 @Push
-class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener {
+@PreserveOnRefresh
+class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Logging {
+
+  log.info("Constructing new NobuUI")
 
   override def init(vaadinRequest: VaadinRequest): Unit = {
+
+    val sessIntact = Option(getSession().getAttribute(Servlet.SessionAttr))
+    log.info(s"init NobuUI $sessIntact")
 
     import clientNode.{actorSystem,
       globalChainId,
@@ -55,14 +64,14 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener {
     navigator.addView(UnlockClaimView.name, claimUnlockView)
     navigator.addView(WaitKeyGenerationView.name, new WaitKeyGenerationView())
 
-    navigator.navigateTo(UnlockClaimView.name)
+    navigator.navigateTo(WaitSyncedView.name)
   }
 
   override def afterViewChange(viewChangeEvent: ViewChangeEvent): Unit = Unit
 
   override def beforeViewChange(viewChangeEvent: ViewChangeEvent): Boolean = {
 
-    (Option(getSession().getAttribute(UnlockClaimView.identityAttr)), viewChangeEvent.getViewName) match {
+    (Option(getSession().getAttribute(Servlet.SessionAttr)), viewChangeEvent.getViewName) match {
       case (_, WaitKeyGenerationView.name) => true
       case (_, WaitSyncedView.name) => true
       case (_, UnlockClaimView.name) => true

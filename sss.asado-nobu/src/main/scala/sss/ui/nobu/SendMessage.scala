@@ -18,7 +18,7 @@ import sss.asado.state.HomeDomain
 import sss.asado.tools.SendTxSupport.SendTx
 import sss.asado.wallet.Wallet
 import sss.db.Db
-import sss.ui.nobu.NobuNodeBridge.{Fail, MessageToSend, WalletUpdate}
+import sss.ui.nobu.NobuNodeBridge.{Fail, MessageToSend}
 
 import scala.util.{Failure, Random, Success, Try}
 
@@ -49,7 +49,7 @@ class SendMessage(currentBlockHeight: () => Long,
             val userWallet: Wallet = us.userWallet
             val nodeIdentity = us.nodeId
             val inBox = MessageInBox(nodeIdentity.id)
-            val baseTx = userWallet.createTx(amount)
+            val baseTx = userWallet.createTx(amount + chargePerMessage)
             val changeTxOut = baseTx.outs.take(1)
             val secret = SeedBytes.secureSeed(16)
 

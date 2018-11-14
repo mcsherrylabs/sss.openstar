@@ -22,8 +22,8 @@ public class NobuMainDesign extends HorizontalLayout {
 	protected Button statusButton;
 	protected Button inboxButton;
 	protected Button archiveButton;
+	protected Button junkButton;
 	protected Button settingsButton;
-	protected Button schedulesButton;
 	protected Button sentButton;
 	protected Button logoutButton;
 	protected VerticalLayout content;

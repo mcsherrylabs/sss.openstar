@@ -20,6 +20,7 @@ import sss.asado.wallet.WalletPersistence
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.db.Db
 import sss.ui.design.MessageDesign
+import sss.ui.nobu.NobuMainLayout.ShowWrite
 import sss.ui.nobu.NobuNodeBridge.{ClaimBounty, MessageToArchive, MessageToDelete, SentMessageToDelete}
 import us.monoid.web.Resty
 
@@ -166,7 +167,7 @@ class NewMessageComponent(parentLayout: Layout, mainActorRef: ActorRef, msg:Mess
     mainActorRef,
     toDetails(msg)) {
 
-  if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.index, msg.tx.toSignedTxEntry, msgDetails.secret)
+  //if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.index, msg.tx.toSignedTxEntry, msgDetails.secret)
 
   deleteMsgBtn.addClickListener(_ => {
       mainActorRef ! MessageToArchive(msg.index)

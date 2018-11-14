@@ -3,9 +3,12 @@ package sss.asado.message
 import java.util.Date
 
 import org.joda.time.LocalDateTime
+import sss.ancillary.Logging
 import sss.asado.UniqueNodeIdentifier
 import sss.asado.ledger._
 import sss.db._
+
+import scala.util.{Failure, Success, Try}
 
 
 
@@ -22,6 +25,7 @@ object MessageInBox {
   private val statusArchived = 1
   private val statusSentConfirmed = 2
   private val statusDeleted = 3
+  private val statusJunk = 4
 
   private val messageTableNamePrefix = "message_"
 
@@ -37,7 +41,7 @@ object MessageInBox {
   }
 }
 
-class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db)  {
+class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db) extends Logging {
 
 
   import MessageInBox._
@@ -86,19 +90,32 @@ class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db)  {
     new LocalDateTime(r[Long](createdAtCol)),
     toAddressedMsg(r))
 
-  def addNew(msg: Message): Message = table.tx {
+  def addNew(msg: Message): Message = add(msg, statusNew)
+  def addJunk(msg: Message): Message = add(msg, statusJunk)
+
+  private def add(msg: Message, status: Int): Message = table.tx {
 
     val bs = msg.msgPayload.toBytes
 
     val mp = Map(
       idCol -> msg.index,
       fromCol -> msg.from,
-      statusCol -> statusNew,
+      statusCol -> status,
       messageCol -> bs,
       txCol -> msg.tx,
       createdAtCol -> msg.createdAt.toDate.getTime)
 
-    toMsg(table.insert(mp))
+    Try(table.insert(mp)) match {
+      case Failure(e) =>
+        // assume another session is also writing to the db
+        log.warn(s"Couldn't insert message index ${msg.index} into mailbox for ${id}")
+        log.warn(e.toString)
+        val r = table(msg.index)
+        require(msg.createdAt.toDate.getTime == r[Long](createdAtCol),
+          s"2 messages have the same index but different dates(${msg.index})")
+        toMsg(r)
+      case Success(r) => toMsg(r)
+    }
   }
 
   def addSent(to: UniqueNodeIdentifier, msgPayload: MessagePayload, txBytes: Array[Byte]): SavedAddressedMessage = {
@@ -130,6 +147,8 @@ class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db)  {
   def archivedPager(pageSize: Int) =
     new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusArchived))).lastPage, toMsg)
 
+  def junkPager(pageSize: Int) =
+    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusJunk))).lastPage, toMsg)
 
   def archive(index: Long) = table.update(Map(idCol ->  index, statusCol -> statusArchived))
 

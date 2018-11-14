@@ -12,11 +12,11 @@ trait HomeDomainConfig {
   val identity: String
   val httpPort: Int
   val tcpPort: Int
-  val dns: String
+  val fallbackIp: String
 }
 
 trait HomeDomain extends HomeDomainConfig {
-  lazy val http: String = s"http://${dns}:${httpPort}"
-  lazy val nodeId = NodeId(identity, new InetSocketAddress(dns, tcpPort.toInt))
-  override def toString: String = s"${nodeId} ${dns} http:${httpPort} tcp:${tcpPort}"
+  lazy val http: String = s"http://${fallbackIp}:${httpPort}"
+  lazy val nodeId = NodeId(identity, new InetSocketAddress(fallbackIp, tcpPort.toInt))
+  override def toString: String = s"${nodeId} ${fallbackIp} http:${httpPort} tcp:${tcpPort}"
 }

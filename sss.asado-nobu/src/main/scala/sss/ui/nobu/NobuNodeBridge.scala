@@ -25,9 +25,9 @@ object NobuNodeBridge {
 
   case class Fail(msg:String)
   case class Notify(msg:String, t: Notification.Type = Notification.Type.HUMANIZED_MESSAGE)
-  case class Connected(who:String) extends NobuEvent
-  case object LostConnection extends NobuEvent
-  case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
+  //case class Connected(who:String) extends NobuEvent
+  //case object LostConnection extends NobuEvent
+  //case class WalletUpdate(sndr: ActorRef, txId: TxId, debits: Seq[TxInput], credits: Seq[TxOutput])
   case class ClaimBounty(index: Long, stx: SignedTxEntry, secret: Array[Byte]) extends NobuEvent
 
   case class MessageToSend(from: UniqueNodeIdentifier,
@@ -41,6 +41,6 @@ object NobuNodeBridge {
   case class MessageToDelete(index:Long) extends NobuEvent
   case class MessageToArchive(index:Long) extends NobuEvent
   case object ShowInBox extends NobuEvent
-  case class BountyTracker(sndr: ActorRef, wallet: Wallet, txIndex: TxIndex, txOutput: TxOutput, le:LedgerItem)
+  //case class BountyTracker(sndr: ActorRef, wallet: Wallet, txIndex: TxIndex, txOutput: TxOutput, le:LedgerItem)
 
 }

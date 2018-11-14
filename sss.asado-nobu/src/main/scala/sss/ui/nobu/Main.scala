@@ -3,7 +3,7 @@ package sss.ui.nobu
 
 import java.io.File
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.ActorSystem
 import com.vaadin.server.{UIClassSelectionEvent, UICreateEvent, UIProvider}
 import com.vaadin.ui.UI
 import sss.ancillary.{DynConfig, _}
@@ -11,9 +11,9 @@ import sss.asado.nodebuilder.{HomeDomainBuilder, PartialNode}
 import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
 import sss.asado.wallet.UtxoTracker.NewWallet
+import sss.ui.nobu.NobuUI.SessionEnd
 import sss.ui.reactor.ReactorActorSystem
 
-import scala.concurrent.Future
 import scala.util.Try
 
 /**
@@ -24,7 +24,7 @@ object Main {
   trait ClientNode extends PartialNode with HomeDomainBuilder {
     lazy implicit val blockingWorkers =
       BlockingWorkers(
-        new CreateIdentity().createIdentity orElse new SendMessage(currentBlockHeight, conf).sendMessage
+        new CreateIdentity().createIdentity orElse new SendMessage(() => currentBlockHeight(), conf).sendMessage
       )
 
 
@@ -42,10 +42,10 @@ object Main {
 
       clientNode: ClientNode =>
 
-      override val phrase: Option[String] = Some("fpaifpai33")
+      override val phrase: Option[String] = Option(withArgs(0))
       override val configName: String = "node"
       implicit lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
-      Try(QuorumService.create(globalChainId, "bob"))
+      Try(QuorumService.create(globalChainId, "bob", "alice", "eve"))
 
       init // <- init delayed until phrase can be initialised.
 
@@ -74,8 +74,6 @@ object Main {
 
       startHttpServer
 
-
-
       class NobuUIProvider extends UIProvider {
 
         override def getUIClass(event: UIClassSelectionEvent): Class[_ <: UI] = classOf[NobuUI]
@@ -83,9 +81,13 @@ object Main {
         override def createInstance(event: UICreateEvent): UI = {
           new NobuUI(clientNode)
         }
+
       }
 
-      def buildUIServlet = new sss.ui.Servlet(new NobuUIProvider)
+      def buildUIServlet = new sss.ui.Servlet(new NobuUIProvider, str => {
+        messageEventBus.publish(SessionEnd(str))
+        str
+      })
 
 
     }
