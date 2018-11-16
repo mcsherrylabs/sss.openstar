@@ -12,7 +12,7 @@ import sss.asado.peers.PeerManager.PeerConnection
 import sss.ui.nobu.NobuUI.Detach
 import sss.ui.nobu.StateActor.StateQueryStatus
 import sss.ui.nobu.WaitKeyGenerationView.{Update}
-import sss.ui.reactor.{UIEventActor, UIReactor}
+
 
 import scala.collection.JavaConverters._
 
@@ -23,11 +23,10 @@ object WaitKeyGenerationView {
   val name = "waitKeyGenerationView"
 }
 
-class WaitKeyGenerationView(implicit uiReactor: UIReactor,
-                     messageEventBus: MessageEventBus
+class WaitKeyGenerationView(implicit messageEventBus: MessageEventBus
                     ) extends VerticalLayout with View {
 
-  private val ref = uiReactor.actorOf(Props(WaitKeyGenerationActor))
+  /*private val ref = uiReactor.actorOf(Props(WaitKeyGenerationActor))
 
   messageEventBus.subscribe(classOf[Detach])(ref)
 
@@ -38,13 +37,13 @@ class WaitKeyGenerationView(implicit uiReactor: UIReactor,
 
   setSizeFull()
   setDefaultComponentAlignment(Alignment.MIDDLE_CENTER)
-  addComponents(btn, bar)
+  addComponents(btn, bar)*/
 
 
   override def enter(event: ViewChangeListener.ViewChangeEvent): Unit = {}
 
 
-  object WaitKeyGenerationActor extends UIEventActor {
+  /*object WaitKeyGenerationActor extends UIEventActor {
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
 
@@ -55,5 +54,5 @@ class WaitKeyGenerationView(implicit uiReactor: UIReactor,
         push(btn.setCaption(msg))
 
     }
-  }
+  }*/
 }

@@ -18,7 +18,7 @@ public class CenteredAccordianDesign extends HorizontalLayout {
     protected Button claimMnuBtn;
     protected TextArea unlockInfoTextArea;
     protected TextArea claimInfoTextArea;
-    protected ComboBox identityCombo;
+    protected ComboBox<String> identityCombo;
     protected PasswordField unLockPhrase;
     protected PasswordField claimPhrase;
     protected PasswordField claimPhraseRetype;

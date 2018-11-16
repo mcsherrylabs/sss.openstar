@@ -1,7 +1,7 @@
 object Vers {
   val akkaVer = "2.5.+"
   val scryptoVer = "1.2.0-RC3"
-  val ancillaryVer = "1.4-SNAPSHOT"
+  val ancillaryVer = "1.5-SNAPSHOT"
   val scalacticVer = "3.0.5"
   val scalatraVer = "2.6.3"
   val sssDbVer = "0.9.36-SNAPSHOT"

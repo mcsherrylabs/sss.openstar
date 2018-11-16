@@ -9,7 +9,7 @@ import sss.ancillary.Logging
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.ui.design.WriteDesign
 import sss.ui.nobu.NobuNodeBridge.{MessageToSend, ShowInBox}
-import sss.ui.reactor.UIReactor
+
 
 import scala.util.{Failure, Success, Try}
 
@@ -25,10 +25,7 @@ class WriteLayout(mainNobuRef: ActorRef, from: String, to: String, text: String,
 
   import NobuUI.CRLF
 
-  scheduleCombo.setNullSelectionAllowed(false)
-
-  scheduleCombo.setVisible(false)
-  toCombo.setNullSelectionAllowed(false)
+  toCombo.setEmptySelectionAllowed(false)
   userDir.loadCombo(toCombo)
 
   toCombo.setValue(to)

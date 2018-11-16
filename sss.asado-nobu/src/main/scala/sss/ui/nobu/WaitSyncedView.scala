@@ -10,7 +10,7 @@ import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
 import sss.ui.nobu.StateActor.StateQueryStatus
-import sss.ui.reactor.{ComponentEvent, UIEventActor, UIReactor}
+
 
 import collection.JavaConverters._
 
@@ -18,15 +18,15 @@ object WaitSyncedView {
   val name = "waitSyncedView"
 }
 
-class WaitSyncedView(implicit uiReactor: UIReactor,
+class WaitSyncedView(implicit
                      messageEventBus: MessageEventBus,
                      chainId: GlobalChainIdMask,
                      getCurrentHeight: () => Long
-                    ) extends VerticalLayout with View {
+                    ) extends VerticalLayout with View with Helpers {
 
   syncedView =>
 
-  def makeCaption(h: Long = getCurrentHeight()) = s"Wait please, synchronizing chain (${h})"
+  /*def makeCaption(h: Long = getCurrentHeight()) = s"Wait please, synchronizing chain (${h})"
 
   val btn = new Button(makeCaption())
   btn.addClickListener(uiReactor)
@@ -47,19 +47,14 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
 
   setSizeFull()
   setDefaultComponentAlignment(Alignment.MIDDLE_CENTER)
-  addComponents(bar, btn)
+  addComponents(bar, btn)*/
 
   override def enter(event: ViewChangeListener.ViewChangeEvent): Unit = {
     messageEventBus.publish(StateQueryStatus)
   }
 
-  object WaitSyncActor extends UIEventActor {
 
-    /*import concurrent.duration._
-    import context.dispatcher
-    import scala.language.postfixOps
-
-    context.system.scheduler.scheduleOnce(10 seconds, self, Synchronized(chainId, 0, 0))*/
+  /*object WaitSyncActor extends UIEventActor {
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
 
@@ -85,5 +80,5 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
       case Status(Synchronized(`chainId`, _, _, _)) | Synchronized(`chainId`, _, _, _) =>
        push (ui.getNavigator.navigateTo(UnlockClaimView.name))
     }
-  }
+  }*/
 }

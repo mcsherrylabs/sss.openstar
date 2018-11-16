@@ -7,7 +7,6 @@ import sss.asado.balanceledger.{TxIndex, TxOutput, _}
 import sss.asado.ledger._
 import sss.asado.message._
 import sss.asado.wallet.Wallet
-import sss.ui.reactor.Event
 import com.vaadin.ui.Notification
 import sss.asado.UniqueNodeIdentifier
 /**
@@ -18,8 +17,8 @@ object NobuNodeBridge {
 
   val NobuCategory = "nobu.ui"
 
-  trait NobuEvent extends Event {
-    override val category: String = NobuCategory
+  trait NobuEvent  {
+    val category: String = NobuCategory
   }
 
 

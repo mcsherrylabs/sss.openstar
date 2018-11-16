@@ -4,7 +4,7 @@ import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.*;
 import sss.ui.nobu.NobuUI;
 import sss.ui.nobu.Main.ClientNode;
-import sss.ui.reactor.ReactorActorSystem$;
+
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -42,7 +42,7 @@ public class Servlet extends VaadinServlet implements SessionDestroyListener {
 
     @Override
     public void destroy() {
-        ReactorActorSystem$.MODULE$.blockingTerminate();
+
         log("Terminated actor system!");
         super.destroy();
     }

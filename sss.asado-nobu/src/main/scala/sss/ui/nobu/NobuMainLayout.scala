@@ -20,7 +20,7 @@ import sss.asado.message._
 import sss.asado.network.MessageEventBus
 import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.state.HomeDomain
-import sss.asado.wallet.UtxoTracker.NewLodgement
+
 import sss.asado.wallet.Wallet
 import sss.db.Db
 import sss.ui.Servlet
@@ -28,7 +28,7 @@ import sss.ui.design.NobuMainDesign
 import sss.ui.nobu.NobuMainLayout.{Show, ShowBalance, ShowWrite}
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.nobu.NobuUI.Detach
-import sss.ui.reactor.{ComponentEvent, Register, UIEventActor, UIReactor}
+
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -44,7 +44,7 @@ object NobuMainLayout {
   case object ShowBalance
 
 }
-class NobuMainLayout(uiReactor: UIReactor,
+class NobuMainLayout(
                      userDir: UserDirectory,
                      userWallet: Wallet,
                      userId: NodeIdentity
@@ -56,12 +56,11 @@ class NobuMainLayout(uiReactor: UIReactor,
                     homeDomain: HomeDomain,
                     currentBlockHeight: () => Long,
                     messageEventBus: MessageEventBus,
-                    blockingWorkers: BlockingWorkers,
                     send: Send,
                     chainId: GlobalChainIdMask
 ) extends NobuMainDesign with View with Logging {
 
-
+  val name = "main"
   private implicit val nodeIdentity = userId
   //private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
@@ -69,10 +68,10 @@ class NobuMainLayout(uiReactor: UIReactor,
   //private lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
   //private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
 
-  statusButton.setVisible(false)
+  /*statusButton.setVisible(false)
   settingsButton.setVisible(false)
 
-  val name = "main"
+
 
   val inBoxBtn = inboxButton
   val writeBtn = writeButton
@@ -153,12 +152,12 @@ class NobuMainLayout(uiReactor: UIReactor,
           mainNobuRef, msg))
       }
 
-  }
+  }*/
 
 
   setSizeFull
 
-  object NobuMainActor extends UIEventActor {
+  /*object NobuMainActor extends UIEventActor {
 
 
     def initInBoxPager = inBox.inBoxPager(4)
@@ -268,7 +267,7 @@ class NobuMainLayout(uiReactor: UIReactor,
       case SentMessageToDelete(index) => inBox.deleteSent(index)
     }
 
-  }
+  }*/
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {}
 

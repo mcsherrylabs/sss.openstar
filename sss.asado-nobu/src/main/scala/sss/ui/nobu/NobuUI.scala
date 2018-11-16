@@ -11,7 +11,6 @@ import sss.asado.AsadoEvent
 import sss.ui.Servlet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
-import sss.ui.reactor.UIReactor
 
 /**
   * Created by alan on 6/10/16.
@@ -45,15 +44,16 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
       nodeIdentityManager,
       identityService,
       db,
-      homeDomain
+      homeDomain,
+      currentBlockHeightImp,
+      confImp
     }
 
-    implicit val conf = clientNode.conf
-    implicit val currentBlockHeight = () => clientNode.currentBlockHeight()
+
 
     VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1)
 
-    implicit val uiReactor = UIReactor(this)
+
     val navigator = new Navigator(this, this)
     navigator.addViewChangeListener(this)
 

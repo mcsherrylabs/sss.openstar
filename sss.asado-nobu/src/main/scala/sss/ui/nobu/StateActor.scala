@@ -13,7 +13,7 @@ import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuNodeBridge._
 import sss.ui.nobu.StateActor.{NoState, StateQueryStatus}
-import sss.ui.reactor.UIReactor
+
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{FiniteDuration, _}

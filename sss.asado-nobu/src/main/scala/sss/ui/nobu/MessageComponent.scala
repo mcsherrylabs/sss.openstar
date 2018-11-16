@@ -2,8 +2,8 @@ package sss.ui.nobu
 
 import akka.actor.ActorRef
 import com.vaadin.server.FontAwesome
-import com.vaadin.ui.Button.{ClickEvent, ClickListener}
-import com.vaadin.ui.{Button, Layout, Notification}
+
+import com.vaadin.ui.{Layout, Notification}
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
@@ -14,14 +14,14 @@ import sss.asado.contract.SingleIdentityEnc
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
 import sss.asado.message.MessageEcryption.EncryptedMessage
-import sss.asado.message.{Message, MessageEcryption, MessagePayloadDecoder, SavedAddressedMessage}
+import sss.asado.message.{Message, MessagePayloadDecoder, SavedAddressedMessage}
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.WalletPersistence
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.db.Db
 import sss.ui.design.MessageDesign
 import sss.ui.nobu.NobuMainLayout.ShowWrite
-import sss.ui.nobu.NobuNodeBridge.{ClaimBounty, MessageToArchive, MessageToDelete, SentMessageToDelete}
+import sss.ui.nobu.NobuNodeBridge.{MessageToArchive, MessageToDelete, SentMessageToDelete}
 import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}

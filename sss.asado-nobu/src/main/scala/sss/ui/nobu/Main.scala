@@ -12,7 +12,7 @@ import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
 import sss.asado.wallet.UtxoTracker.NewWallet
 import sss.ui.nobu.NobuUI.SessionEnd
-import sss.ui.reactor.ReactorActorSystem
+
 
 import scala.util.Try
 
@@ -22,16 +22,20 @@ import scala.util.Try
 object Main {
 
   trait ClientNode extends PartialNode with HomeDomainBuilder {
-    lazy implicit val blockingWorkers =
-      BlockingWorkers(
-        new CreateIdentity().createIdentity orElse new SendMessage(() => currentBlockHeight(), conf).sendMessage
-      )
-
 
     val keyFolder = config.getString("keyfolder")
     new File(keyFolder).mkdirs()
 
     lazy val users = new UserDirectory(keyFolder)
+    lazy implicit val confImp = conf
+    implicit val currentBlockHeightImp = () => currentBlockHeight()
+
+
+    lazy implicit val blockingWorkers: BlockingWorkers =
+      BlockingWorkers(
+        new CreateIdentity(users, buildWallet).createIdentity orElse new SendMessage(() => currentBlockHeight(), conf).sendMessage
+      )
+
 
   }
 
@@ -44,7 +48,7 @@ object Main {
 
       override val phrase: Option[String] = Option(withArgs(0))
       override val configName: String = "node"
-      implicit lazy override val actorSystem: ActorSystem = ReactorActorSystem.actorSystem
+
       Try(QuorumService.create(globalChainId, "bob", "alice", "eve"))
 
       init // <- init delayed until phrase can be initialised.
