@@ -9,7 +9,7 @@ import akka.io.Tcp._
 import akka.util.{ByteString, CompactByteString}
 
 import concurrent.duration._
-import util.{Failure, Success}
+import util.{Failure, Success, Try}
 
 object ConnectionHandler {
   case class Begin(
@@ -130,7 +130,11 @@ class ConnectionHandlerActor(
   private def handshake(w: WaitForBytes): Receive = closeOnTimeout orElse processErrors orElse {
 
     case Received(data) =>
-      process(w.handleBytes(data))
+      Try(
+        process(w.handleBytes(data))
+      ).getOrElse(
+        process(RejectConnection)
+      )
   }
 
   private var chunksBuffer: ByteString = CompactByteString()

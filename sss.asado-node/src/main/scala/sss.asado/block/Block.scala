@@ -7,11 +7,11 @@ import sss.asado.ledger._
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.db._
 
-
 import scala.util.{Failure, Success, Try}
 
 
 object Block extends Logging {
+
   private val blockTableNamePrefix = "block_"
   //private lazy val blockCache = new SynchronizedLruMap[(GlobalChainIdMask, Long), Block](100)
   def makeTableName(height: Long, chainId: GlobalChainIdMask) = s"$blockTableNamePrefix${height}_${chainId}"
@@ -77,7 +77,11 @@ class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extend
 
   def count = blockTxTable.count
 
-  def validateTx[T](f: => T): Try[T] = blockTxTable.validateTx(f)
+  def validateTx[T](f: => T): Try[T] = {
+      val r = blockTxTable.validateTx(f)
+      blockTxTable.setNextIdToMaxIdPlusOne()
+      r
+  }
 
   def inTransaction[T](f: => T): T = blockTxTable.inTransaction[T](f)
 
@@ -136,14 +140,19 @@ class Block(val height: Long)(implicit db:Db, chainId: GlobalChainIdMask) extend
   def write(index: Long, le: LedgerItem): Long = {
     val bs = le.toBytes
     val hexStr: String = le.txId.toBase64Str
-    val row = blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    val row = Try {
+      blockTxTable.insert(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    } getOrElse {
+      log.info(s"Ledger index $index already exists, try updating...")
+      blockTxTable.update(Map(id -> index, txid -> hexStr, entry -> bs, committed -> true))
+    }
     row(id)
   }
 
   def write(le: LedgerItem): Long = {
     val bs = le.toBytes
     val hexStr: String = le.txId.toBase64Str
-    val row = blockTxTable.persist(Map(txid -> hexStr, entry -> bs, committed -> true))
+    val row = blockTxTable.insert(Map(txid -> hexStr, entry -> bs, committed -> true))
     row(id)
   }
 

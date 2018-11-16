@@ -109,6 +109,7 @@ private class NetworkControllerActor(netInf: NetworkInterface,
         .foreach(_.handlerRef ! nm)
 
     case c @ ConnectTo(n @ NodeId(nodeId, addr), reconnnectStrategy) =>
+
       if (!isConnected(n) &&
           !isBlackListed(n.address) &&
           !isBlackListed(nodeId)) {
@@ -184,7 +185,6 @@ private class NetworkControllerActor(netInf: NetworkInterface,
   }
 
   private def disconnect(id: UniqueNodeIdentifier): Unit = {
-    strategies -= id
     connections.filter (_.nodeId.id == id) foreach (_.handlerRef ! Close)
   }
 

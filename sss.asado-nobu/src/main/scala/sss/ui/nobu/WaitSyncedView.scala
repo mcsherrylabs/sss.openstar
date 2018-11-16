@@ -3,11 +3,15 @@ package sss.ui.nobu
 import akka.actor.{ActorRef, Props}
 import com.vaadin.navigator.{View, ViewChangeListener}
 import com.vaadin.ui._
-import sss.asado.block.Synchronized
+import sss.asado.Status
+import sss.asado.block.BlockChainLedger.NewBlockId
+import sss.asado.block.{BlockClosedEvent, Synchronized}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
+import sss.ui.nobu.StateActor.StateQueryStatus
 import sss.ui.reactor.{ComponentEvent, UIEventActor, UIReactor}
+
 import collection.JavaConverters._
 
 object WaitSyncedView {
@@ -22,26 +26,34 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
 
   syncedView =>
 
-  def makeCaption() = s"Wait please, synchronizing chain (${getCurrentHeight()})"
+  def makeCaption(h: Long = getCurrentHeight()) = s"Wait please, synchronizing chain (${h})"
 
   val btn = new Button(makeCaption())
   btn.addClickListener(uiReactor)
 
   private val ref = uiReactor.actorOf(Props(WaitSyncActor), btn)
 
+  messageEventBus.subscribe(classOf[BlockClosedEvent])(ref)
+  messageEventBus.subscribe(classOf[NewBlockId])(ref)
+  messageEventBus.subscribe(classOf[Synchronized])(ref)
+  messageEventBus.subscribe(classOf[Status])(ref)
+  messageEventBus.subscribe(classOf[PeerConnection])(ref)
+  messageEventBus.subscribe(classOf[ConnectionLost])(ref)
+
+  messageEventBus.publish(StateQueryStatus)
+
+  val bar = new ProgressBar()
+  bar.setIndeterminate(true)
+
   setSizeFull()
   setDefaultComponentAlignment(Alignment.MIDDLE_CENTER)
-  addComponent(btn)
+  addComponents(bar, btn)
 
   override def enter(event: ViewChangeListener.ViewChangeEvent): Unit = {
-
+    messageEventBus.publish(StateQueryStatus)
   }
 
   object WaitSyncActor extends UIEventActor {
-
-    messageEventBus.subscribe(classOf[Synchronized])
-    messageEventBus.subscribe(classOf[PeerConnection])
-    messageEventBus.subscribe(classOf[ConnectionLost])
 
     /*import concurrent.duration._
     import context.dispatcher
@@ -51,14 +63,17 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
 
     override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
 
-      case ComponentEvent(`btn`, _) =>
+      /*case ComponentEvent(`btn`, _) =>
         val newCap = makeCaption()
+        push (btn.setCaption(newCap))*/
+
+      case BlockClosedEvent(`chainId`, height) =>
+        val newCap = makeCaption(height)
         push (btn.setCaption(newCap))
 
       case ConnectionLost(nodeId) =>
         val iter = syncedView.iterator().asScala
         val toRemove = iter.filter(_.getId == nodeId)
-
         push (toRemove foreach (syncedView.removeComponent(_)))
 
       case PeerConnection(nodeId, chainId ) =>
@@ -67,9 +82,8 @@ class WaitSyncedView(implicit uiReactor: UIReactor,
         b.setEnabled(false)
         push(syncedView.addComponent(b))
 
-
-      case Synchronized(`chainId`, _, _) =>
-       push (getUI().getNavigator.navigateTo(UnlockClaimView.name))
+      case Status(Synchronized(`chainId`, _, _, _)) | Synchronized(`chainId`, _, _, _) =>
+       push (ui.getNavigator.navigateTo(UnlockClaimView.name))
     }
   }
 }

@@ -6,10 +6,16 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.asado.DummySeedBytes
 import sss.asado.account.{NodeIdentityManager, PublicKeyAccount}
 import sss.asado.balanceledger._
+import sss.asado.chains.TxWriterActor.{InternalCommit, InternalTxResult}
 import sss.asado.identityledger.IdentityService
+import sss.asado.ledger.LedgerItem
+import sss.asado.tools.SendTxSupport
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.db.Db
+
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 /**
   * Created by alan on 2/15/16.
@@ -46,6 +52,7 @@ class WalletSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
   identityService.claim(nId.id, pKey.publicKey, nId.tag)
   identityService.claim(otherNodeId.id, otherPKey.publicKey, otherNodeId.tag)
 
+  implicit val sendTx :SendTxSupport.SendTx = (_, _) => Future.failed[InternalTxResult](new Exception(""))
   val wallet = new Wallet(nId, TestBalanceLedgerQuery, identityService, wp, () => 0, _ => false)
 
   val txId0 = DummySeedBytes(32)

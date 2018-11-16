@@ -1,12 +1,11 @@
 package sss.asado.network
 
-import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props, Terminated}
 import sss.ancillary.Logging
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.{AsadoEvent, PublishedMessageKeys, UniqueNodeIdentifier}
+import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.asado.eventbus.{EventPublish, MessageInfo}
 import sss.asado.network.MessageEventBus._
 
@@ -91,7 +90,7 @@ object MessageEventBus {
 }
 
 
-class MessageEventBus (decoder: Byte => Option[MessageInfo])(
+class MessageEventBus (decoder: Byte => Option[MessageInfo], loggingSuppressedClasses: Seq[Class[_]] = Seq.empty)(
     implicit actorSystem: ActorSystem)
     extends NetworkMessagePublish
     with EventPublish
@@ -241,7 +240,8 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
       case (acc: Boolean, (k: Class[_], subs: Set[ActorRef])) if k.isAssignableFrom(clazz) =>
 
         log.whenDebugEnabled({
-          subs.foreach(sub => log.debug(s"$event -> ${sub.path.name}"))
+          if (!loggingSuppressedClasses.exists(_.isAssignableFrom(clazz)))
+            subs.foreach(sub => log.debug(s"$event -> ${sub.path.name}"))
         })
 
         subs foreach (_ ! event)
@@ -256,7 +256,6 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
             v foreach (_ ! UnsubscribedEvent(event))
       }
     }
-
   }
 
   private[network] override def publish(networkMessage: IncomingSerializedMessage): Unit = {
@@ -281,11 +280,13 @@ class MessageEventBus (decoder: Byte => Option[MessageInfo])(
         val subs = msgCodeSubs(msgCode)
 
         log.whenDebugEnabled {
-          log.debug(s"IncomingMessage: ${incomingMessage.msg}")
-          subs.foreach(sub => log.debug(s"Chain:${incomingMessage.chainCode} " +
-            s"(${incomingMessage.code} " +
-            s"${info.clazz.getSimpleName.padTo(20, ' ')}) " +
-            s"from:${incomingMessage.nodeId} -> ${sub.path.name}"))
+          if (!loggingSuppressedClasses.exists(_.getSimpleName == info.clazz.getSimpleName)) {
+            log.debug(s"IncomingMessage: ${incomingMessage.msg}")
+            subs.foreach(sub => log.debug(s"Chain:${incomingMessage.chainCode} " +
+              s"(${incomingMessage.code} " +
+              s"${info.clazz.getSimpleName.padTo(20, ' ')}) " +
+              s"from:${incomingMessage.nodeId} -> ${sub.path.name}"))
+          }
         }
 
         subs foreach (_ ! incomingMessage)

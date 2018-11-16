@@ -16,7 +16,7 @@ import sss.asado.crypto.SeedBytes
 import sss.asado.eventbus.{MessageInfo, PureEvent}
 import sss.asado.identityledger.{IdentityLedger, IdentityService}
 import sss.asado.ledger.Ledgers
-import sss.asado.message.{MessageDownloadActor, MessagePaywall, MessageQueryHandlerActor}
+import sss.asado.message.{EndMessageQuery, MessageDownloadActor, MessagePaywall, MessageQuery, MessageQueryHandlerActor}
 import sss.asado.network.NetworkInterface.BindControllerSettings
 import sss.asado.network.{MessageEventBus, _}
 import sss.asado.peers.{PeerManager, PeerQuery}
@@ -27,6 +27,7 @@ import sss.asado._
 import sss.asado.chains.ChainSynchronizer.StartSyncer
 import sss.asado.tools.{DownloadSeedNodes, SendTxSupport}
 import sss.asado.tools.SendTxSupport.SendTx
+import sss.asado.wallet.UtxoTracker
 import sss.db.Db
 import sss.db.datasource.DataSource
 
@@ -134,14 +135,21 @@ trait NodeConfigBuilder extends RequireNodeConfig {
 
 trait HomeDomainBuilder {
 
-  self: NodeConfigBuilder =>
+  self: NodeConfigBuilder
+    with SeedNodesBuilder =>
 
   implicit lazy val homeDomain: HomeDomain = {
     val conf =
       DynConfig[HomeDomainConfig](nodeConfig.conf.getConfig("homeDomain"))
     new HomeDomain {
+
       override val identity: String = conf.identity
-      override val dns: String = conf.dns
+
+      override val fallbackIp: String =
+        seedNodesFromDns.find(_.id == conf.identity)
+          .map(_.address.getHostAddress())
+          .getOrElse(conf.fallbackIp)
+
       override val tcpPort: Int = conf.tcpPort
       override val httpPort: Int = conf.httpPort
     }
@@ -248,15 +256,20 @@ trait RequirePeerManager {
   val peerManager: PeerManager
 }
 
+trait SeedNodesBuilder {
+
+  self: RequireNodeConfig =>
+
+  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
+}
+
 trait PeerManagerBuilder extends RequirePeerManager {
   self: NetworkControllerBuilder with
   RequireActorSystem with
   ChainBuilder with
   RequireNodeConfig with
-
+  SeedNodesBuilder with
   MessageEventBusBuilder =>
-
-  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
 
   lazy val peerManager: PeerManager = new PeerManager(net,
     nodeConfig.peersList ++ seedNodesFromDns,
@@ -271,7 +284,12 @@ trait MessageEventBusBuilder extends RequireMessageEventBus {
   self: RequireActorSystem with
     RequireDecoder =>
 
-  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder)
+  implicit lazy val messageEventBus: MessageEventBus = new MessageEventBus(decoder,
+    Seq(classOf[ConnectionFailed],
+      classOf[EndMessageQuery],
+      classOf[MessageQuery]
+    )
+  )
 
 }
 
@@ -355,7 +373,9 @@ trait MessageQueryHandlerActorBuilder {
     with NodeIdentityBuilder
     with BlockChainBuilder
     with ConfigBuilder
-    with IdentityServiceBuilder =>
+    with IdentityServiceBuilder
+    with RequireNetSend
+    with RequireGlobalChainId =>
 
   lazy val minNumBlocksInWhichToClaim =
     conf.getInt("messagebox.minNumBlocksInWhichToClaim")
@@ -370,9 +390,11 @@ trait MessageQueryHandlerActorBuilder {
   lazy val messageServiceActor =
     actorSystem.actorOf(
       Props(classOf[MessageQueryHandlerActor],
-            messageEventBus,
-            messagePaywall,
-            db))
+        messagePaywall,
+        db,
+        messageEventBus,
+        send,
+        globalChainId).withDispatcher("blocking-dispatcher"))
 
 }
 
@@ -504,15 +526,17 @@ trait PartialNode extends Logging
     with NetSendBuilder
     with BalanceLedgerBuilder
     with PeerManagerBuilder
+    with SeedNodesBuilder
+    with ClaimServletBuilder
     with HttpServerBuilder
     with SendTxBuilder
     with UnsubscribedMessageHandlerBuilder
     with WalletBuilder
-    with WalletPersistenceBuilder
     with ShutdownHookBuilder
     with PublicKeyTrackerBuilder
     with ChainBuilder
-    with ChainSynchronizerBuilder {
+    with ChainSynchronizerBuilder
+    with MessageQueryHandlerActorBuilder {
 
 
   def shutdown: Unit = {
@@ -534,7 +558,9 @@ trait PartialNode extends Logging
 
     TxDistributeeActor(TxDistributeeActor.props(bc, nodeIdentity))
 
-    QuorumFollowersSyncedMonitor(nodeIdentity.id, bc)
+    QuorumFollowersSyncedMonitor(nodeIdentity.id, net.disconnect)
+
+    synchronization // Init this to allow it to register for events before QuorumMontor starts.
 
     QuorumMonitor(messageEventBus, globalChainId, nodeIdentity.id, chain.quorumCandidates(), peerManager)
 
@@ -543,6 +569,10 @@ trait PartialNode extends Logging
     SouthboundTxDistributorActor(
       SouthboundTxDistributorActor.props(nodeIdentity, () => chain.quorumCandidates(), bc, net.disconnect)
     )
+
+    UtxoTracker(buildWalletIndexTracker(nodeIdentity.id))
+
+    messageServiceActor
   }
 }
 

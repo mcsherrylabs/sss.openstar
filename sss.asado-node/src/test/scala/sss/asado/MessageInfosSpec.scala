@@ -54,13 +54,6 @@ class MessageInfosSpec extends FlatSpec with Matchers  {
     assert(StringMessage("Hello from the otherside") === deserialized, "Serialized not same as deserialised")
   }
 
-  "A case object event " should " be returned " in {
-
-    val info = MessageKeys.messages.find(MessageKeys.EndMessageQuery)
-    val found = info.get
-    val deserialized = found.fromBytes(Array())
-    assert(EndMessageQuery === deserialized, "Serialized not same as deserialised")
-  }
 
   "Messages " should "preserve their type " in {
     MessageKeys.messages.find(MessageKeys.VoteLeader).get.fromBytes(vlBytes) match {

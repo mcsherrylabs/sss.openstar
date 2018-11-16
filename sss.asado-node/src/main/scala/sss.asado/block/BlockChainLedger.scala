@@ -15,6 +15,8 @@ import scala.util.Try
 
 object BlockChainLedger {
 
+  case class NewBlockId(chainId: GlobalChainIdMask, newId: BlockId) extends AsadoEvent
+
   def apply(height: Long)
            (implicit db: Db, ledgers: Ledgers, chainId: GlobalChainIdMask): BlockChainLedger =
     new BlockChainLedger(Block(height), ledgers)
@@ -63,7 +65,7 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
     */
   def rejected(bTxId: BlockChainTxId): Try[Unit] = {
     for {
-      _ <- Try(require(bTxId.height == block.height, s"Cannot reject tx from block ${block.height} in block ${bTxId.height}"))
+      _ <- Try(require(bTxId.height == block.height, s"Cannot reject tx from block ${bTxId.height} in block ${block.height}"))
       _ <- block.reject(bTxId.blockTxId)
     } yield ()
   }
@@ -86,6 +88,7 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
   def commit: LedgerResult = block.inTransaction (Try(commit(block.getUnCommitted)))
 
   def commit(entry: BlockTx): LedgerResult = block.inTransaction {
+
     for {
       events <- ledgers(entry.ledgerItem, BlockId(block.height, entry.index))
       _ = block.commit(entry.index)
@@ -123,6 +126,10 @@ class BlockChainLedger(block: Block, ledgers: Ledgers) extends Logging {
 
   }
 
+  def validate(blockTx: BlockTx): Try[Seq[AsadoEvent]] = block.validateTx(apply(blockTx).get)
+
   def validate(stx: LedgerItem): Try[(BlockChainTx, Seq[AsadoEvent])] = block.validateTx(apply(stx).get)
+
+
 
 }

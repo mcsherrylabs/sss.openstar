@@ -58,7 +58,7 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
 
   final private case object StartSync
 
-  val maxWaitInterval: Long = 30 * 1000
+  val maxWaitInterval: Long = 3 * 1000
 
   private lazy val stream: Stream[Long] = {
     (10l) #:: (20l) #:: stream.zip(stream.tail).map { n =>
@@ -102,7 +102,7 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
 
     private var synchronised: IsSynced = {
       val bId = getLatestCommitted()
-      if (chainQuorumCandidates == Set(myNodeId)) Synchronized(chainId, bId.blockHeight, bId.txIndex)
+      if (chainQuorumCandidates == Set(myNodeId)) Synchronized(chainId, bId.blockHeight, bId.txIndex, myNodeId)
       else NotSynchronized(chainId)
     }
 
@@ -131,9 +131,11 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
     override def receive: Receive = {
 
       case ConnectionLost(nodeId) =>
-        log.info("Connected was {} removing {}", connectedPeers, nodeId)
+        log.info("Connected was {} removing {}, sync peer is {}", connectedPeers, nodeId, synchronizingPeerOpt)
         connectedPeers = connectedPeers.filterNot(_.peer.nodeId == nodeId)
-        if(synchronizingPeerOpt.exists(_.nodeId == nodeId)) reset()
+        if(synchronizingPeerOpt.exists(_.nodeId == nodeId)) {
+          reset()
+        }
 
       case NotSynchronized(`chainId`) => //sent from child
         synchronizingPeerOpt foreach { peer =>
@@ -144,18 +146,20 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         }
         reset()
 
-      case s @ Synchronized(`chainId`, height, index) => //sent from child
+      case s @ Synchronized(`chainId`, _, _, _) => //sent from child
         // this comes from child actor
         log.info("Now synchronized to {} with {}", s, synchronizingPeerOpt)
         synchronised = s
         inProgress = false
         eventMessageBus.publish(synchronised)
+        //in the case a conn is lost before processing this message.
+        synchronizingPeerOpt.getOrElse(reset())
 
-      case _: QuorumLost => reset()
+      case _: QuorumLost | _: LeaderLost => reset()
 
-      case LocalLeader(`chainId`, _, height, index, _) =>
+      case LocalLeader(`chainId`, leader, height, index, _, _) =>
         inProgress = false
-        synchronised = Synchronized(chainId, height, index)
+        synchronised = Synchronized(chainId, height, index, leader)
         log.info("Local Leader {} hence synchronized to {}", myNodeId, synchronised)
         context become waitForleaderLost
         eventMessageBus publish synchronised
@@ -165,7 +169,6 @@ class ChainSynchronizer private(chainQuorumCandidates: Set[UniqueNodeIdentifier]
         val (leaderRemoved, rest) = connectedPeers.partition(_.peer.nodeId == leader)
         connectedPeers = leaderRemoved.headOption
             .map {
-              synchronizingPeerOpt = None
               self ! StartSync
               _.reset() +: rest
             }.getOrElse(connectedPeers)

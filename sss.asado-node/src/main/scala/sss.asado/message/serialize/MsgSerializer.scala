@@ -10,7 +10,8 @@ import sss.asado.util.Serialize._
 object MsgSerializer extends Serializer[Message] {
 
   def toBytes(o: Message): Array[Byte] =
-    (StringSerializer(o.from) ++
+    (StringSerializer(o.to) ++
+      StringSerializer(o.from) ++
       ByteArraySerializer(o.msgPayload.toBytes) ++
       ByteArraySerializer(o.tx) ++
       LongSerializer(o.index) ++
@@ -19,6 +20,7 @@ object MsgSerializer extends Serializer[Message] {
   def fromBytes(bs: Array[Byte]): Message = {
     Message.tupled(
       bs.extract(StringDeSerialize,
+        StringDeSerialize,
         ByteArrayDeSerialize(_.toMessagePayload),
         ByteArrayDeSerialize,
         LongDeSerialize,

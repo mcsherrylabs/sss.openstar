@@ -1,14 +1,21 @@
 package sss.asado.wallet
 
+import akka.actor.ActorRef
 import scorex.crypto.signatures.SigningFunctions.PublicKey
 import sss.ancillary.Logging
+import sss.asado.{MessageKeys, UniqueNodeIdentifier}
 import sss.asado.account.NodeIdentity
 import sss.asado.balanceledger._
+import sss.asado.chains.TxWriterActor.{InternalCommit, InternalTxResult}
 import sss.asado.contract._
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
+import sss.asado.tools.SendTxSupport.SendTx
 import sss.asado.wallet.Wallet.PublicKeyFilter
 import sss.asado.wallet.WalletPersistence.Lodgement
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 
 /**
@@ -18,26 +25,107 @@ import sss.asado.wallet.WalletPersistence.Lodgement
 object Wallet {
   type PublicKeyFilter = PublicKey => Boolean
 
+
+  case class Payment(identity: String,
+                     amount: Int,
+                     txIdentifier: Option[String] = None,
+                     blockHeight: Long = 0)
   case class UnSpent(txIndex: TxIndex, out: TxOutput)
 }
 
-class Wallet(identity: NodeIdentity,
+class WalletIndexTracker(nodeControlsPublicKey: PublicKeyFilter,
+                         identityServiceQuery: IdentityServiceQuery,
+                         val id: UniqueNodeIdentifier,
+                         walletPersistence: WalletPersistence
+                    ) extends ((TxIndex, TxOutput) => Option[Lodgement]) {
+
+
+  override def apply(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
+    toLodgement(txIndex, txOutput)
+      .map (credit (_))
+  }
+
+  def credit(lodgement: Lodgement): Lodgement = {
+    walletPersistence.track(lodgement)
+  }
+
+  def toLodgement(txIndex: TxIndex, txOutput: TxOutput): Option[Lodgement] = {
+
+    txOutput.encumbrance match {
+      case SinglePrivateKey(pKey, minBlockHeight) =>
+
+        if(nodeControlsPublicKey(pKey)) {
+          Option(Lodgement(txIndex, txOutput, minBlockHeight))
+        } else {
+          identityServiceQuery.identify(pKey).flatMap { acc =>
+            if (acc.identity == id)
+              Option(Lodgement(txIndex, txOutput, minBlockHeight))
+            else
+              None
+          }
+        }
+
+      case SingleIdentityEnc(nId, minBlockHeight) if nId == id =>
+        Option(Lodgement(txIndex, txOutput, minBlockHeight))
+
+      case SaleOrReturnSecretEnc(returnIdentity, _, _, _) if returnIdentity == id =>
+        Option(Lodgement(txIndex, txOutput, 0))
+
+      case NullEncumbrance => Option(Lodgement(txIndex, txOutput, 0))
+      case _ => None
+    }
+  }
+}
+
+class Wallet(val identity: NodeIdentity,
              balanceLedger: BalanceLedgerQuery,
              identityServiceQuery: IdentityServiceQuery,
              walletPersistence: WalletPersistence,
              currentBlockHeight: () => Long,
              nodeControlsPublicKey: PublicKeyFilter
-            ) extends Logging {
+            )(implicit sendTx: SendTx) extends Logging {
+
+  val walletTracker: WalletIndexTracker = new WalletIndexTracker(nodeControlsPublicKey, identityServiceQuery, identity.id, walletPersistence)
 
   import Wallet._
+  import scala.concurrent.ExecutionContext.Implicits.global
 
-  def credit(lodgement: Lodgement): Unit = {
-    walletPersistence.track(lodgement)
+  def payAsync(sendingActor: ActorRef, payment: Payment): Unit = {
+    log.info(s"Attempting to create a tx for ${payment.amount} with wallet balance ${balance()}")
+    val tx = createTx(payment.amount)
+    val enc = encumberToIdentity(payment.blockHeight, payment.identity) //SingleIdentityEnc(someIdentity, atBlockHeight)
+    val finalTxUnsigned = appendOutputs(tx, TxOutput(payment.amount, enc))
+    val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
+    val signedTx = sign(finalTxUnsigned)
+
+    sendTx(LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)).map {
+      case r@InternalCommit(_, blockChainTxId) =>
+        update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
+        r
+      case x => x
+    }.map(sendingActor ! _)
+
   }
 
-  def trackPublicKey(pKey: PublicKey): Unit = {
+  def credit(lodgement: Lodgement): Unit = walletTracker.credit(lodgement)
+
+  def pay(payment: Payment)(implicit timeout: Duration): InternalTxResult = {
+    val tx = createTx(payment.amount)
+    val enc = encumberToIdentity(payment.blockHeight, payment.identity)
+    val finalTxUnsigned = appendOutputs(tx, TxOutput(payment.amount, enc))
+    val txIndex = TxIndex(finalTxUnsigned.txId, finalTxUnsigned.outs.size - 1)
+    val signedTx = sign(finalTxUnsigned)
+
+    val f = sendTx(LedgerItem(MessageKeys.BalanceLedger, signedTx.txId, signedTx.toBytes)).map {
+      case r@InternalCommit(_, blockChainTxId) =>
+        update(blockChainTxId.blockTxId.txId, tx.ins, tx.outs, blockChainTxId.height)
+        r
+      case x => x
+    }
+    Await.result(f, timeout)
 
   }
+
 
   def markSpent(spentIns: Seq[TxInput]): Unit = {
     spentIns.foreach { in =>
@@ -51,7 +139,7 @@ class Wallet(identity: NodeIdentity,
              inBlock: Long = currentBlockHeight()): Unit = walletPersistence.tx {
     markSpent(debits)
     creditsOrderedByIndex.indices foreach { i =>
-      credit(Lodgement(TxIndex(txId, i), creditsOrderedByIndex(i), inBlock))
+      walletTracker.credit(Lodgement(TxIndex(txId, i), creditsOrderedByIndex(i), inBlock))
     }
   }
 
@@ -158,9 +246,9 @@ class Wallet(identity: NodeIdentity,
         case SaleOrReturnSecretEnc(returnIdentity,
         claimant,
         hashOfSecret,
-        returnBlockHeight) if returnIdentity == identity.id &&
-          returnBlockHeight <= atBlockHeight =>
-          Option(UnSpent(lodgement.txIndex, txOut))
+        returnBlockHeight) if returnIdentity == identity.id =>
+          if(returnBlockHeight <= atBlockHeight) Option(UnSpent(lodgement.txIndex, txOut))
+          else None
 
         case SaleOrReturnSecretEnc(returnIdentity,
         claimant,
@@ -179,6 +267,8 @@ class Wallet(identity: NodeIdentity,
         } else None
     }
   }
+
+
 
   def balance(atBlockHeight: Long = currentBlockHeight()): Int = findUnSpent(atBlockHeight).foldLeft(0)((acc, e) => acc + e.out.amount)
 

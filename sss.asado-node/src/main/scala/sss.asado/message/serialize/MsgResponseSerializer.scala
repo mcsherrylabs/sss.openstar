@@ -19,14 +19,11 @@ object MsgResponseSerializer extends Serializer[MessageResponse] {
 
   def fromBytes(bs: Array[Byte]): MessageResponse = {
 
-    val isSuccess = bs.extract(BooleanDeSerialize)
-
-    if(isSuccess) {
-      val extracted = bs.extract(BooleanDeSerialize, ByteArrayDeSerialize)
-      SuccessResponse(extracted._2)
-    } else {
-      val extracted = bs.extract(BooleanDeSerialize, ByteArrayDeSerialize, StringDeSerialize)
-      FailureResponse(extracted._2, extracted._3)
+    bs.extract(BooleanDeSerialize, ByteArrayRawDeSerialize) match {
+      case (true, rest) =>
+        SuccessResponse(rest.extract(ByteArrayDeSerialize))
+      case (_, rest) =>
+        FailureResponse.tupled(rest.extract(ByteArrayDeSerialize, StringDeSerialize))
     }
   }
 

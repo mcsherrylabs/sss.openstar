@@ -60,13 +60,5 @@ class PeerManager(networkRef: NetworkRef,
     eventMessageBus
     ), "PeerManagerActor")
 
-  // register for connections
-  // on connection get the supported chains
-  // add to database
-  // check against the filters if match publish PeerQueryMatch(id:Identity)
-  // get connection
-  // if the connection fails try another one.
-  // incoming connections get added also.
-
 }
 

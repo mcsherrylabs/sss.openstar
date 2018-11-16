@@ -35,7 +35,7 @@ private class PeerManagerActor( ncRef: NetworkRef,
   messageEventBus.subscribe(classOf[ConnectionFailed])
   messageEventBus.subscribe(classOf[ConnectionHandshakeTimeout])
 
-  bootstrapNodes foreach (ncRef.connect(_, indefiniteReconnectionStrategy(30)))
+  bootstrapNodes foreach (ncRef.connect(_, indefiniteReconnectionStrategy(1)))
 
 
   private def matchWithCapabilities(nodeId: UniqueNodeIdentifier,

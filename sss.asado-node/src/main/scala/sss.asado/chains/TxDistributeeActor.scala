@@ -11,6 +11,7 @@ import sss.asado.network._
 import sss.asado.util.ByteArrayComparisonOps
 import sss.asado.{MessageKeys, Send}
 import sss.asado.account.{NodeIdentity, PublicKeyAccount}
+import sss.asado.block.BlockChainLedger.NewBlockId
 import sss.asado.block.signature.BlockSignatures
 import sss.asado.block.signature.BlockSignatures.BlockSignature
 import sss.asado.chains.LeaderElectionActor.{LeaderLost, LocalLeader}
@@ -93,7 +94,7 @@ private class TxDistributeeActor(
 
   override def receive: Receive = {
 
-    case Synchronized(`chainId`, height, index) =>
+    case Synchronized(`chainId`, _, _, _) =>
       distributeeNetMsgCodes.subscribe
 
     case NotSynchronized(`chainId`) =>
@@ -117,7 +118,8 @@ private class TxDistributeeActor(
 
     case IncomingMessage(`chainId`, MessageKeys.ConfirmTx, leader, bTx: BlockChainTx) =>
       val blockLedger = BlockChainLedger(bTx.height)
-      blockLedger.validate(bTx.blockTx.ledgerItem) match {
+
+      blockLedger.validate(bTx.blockTx) match {
         case Failure(e) =>
           val id = e match {
             case LedgerException(ledgerId, _) => ledgerId
@@ -126,11 +128,11 @@ private class TxDistributeeActor(
           log.info(s"Failed to validate tx! ${bTx} ${e.getMessage}")
           send(MessageKeys.NackConfirmTx, bTx.toId, leader)
 
-        case Success((bcTx@BlockChainTx(height, bTx@BlockTx(index, signedTx)), _)) =>
-          blockLedger.journal(bTx)
-          log.info("Journal tx h: {} i: {}", height, bTx.index)
-          txCache += BlockId(height, index) -> signedTx
-          send(MessageKeys.AckConfirmTx, bcTx.toId, leader)
+        case Success(_) =>
+          blockLedger.journal(bTx.blockTx)
+          //log.info("Journal tx h: {} i: {}", height, bTx.index)
+          txCache += BlockId(bTx.height, bTx.blockTx.index) -> bTx.blockTx.ledgerItem
+          send(MessageKeys.AckConfirmTx, bTx.toId, leader)
       }
 
 
@@ -158,7 +160,8 @@ private class TxDistributeeActor(
         case Success(events) =>
           log.info("Commit tx h: {} i: {}", bId.blockHeight, blockTx.index)
           messageEventBus publish SouthboundTx(BlockChainTx(bTx.height, blockTx))
-          events foreach messageEventBus.publish
+          messageEventBus publish NewBlockId(chainId, bId)
+            events foreach messageEventBus.publish
       }
 
       txCache -= bId
@@ -170,7 +173,9 @@ private class TxDistributeeActor(
         case None =>
           bc.closeBlock(blockId) match {
 
-            case Failure(e) => log.error("Couldn't close block {} {}", blockId, e)
+            case Failure(e) =>
+              log.error("Couldn't close block {} {}", blockId, e)
+              systemPanic(e)
 
             case Success(header) =>
               log.info("Close block h:{} numTxs: {}", header.height, header.numTxs)

@@ -2,7 +2,7 @@ package sss.asado.message
 
 import scorex.crypto.signatures.SigningFunctions.{PublicKey, SharedSecret}
 import sss.asado.account.NodeIdentity
-import sss.asado.crypto.CBCEncryption
+import sss.asado.crypto.{CBCEncryption, SeedBytes}
 import sss.asado.crypto.CBCEncryption.InitVector
 import sss.asado.util.Serialize._
 
@@ -54,8 +54,7 @@ object MessageEcryption {
                                 secret: Array[Byte]): EncryptedMessage = {
 
     val sharedSecret: SharedSecret = sender.createSharedSecret(receiverKey)
-    val initVector = new Array[Byte](16)
-    Random.nextBytes(initVector)
+    val initVector = SeedBytes.secureSeed(16)
     val iv = CBCEncryption.initVector(initVector)
     val bytes: Array[Byte] = TextWithSecret(text, secret).toBytes
     val encryptedMessage = CBCEncryption.encrypt(sharedSecret, bytes, iv)

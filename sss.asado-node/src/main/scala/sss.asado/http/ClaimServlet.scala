@@ -5,14 +5,15 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import org.scalatra.{BadRequest, Ok, ScalatraServlet}
 import sss.asado.actor.AsadoEventSubscribedActor
 import sss.asado.balanceledger.{BalanceLedger, TxIndex, TxOutput}
+import sss.asado.chains.TxWriterActor.{InternalCommit, InternalTxResult}
 import sss.asado.common.block._
 import sss.asado.identityledger.Claim
 import sss.asado.ledger._
 import sss.asado.network.{MessageEventBus, SerializedMessage}
 import sss.asado.util.ByteArrayEncodedStrOps._
-import sss.asado.wallet.IntegratedWallet
-import sss.asado.wallet.IntegratedWallet.{Payment, TxFailure, TxSuccess}
-import sss.asado.{MessageKeys, PublishedMessageKeys}
+import sss.asado.wallet.Wallet
+import sss.asado.wallet.Wallet.Payment
+import sss.asado.{MessageKeys}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -22,19 +23,17 @@ import scala.util.{Failure, Success, Try}
 /**
   * Created by alan on 5/7/16.
   */
-class ClaimServlet(actorSystem:ActorSystem,
-                   stateMachine: ActorRef,
+class ClaimServlet(
                    messageRouter: MessageEventBus,
                    balanceLedger: BalanceLedger,
-                   integratedWallet: IntegratedWallet) extends ScalatraServlet {
+                   integratedWallet: Wallet) extends ScalatraServlet {
 
-  import ClaimServlet._
+
 
   val crlf = System.getProperty("line.separator")
 
   implicit val timeout = Duration(30, SECONDS)
 
-  private val claimsActor = actorSystem.actorOf(Props(classOf[ClaimsResultsActor], stateMachine, messageRouter, integratedWallet))
 
   get("/balanceledger") {
 
@@ -51,16 +50,16 @@ class ClaimServlet(actorSystem:ActorSystem,
         case None => BadRequest("Param 'amount' not found")
         case Some(amount) =>
           integratedWallet.pay(Payment(to, amount.toInt)) match {
-            case TxSuccess(blkTxId, txIndex, _) =>
-              Ok(txIndex.toString() + "Balance now - " + integratedWallet.balance)
-            case TxFailure(TxMessage(_, _, str), _) => Ok(str + "Balance now - " + integratedWallet.balance)
+            case InternalCommit(_, blkTxId)  =>
+              Ok(s"Balance now - ${integratedWallet.balance()}")
+            case err: InternalTxResult => Ok(err + "Balance now - " + integratedWallet.balance())
           }
 
       }
     }
   }
 
-  get("/") {
+  /*get("/") {
     params.get("claim") match {
       case None => BadRequest("Param 'claim' not found")
       case Some(claiming) => params.get("pKey") match {
@@ -77,16 +76,16 @@ class ClaimServlet(actorSystem:ActorSystem,
 
       }
     }
-  }
+  }*/
 }
 
-object ClaimServlet {
+/*object ClaimServlet {
 
   case class Claiming(identity: String, txIdHex: String, netMsg: SerializedMessage, p: Promise[String])
   case class ClaimTracker(sendr: ActorRef, claiming: Claiming)
 }
 
-class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: IntegratedWallet)
+class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integratedWallet: Wallet)
   extends Actor with ActorLogging with AsadoEventSubscribedActor {
 
   import ClaimServlet._
@@ -110,7 +109,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
       val trackerOpt = inFlightClaims.get(hexId)
       Try {
         trackerOpt map { claimTracker =>
-          integratedWallet.payAsync(self, Payment(claimTracker.claiming.identity, kickStartingAmount, Option(hexId), 1, 0))
+          // TODO replace with new wallet integratedWallet.payAsync(self, Payment(claimTracker.claiming.identity, kickStartingAmount, Option(hexId), 1, 0))
         }
       } match {
         case Failure(e) =>
@@ -134,8 +133,6 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
         case Failure(e) => log.warning(e.toString)
       }
 
-
-
     case SerializedMessage(_, MessageKeys.SignedTxNack, bytes) =>
       val txMsg = bytes.toTxMessage
       val hexId = txMsg.txId.toBase64Str
@@ -144,7 +141,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
       if(claimTracker.claiming.p.isCompleted) log.info(s"${hexId} already completed ")
       else claimTracker.claiming.p.success(s"fail:${txMsg.msg}")
 
-    case TxSuccess(blockChainTxId, txIndex, txTracking) =>
+    /*case TxSuccess(blockChainTxId, txIndex, txTracking) =>
       inFlightClaims.get(txTracking.get) map { claimTracker =>
         log.info(s"Got TxSuccess for $txTracking")
         val indx = TxIndex(blockChainTxId.blockTxId.txId, 0)
@@ -155,7 +152,7 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
       inFlightClaims.get(txTracking.get) map { claimTracker =>
         if(claimTracker.claiming.p.isCompleted) log.info(s"${txTracking.get} already completed ")
         else claimTracker.claiming.p.success(s"okNoMoney:${txMsg.msg}")
-      }
+      }*/
   }
 
   override def postStop = log.info("ClaimsResultsActor has stopped")
@@ -168,4 +165,4 @@ class ClaimsResultsActor(stateMachine: ActorRef, messageRouter: ActorRef, integr
     // TODO, how does this start up now? case ReadyStateEvent => context.become(working)
   }
 
-}
+}*/

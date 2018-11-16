@@ -85,7 +85,6 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
     ledgers: Ledgers,
 ) extends Actor
     with ActorLogging
-    with AsadoEventPublishingActor
     with SystemPanic {
 
   //private case class CommitBlock(blockId: BlockId, retryCount: Int = 0)
@@ -212,16 +211,19 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
               systemPanic()
 
             case Success(blockHeader) =>
-              val first = blockSigs.head
+              blockSigs.headOption match {
+                case Some(first) =>
 
-              assert(
-                PublicKeyAccount(first.publicKey)
-                  .verify(first.signature, blockHeader.hash),
-                s"Our block header h ${blockHeader.height} num ${blockHeader.numTxs} did not match the sig"
-              )
+                assert(
+                  PublicKeyAccount(first.publicKey)
+                    .verify(first.signature, blockHeader.hash),
+                  s"Our block header h ${blockHeader.height} num ${blockHeader.numTxs} did not match the sig"
+                )
+                case None => log.warning("No sig found for blockheader, {}", blockHeader)
+              }
 
               //lastWrittenBlockId = getLastCommitted()
-              publish(BlockClosedEvent(blockHeader.height))
+              messageEventBus publish(BlockClosedEvent(chainId, blockHeader.height))
               events foreach messageEventBus.publish
 
               log.info(
@@ -248,7 +250,7 @@ private class ChainDownloadRequestActor(nodeIdentity: NodeIdentity,
                          MessageKeys.Synced,
                          `syncingWithNode`,
                          p @ GetTxPage(h, i, pageSize)) =>
-      finish(Synchronized(chainId, h, i),
+      finish(Synchronized(chainId, h, i, syncingWithNode),
              s"Downloader is fully synced to tx page $p")
 
   }

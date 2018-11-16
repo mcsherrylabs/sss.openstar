@@ -4,6 +4,7 @@ import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import com.twitter.util.SynchronizedLruMap
 import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.block.{IsSynced, NotSynchronized, Synchronized}
 import sss.asado.network.MessageEventBus._
 import sss.asado.common.block._
 import sss.asado.util.ByteArrayEncodedStrOps._
@@ -37,7 +38,7 @@ class TxForwarderActor(clientRefCacheSize: Int)(implicit chainId: GlobalChainIdM
 
   log.info("TxForwarder actor has started...")
 
-  Seq(classOf[LeaderFound], classOf[LeaderLost]).subscribe
+  Seq(classOf[LeaderFound], classOf[LeaderLost], classOf[IsSynced]).subscribe
 
   val txIncomingMessages = Seq(MessageKeys.SeqSignedTx, MessageKeys.SignedTx)
 
@@ -53,25 +54,39 @@ class TxForwarderActor(clientRefCacheSize: Int)(implicit chainId: GlobalChainIdM
 
   internalTxProcessingMsgs.subscribe
 
-  private def forwarding(leader: UniqueNodeIdentifier): Receive = localLeader orElse {
+  private def forwardingUpstream(upstreamNodeId: UniqueNodeIdentifier): Receive = forwardingImpl(upstreamNodeId) orElse localLeader orElse {
 
-    case LeaderLost(`chainId`, leader) =>
-      context become waitForRemoteLeader
+    case RemoteLeader(`chainId`, newLeader, _) =>
+      txIncomingMessages.subscribe
+      context become forwardingLeader(newLeader)
+
+    case NotSynchronized(`chainId`) =>
+      context become waitForRemote
       restTxProcessingMessages.unsubscribe
       internalTxProcessingMsgs.unsubscribe
+  }
 
+  private def forwardingLeader(leader: UniqueNodeIdentifier): Receive = forwardingImpl(leader) orElse localLeader orElse {
+
+    case LeaderLost(`chainId`, `leader`) =>
+      context become waitForRemote
+      restTxProcessingMessages.unsubscribe
+      internalTxProcessingMsgs.unsubscribe
+  }
+
+  private def forwardingImpl(nodeIdToForwardTo: UniqueNodeIdentifier): Receive = {
     case InternalLedgerItem(`chainId`, le, listener) =>
       txs += (le.txIdHexStr -> InternalResponse(listener))
-      send(MessageKeys.SignedTx, le, leader)
+      send(MessageKeys.SignedTx, le, nodeIdToForwardTo)
 
     case m @ IncomingMessage(`chainId`, MessageKeys.SignedTx, nodeId, le@ LedgerItem(_,txId, _)) =>
       txs += (le.txIdHexStr -> NetResponse(nodeId, send))
-      send(MessageKeys.SignedTx, le, leader)
+      send(MessageKeys.SignedTx, le, nodeIdToForwardTo)
 
     case m @ IncomingMessage(`chainId`, MessageKeys.SeqSignedTx, nodeId, seqLe: SeqLedgerItem) =>
       seqLe.value foreach { le =>
         txs += (le.txIdHexStr -> NetResponse(nodeId, send))
-        send(MessageKeys.SignedTx, le, leader)
+        send(MessageKeys.SignedTx, le, nodeIdToForwardTo)
       }
 
     case m @ IncomingMessage(`chainId`, MessageKeys.SignedTxAck, nodeId, blk @ BlockChainTxId(_, txId)) =>
@@ -102,13 +117,14 @@ class TxForwarderActor(clientRefCacheSize: Int)(implicit chainId: GlobalChainIdM
       txIncomingMessages.unsubscribe
       restTxProcessingMessages.unsubscribe
       internalTxProcessingMsgs.unsubscribe
-      context become waitForRemoteLeader
+      context become waitForRemote
   }
 
 
-  final override def receive = waitForRemoteLeader
+  final override def receive = waitForRemote
 
-  final private def waitForRemoteLeader: Receive = localLeader orElse {
+
+  final private def waitForRemote: Receive = localLeader orElse {
 
     case InternalLedgerItem(`chainId`, le, listener) =>
       InternalResponse(listener).tempNack(TxMessage(0, le.txId, "This node does not know where to send this tx"))
@@ -123,12 +139,17 @@ class TxForwarderActor(clientRefCacheSize: Int)(implicit chainId: GlobalChainIdM
           send(MessageKeys.TempNack, TxMessage(0, le.txId, "This node does not know where to send these messages"), nodeId)
         )
 
+    case Synchronized(`chainId`, _, _, upStreamNodeId) =>
+
+      restTxProcessingMessages.subscribe
+      internalTxProcessingMsgs.subscribe
+      context become forwardingUpstream(upStreamNodeId)
 
     case RemoteLeader(`chainId`, leader, _) =>
       txIncomingMessages.subscribe
       restTxProcessingMessages.subscribe
       internalTxProcessingMsgs.subscribe
-      context become forwarding(leader)
+      context become forwardingLeader(leader)
 
   }
 

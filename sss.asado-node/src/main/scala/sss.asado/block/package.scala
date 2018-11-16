@@ -15,21 +15,24 @@ package object block {
   trait GetLatestCommittedBlockId extends (() => BlockId)
   type GetLatestRecordedBlockId = () => BlockId
 
-  case class BlockClosedEvent(heightClosed: Long) extends AsadoEvent
+  case class BlockClosedEvent(chainId: GlobalChainIdMask, heightClosed: Long) extends AsadoEvent
 
   // Fired when the client has downloaded up to the latest
   case object ClientSynced
 
-  trait IsSynced extends AsadoEvent { val isSynced: Boolean }
+  trait IsSynced extends AsadoEvent {
+    val chainIdMask: GlobalChainIdMask
+    val isSynced: Boolean
+  }
 
   case class NotSynchronized(chainIdMask: GlobalChainIdMask)
     extends IsSynced {
-    val isSynced: Boolean = false
+    final val isSynced: Boolean = false
   }
 
-  case class Synchronized(chainIdMask: GlobalChainIdMask, height: Long, index: Long)
+  case class Synchronized(chainIdMask: GlobalChainIdMask, height: Long, index: Long, upStreamNodeId: UniqueNodeIdentifier)
     extends IsSynced {
-    val isSynced: Boolean = true
+    final val isSynced: Boolean = true
   }
 
   implicit object GetTxPageOrdering extends Ordering[GetTxPage] {

@@ -1,27 +1,29 @@
 package sss.asado.message
 
-import java.nio.charset.StandardCharsets
-
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import sss.asado.{MessageKeys, UniqueNodeIdentifier}
-import sss.asado.MessageKeys._
-import sss.asado.balanceledger._
-import sss.asado.common.block._
-import sss.asado.ledger._
-import sss.asado.network.{MessageEventBus, _}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.util.ByteArrayEncodedStrOps._
+import sss.asado.balanceledger._
+import sss.asado.chains.Chains.GlobalChainIdMask
+import sss.asado.chains.TxWriterActor._
+import sss.asado.ledger._
+import sss.asado.network.MessageEventBus.IncomingMessage
+import sss.asado.network.{MessageEventBus, _}
 import sss.db.Db
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
 /**
   * Created by alan on 6/8/16.
   */
-class MessageQueryHandlerActor(messageRouter: MessageEventBus,
-                               messagePaywall: MessagePaywall)(implicit db: Db)
+class MessageQueryHandlerActor(messagePaywall: MessagePaywall)(
+  implicit db: Db,
+  messageRouter: MessageEventBus,
+  send: Send,
+  chainId: GlobalChainIdMask
+)
     extends Actor
     with ActorLogging {
 
@@ -30,145 +32,117 @@ class MessageQueryHandlerActor(messageRouter: MessageEventBus,
 
   log.info("MessageQueryHandler actor has started ...")
 
-  case class MessageTracker(sndr: ActorRef,
+  case class MessageTracker(sendingId: UniqueNodeIdentifier,
                             to: String,
                             index: Long,
-                            resendNetMsg: SerializedMessage)
+                            resendNetMsg: InternalLedgerItem)
 
   private var messageSenders: Map[String, MessageTracker] = Map()
 
   override def receive: Receive = {
-    case _ => ???
-/*
-    case SerializedMessage(MessageKeys.SignedTxAck, bytes) =>
-      val bId = bytes.toBlockChainIdTx
-      log.debug(s"FYI, got the message tx ack ${bId.height}, ${bId.blockTxId}")
 
-    case SerializedMessage(MessageKeys.AckConfirmTx, bytes) =>
-      val bId = bytes.toBlockChainIdTx
-      messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
-        Try(MessagePersist(tracker.to).accept(tracker.index)) match {
-          case Failure(e) =>
-            tracker.sndr ! SerializedMessage(MessageKeys.MessageResponse,
-                                          FailureResponse(
-                                            bId.blockTxId.txId,
-                                            e.getMessage.take(100)).toBytes)
-          case Success(_) =>
-            log.debug(s"sending ${tracker.sndr} the Success response")
-            tracker.sndr ! SerializedMessage(
-              MessageKeys.MessageResponse,
-              SuccessResponse(bId.blockTxId.txId).toBytes)
-        }
+    case IncomingMessage(`chainId`, MessageKeys.MessageAddressed, sendingId, addrMsg: AddressedMessage) =>
+
+      Try {
+        val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
+        val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
+        val index =
+          MessagePersist(toId).pending(addrMsg.from,
+            addrMsg.msgPayload,
+            addrMsg.ledgerItem.txEntryBytes)
+
+        val ledgeItem = InternalLedgerItem(chainId, addrMsg.ledgerItem, Some(self))
+        messageSenders += (addrMsg.ledgerItem.txId.toBase64Str -> MessageTracker(
+          sendingId,
+          toId,
+          index,
+          ledgeItem))
+
+        messageRouter publish ledgeItem
+
+      } match {
+        case Failure(e) =>
+          log.error(e, "Unknown problem accepting incoming message")
+          send(MessageKeys.MessageResponse,
+            FailureResponse(
+              addrMsg.ledgerItem.txId,
+              e.getMessage.take(100)),
+            sendingId)
+
+        case Success(_) => // will send back success on Tx confirm
       }
-      messageSenders -= bId.blockTxId.txId.toBase64Str
 
-    case SerializedMessage(MessageKeys.TempNack, bytes) =>
-      val txMsg = bytes.toTxMessage
-      /*
-      //TODO publish the actual event and have the TxWriter react to it.
-      messageSenders.get(txMsg.txId.toBase64Str) foreach { tracker =>
+    case InternalAck(`chainId`, _) =>
+      log.debug("Got ack, waiting for commit or Nack")
+
+    case InternalCommit(`chainId`, blkTxId) =>
+
+      messageSenders.get(blkTxId.blockTxId.txId.toBase64Str) match {
+        case Some(tracker) =>
+          Try(MessagePersist(tracker.to).accept(tracker.index)) match {
+            case Failure(e) =>
+              send(MessageKeys.MessageResponse,
+                FailureResponse(
+                  blkTxId.blockTxId.txId,
+                  e.getMessage.take(100)), tracker.sendingId)
+            case Success(_) =>
+              log.debug(s"sending ${tracker.sendingId} the Success response")
+              send(
+                MessageKeys.MessageResponse,
+                SuccessResponse(blkTxId.blockTxId.txId), tracker.sendingId)
+          }
+          messageSenders -= blkTxId.blockTxId.txId.toBase64Str
+        case None =>
+          log.error(s"No in memory record of ${blkTxId.blockTxId.txId.toBase64Str}, but it's committed.")
+      }
+
+    case InternalTempNack(`chainId`, txMsg) =>
+
+      import context.dispatcher
+
+      messageSenders.get(txMsg.txId.toBase64Str).foreach { tracker =>
         context.system.scheduler
-          .scheduleOnce(5 seconds) {messageRouter.publish(tracker.resendNetMsg) }
-      }*/
+          .scheduleOnce(5 seconds) {
+            messageRouter.publish(tracker.resendNetMsg)
+          }
+      }
 
-    case SerializedMessage(MessageKeys.SignedTxNack, bytes) =>
-      val txMsg = bytes.toTxMessage
+    case InternalNack(`chainId`, txMsg) =>
+
       messageSenders.get(txMsg.txId.toBase64Str) foreach { tracker =>
         Try(MessagePersist(tracker.to).reject(tracker.index)) match {
           case Failure(e) =>
-            tracker.sndr ! SerializedMessage(
+            send(
               MessageKeys.MessageResponse,
-              FailureResponse(txMsg.txId, e.getMessage.take(100)).toBytes)
+              FailureResponse(txMsg.txId, e.getMessage.take(100)),
+              tracker.sendingId)
           case Success(_) =>
-            tracker.sndr ! SerializedMessage(
+            send(
               MessageKeys.MessageResponse,
-              FailureResponse(txMsg.txId, txMsg.msg).toBytes)
+              FailureResponse(txMsg.txId, txMsg.msg),
+              tracker.sendingId)
         }
       }
       messageSenders -= txMsg.txId.toBase64Str
 
-    case SerializedMessage(MessageKeys.NackConfirmTx, bytes) =>
-      val bId = bytes.toBlockChainIdTx
-      messageSenders.get(bId.blockTxId.txId.toBase64Str) foreach { tracker =>
-        Try(MessagePersist(tracker.to).reject(tracker.index)) match {
-          case Failure(e) =>
-            tracker.sndr ! SerializedMessage(MessageKeys.MessageResponse,
-                                          FailureResponse(
-                                            bId.blockTxId.txId,
-                                            e.getMessage.take(100)).toBytes)
-          case Success(_) =>
-            tracker.sndr ! SerializedMessage(
-              MessageKeys.MessageResponse,
-              FailureResponse(bId.blockTxId.txId,
-                              "Failed to confirm Msg Tx on secondary").toBytes)
-        }
-      }
-      messageSenders -= bId.blockTxId.txId.toBase64Str
 
-    case SerializedMessage(_, MessageKeys.GenericErrorMessage, bytes) =>
-      log.warning(new String(bytes, StandardCharsets.UTF_8))
 
-    case IncomingSerializedMessage(
-        nId: UniqueNodeIdentifier,
-        SerializedMessage(_, MessageKeys.MessageQuery,
-        bytes)) =>
+    case IncomingMessage(`chainId`,
+                            MessageKeys.MessageQuery,
+                            nId,
+                            MessageQuery(who, lastIndex, pageSize)) =>
 
-      decode(MessageKeys.MessageQuery, bytes.toMessageQuery) {
-        mq: MessageQuery =>
-          val page = MessagePersist(nId).page(mq.lastIndex, mq.pageSize)
-          val sndr = sender()
-          page.foreach(m =>
-            sndr ! SerializedMessage(MessageKeys.MessageMsg, m.toBytes))
-          if (page.size == mq.pageSize)
-            sndr ! SerializedMessage(MessageKeys.EndMessagePage, Array())
-          else {
-            sndr ! SerializedMessage(MessageKeys.EndMessageQuery, Array())
-            // TODO add to push update list.
-          }
-      }
+      val page = MessagePersist(who).page(lastIndex, pageSize)
 
-    case IncomingSerializedMessage(
-        nId: UniqueNodeIdentifier,
-        SerializedMessage(MessageKeys.MessageAddressed,
-        bytes)) =>
+      page.foreach(m =>
+        send(MessageKeys.MessageMsg, m, nId)
+      )
 
-      Try(bytes.toMessageAddressed) match {
-        case Failure(e) =>
-          sender ! SerializedMessage(
-            MessageKeys.GenericErrorMessage,
-            e.getMessage.take(100).getBytes(StandardCharsets.UTF_8))
+      if (page.size == pageSize)
+        send(MessageKeys.EndMessagePage, EndMessagePage(who), nId)
+      else
+        send(MessageKeys.EndMessageQuery, EndMessageQuery(who), nId)
 
-        case Success(addrMsg) =>
-          Try {
-            val sTx = addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry
-            val toId: String = messagePaywall.validate(sTx.txEntryBytes.toTx)
-            val index =
-              MessagePersist(toId).pending(nId,
-                                           addrMsg.msgPayload,
-                                           addrMsg.ledgerItem.txEntryBytes)
-            val netMsg =
-              SerializedMessage(MessageKeys.SignedTx, addrMsg.ledgerItem.toBytes)
-            messageSenders += (addrMsg.ledgerItem.txId.toBase64Str -> MessageTracker(
-              sender(),
-              toId,
-              index,
-              netMsg))
-            /*
-            TODO publish the actual event and have the TxWriter react to it.
-            messageRouter.publish(netMsg)
-            */
 
-          } match {
-            case Failure(e) =>
-              log.error(e, "Unknown problem accepting incoming message")
-              sender ! SerializedMessage(MessageKeys.MessageResponse,
-                                      FailureResponse(
-                                        addrMsg.ledgerItem.txId,
-                                        e.getMessage.take(100)).toBytes)
-
-            case Success(_) => // will send back success on Tx confirm
-          }
-      }
-*/
   }
 }

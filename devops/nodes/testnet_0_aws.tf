@@ -13,7 +13,7 @@ variable "ssh_key_name" {}
 variable "quorum_ports" { type = "list"}
 
 resource "aws_instance" "openstar_testnet" {
-  ami           = "ami-0ac14390942cce323"
+  ami           = "ami-07e3edee2101eb957"
   instance_type = "t2.medium"
   count = 3
   key_name      = "${var.ssh_key_name}"
@@ -50,8 +50,12 @@ resource "null_resource" "openstar_testnet" {
     host          = "${aws_instance.openstar_testnet.*.public_ip[count.index]}"
   }
 
+  provisioner "remote-exec" {
+    inline = ["(sleep 2 && reboot)&"]
+  }
+
   provisioner "file" {
-    source      = "../sss.asado-node/target/universal/${var.product_name}.zip"
+    source      = "../../sss.asado-node/target/universal/${var.product_name}.zip"
     destination = "~/${var.product_name}.zip"
 
   }

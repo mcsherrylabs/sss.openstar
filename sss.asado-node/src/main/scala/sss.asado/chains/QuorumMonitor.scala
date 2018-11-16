@@ -126,11 +126,18 @@ class QuorumMonitor private (eventMessageBus: MessageEventBus,
 
       case ConnectionLost(nodeId: UniqueNodeIdentifier) =>
 
+        val beforeSize = connectedCandidates.size
         connectedCandidates = connectedCandidates.filterNot(_ == nodeId)
 
         if(isQuorum && connectedMemberCount() == candidates.size / 2 - 1) {
+
           isQuorum = false
           if(weAreMember) eventMessageBus.publish(QuorumLost(chainId))
+
+        } else if (beforeSize > connectedCandidates.size) {
+
+          if(weAreMember) eventMessageBus.publish(Quorum(chainId, connectedCandidates, minConfirms()))
+
         }
 
     }

@@ -129,6 +129,7 @@ class BlockChainImpl(implicit val db: Db, val chainId: GlobalChainIdMask) extend
     val lst = lastBlockHeader
     assert(blk.getLastCommitted == blockId.txIndex, s"Expected number of Txs is ${blockId.txIndex} actual is ${blk.getLastCommitted}")
     assert(lst.height + 1 == blockId.blockHeight, s"Trying to close ${blockId.blockHeight} but last closed header is ${lst.height}")
+    log.info("Closeblock ok {}, flatMap", blockId)
     lst
   } flatMap (closeBlock)
 
@@ -141,6 +142,8 @@ class BlockChainImpl(implicit val db: Db, val chainId: GlobalChainIdMask) extend
 
     db inTransaction {
       val txs = block.entries
+
+      log.info("Num entries in close block now {}", txs.size)
 
       val newBlock = if (txs.nonEmpty) {
         val txIds: IndexedSeq[mutable.WrappedArray[Byte]] = txs.map(_.ledgerItem.txId: mutable.WrappedArray[Byte]).toIndexedSeq

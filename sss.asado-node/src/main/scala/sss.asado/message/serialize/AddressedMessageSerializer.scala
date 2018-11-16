@@ -8,13 +8,15 @@ import sss.asado.util.Serialize._
   */
 object AddressedMessageSerializer extends Serializer[AddressedMessage] {
   def toBytes(o: AddressedMessage): Array[Byte] =
-    (ByteArraySerializer(o.ledgerItem.toBytes) ++
+    (StringSerializer(o.from) ++
+      ByteArraySerializer(o.ledgerItem.toBytes) ++
       ByteArraySerializer(o.msgPayload.toBytes)
       ).toBytes
 
   def fromBytes(bs: Array[Byte]): AddressedMessage = {
     AddressedMessage.tupled(
       bs.extract(
+        StringDeSerialize,
         ByteArrayDeSerialize(_.toLedgerItem),
         ByteArrayDeSerialize(_.toMessagePayload)
       )

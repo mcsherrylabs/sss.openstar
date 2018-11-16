@@ -66,7 +66,7 @@ private class ChainDownloadResponseActor(
   log.info("ChainDownloadResponse actor has started...")
 
   override def receive: Receive = {
-    case Synchronized(`chainId`, _, _) =>
+    case Synchronized(`chainId`, _, _, _) =>
       canIssueSyncs = true
 
 

@@ -18,14 +18,16 @@ import scala.util.{Failure, Success, Try}
   */
 
 
-class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: UserDirectory)
-                 (implicit identityQuery: IdentityServiceQuery) extends WriteDesign with Logging {
+class WriteLayout(mainNobuRef: ActorRef, from: String, to: String, text: String, userDir: UserDirectory)
+                 (implicit identityQuery: IdentityServiceQuery,
+                  blockingWorkers: BlockingWorkers) extends WriteDesign with Logging {
 
 
   import NobuUI.CRLF
 
   scheduleCombo.setNullSelectionAllowed(false)
-  scheduleCombo.setValue(Scheduler.once)
+
+  scheduleCombo.setVisible(false)
   toCombo.setNullSelectionAllowed(false)
   userDir.loadCombo(toCombo)
 
@@ -34,12 +36,14 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
   if (text.length > 0) messageText.setValue(CRLF + CRLF + text)
 
 
-  sendButton.addClickListener(new Button.ClickListener {
-    override def buttonClick(event: ClickEvent): Unit = {
+  sendButton.addClickListener( event =>
       Option(amountField.getValue) match {
         case None => Notification.show("'Amount' cannot be empty", Notification.Type.WARNING_MESSAGE)
         case Some(amountStr) => Try(Integer.parseInt(amountStr)) match {
-          case Failure(e) => Notification.show("'Amount' must be a number", Notification.Type.WARNING_MESSAGE)
+          case Failure(e) =>
+            Notification.show("'Amount' must be a number > than 0", Notification.Type.WARNING_MESSAGE)
+          case Success(amount) if amount < 1 =>
+            Notification.show("'Amount' must be 1 or more", Notification.Type.WARNING_MESSAGE)
           case Success(amount) =>
 
             Option(toCombo.getValue.toString) match {
@@ -47,11 +51,10 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
               case Some(to) if to.length == 0 =>
                 Notification.show("'To' cannot be empty", Notification.Type.WARNING_MESSAGE)
               case Some(to) =>
-                Try(identityQuery.account(to)) match {
-                  case Failure(e) =>
-                    log.debug(s"Failed to lookup id $to", e)
+                identityQuery.accountOpt(to) match {
+                  case None =>
                     Notification.show(s"No account exists for $to")
-                  case Success(ac) =>
+                  case Some(ac) =>
                     Option(messageText.getValue) match {
                       case None => Notification.show("Cannot send an empty message", Notification.Type.WARNING_MESSAGE)
                       case Some(text) if text.length == 0 =>
@@ -59,22 +62,13 @@ class WriteLayout(mainNobuRef: ActorRef, to: String, text: String, userDir: User
                       case Some(text) =>
                         sendButton.setEnabled(false)
                         mainNobuRef ! ShowInBox
-                        val mts = MessageToSend(to, ac, text, amount)
-                        mainNobuRef ! mts
-                        Option(scheduleCombo.getValue.toString) match {
-                          case None | Some(Scheduler.once) =>
-                          case Some(schedule) =>
-                            val from = getSession().getAttribute(UnlockClaimView.identityAttr).toString
-                            val serialised = Scheduler.serialiseDetails(from, schedule, mts)
-                            SchedulerPersistence().persist(serialised)
+                        blockingWorkers.submit(MessageToSend(from, to, ac, text, amount, mainNobuRef))
 
-
-                        }
                     }
                 }
             }
         }
       }
-    }
-  })
+
+  )
 }

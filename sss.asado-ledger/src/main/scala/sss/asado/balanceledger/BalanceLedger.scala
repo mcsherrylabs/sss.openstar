@@ -5,6 +5,7 @@ import java.util
 import sss.ancillary.Logging
 import sss.asado.AsadoEvent
 import sss.asado.account.NodeIdentity
+import sss.asado.balanceledger.BalanceLedger.NewUtxo
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.common.block.BlockId
 import sss.asado.contract.LedgerContext._
@@ -17,6 +18,9 @@ import sss.db.Db
 import scala.util.Try
 
 object BalanceLedger {
+
+  case class NewUtxo(txIndx: TxIndex, out: TxOutput) extends AsadoEvent
+
   def apply(cbe : CoinbaseValidator,identityService: IdentityService)(implicit db:Db, chainIdMask: GlobalChainIdMask) : BalanceLedger =
     new BalanceLedger(new UTXODBStorage(chainIdMask), cbe, identityService)
 }
@@ -75,7 +79,7 @@ class BalanceLedger(storage: UTXODBStorage,
     }
   }
 
-  private[balanceledger] def apply(stx: SignedTxEntry, blockId:BlockId): Unit = {
+  private[balanceledger] def apply(stx: SignedTxEntry, blockId:BlockId): Seq[NewUtxo] = {
 
     val blockHeight = blockId.blockHeight
 
@@ -115,16 +119,17 @@ class BalanceLedger(storage: UTXODBStorage,
         }
       }
 
-
       var totalOut = 0
-      outs.foldLeft(0) { (acc, out) =>
+      val newUtxos = outs.indices map { i =>
+        val out = outs(i)
         require(out.amount >= 0, "Out amount cannot be negative.")
         totalOut += out.amount
-        storage.write(TxIndex(txId, acc), out)
-        acc + 1
+        storage.write(TxIndex(txId, i), out)
+        NewUtxo(TxIndex(txId, i), out)
       }
-
       require(totalOut == totalIn, s"Total out (${totalOut}) *must* equal total in (${totalIn})")
+
+      newUtxos
     }
   }
 
@@ -138,8 +143,6 @@ class BalanceLedger(storage: UTXODBStorage,
     )
 
     apply(stx, blockId)
-
-    Seq.empty
   }
 
   override def coinbase(nodeIdentity: NodeIdentity, forBlockHeight: Long, ledgerId: Byte): Option[LedgerItem] = {
