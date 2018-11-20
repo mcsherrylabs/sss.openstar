@@ -1,36 +1,26 @@
 package sss.ui.nobu
 
-import akka.actor.{ActorRef, ActorSystem, Props}
+import akka.actor.ActorSystem
 import com.typesafe.config.Config
-import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
+import com.vaadin.navigator.{View, ViewBeforeLeaveEvent}
+import com.vaadin.shared.Registration
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
-import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
+import sss.asado.Send
 import sss.asado.account.NodeIdentity
-import sss.asado.balanceledger.{StandardTx, TxIndex, TxInput, TxOutput, _}
 import sss.asado.chains.Chains.GlobalChainIdMask
-import sss.asado.chains.TxWriterActor._
-import sss.asado.contract.SaleSecretDec
 import sss.asado.identityledger.IdentityServiceQuery
-import sss.asado.ledger.{LedgerItem, SignedTxEntry}
-import sss.asado.message.MessageDownloadActor.{CheckForMessages, NewInBoxMessage}
 import sss.asado.message.MessageInBox.MessagePage
 import sss.asado.message._
 import sss.asado.network.MessageEventBus
-import sss.asado.network.MessageEventBus.IncomingMessage
 import sss.asado.state.HomeDomain
-
 import sss.asado.wallet.Wallet
 import sss.db.Db
 import sss.ui.Servlet
 import sss.ui.design.NobuMainDesign
-import sss.ui.nobu.NobuMainLayout.{Show, ShowBalance, ShowWrite}
-import sss.ui.nobu.NobuNodeBridge._
-import sss.ui.nobu.NobuUI.Detach
+import sss.ui.nobu.UIActor.{TrackLodgements, UnTrackLodgements}
 
-
-import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
 
@@ -42,14 +32,15 @@ object NobuMainLayout {
   case class ShowWrite(to: String = "", text: String = "")
   case class Show(s: String)
   case object ShowBalance
-
 }
+
 class NobuMainLayout(
                      userDir: UserDirectory,
                      userWallet: Wallet,
                      userId: NodeIdentity
                      ) (
                     implicit actorSystem: ActorSystem,
+                    val ui: UI,
                     db: Db,
                     identityService: IdentityServiceQuery,
                     conf: Config,
@@ -58,19 +49,13 @@ class NobuMainLayout(
                     messageEventBus: MessageEventBus,
                     send: Send,
                     chainId: GlobalChainIdMask
-) extends NobuMainDesign with View with Logging {
+) extends NobuMainDesign with View with LayoutHelper with Logging {
 
   val name = "main"
   private implicit val nodeIdentity = userId
-  //private val msgDecoders = MessagePayloadDecoder.decode orElse PayloadDecoder.decode
 
-  //private lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
-  //private lazy val chargePerMessage = conf.getInt("messagebox.chargePerMessage")
-  //private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
-
-  /*statusButton.setVisible(false)
+  statusButton.setVisible(false)
   settingsButton.setVisible(false)
-
 
 
   val inBoxBtn = inboxButton
@@ -83,39 +68,76 @@ class NobuMainLayout(
   val nextBtn = nextButton
   val balBtnLbl = balanceValuBtnLbl
 
-  writeBtn.addClickListener(uiReactor)
-  inBoxBtn.addClickListener(uiReactor)
-  archiveBtn.addClickListener(uiReactor)
-  sentBtn.addClickListener(uiReactor)
-  logoutBtn.addClickListener(uiReactor)
-  nextBtn.addClickListener(uiReactor)
-  prevBtn.addClickListener(uiReactor)
-  balBtnLbl.addClickListener(uiReactor)
-  junkBtn.addClickListener(uiReactor)
 
+  private def showWrite(to: String = "", text: String = ""): Unit = {
+    itemPanelVerticalLayout.removeAllComponents()
+    itemPanelVerticalLayout.addComponent(new WriteLayout(showInBox, userId.id, to, text, userDir))
+  }
 
+  writeBtn.addClickListener( _ => showWrite())
 
-  val mainNobuRef = uiReactor.actorOf(Props(NobuMainActor),
-    logoutButton, inBoxBtn, writeBtn, archiveBtn, junkBtn, sentBtn, nextBtn, prevBtn, balBtnLbl)
+  logoutBtn.addClickListener(_ => {
+    ui.getSession.setAttribute(Servlet.SessionAttr, null)
+    ui.getNavigator().navigateTo(UnlockClaimView.name)
+  })
 
-  mainNobuRef ! Register(NobuNodeBridge.NobuCategory)
-  messageEventBus.subscribe (classOf[Detach])(mainNobuRef)
-  messageEventBus.subscribe (classOf[NewLodgement])(mainNobuRef)
-  messageEventBus.subscribe (MessageKeys.MessageResponse)(mainNobuRef)
-  messageEventBus.subscribe (classOf[NewInBoxMessage])(mainNobuRef)
+  private lazy val inBox = MessageInBox(userId.id)
 
-  private lazy val nId = userId.id
-  private lazy val inBox = MessageInBox(nId)
+  def initInBoxPager = inBox.inBoxPager(4)
+  def initSentPager = inBox.sentPager(4)
+  def initArchivedPager = inBox.archivedPager(4)
+  def initJunkPager = inBox.junkPager(4)
 
-  balanceCptnBtn.setCaption(nId)
+  def showBalance: Unit = {
+    val bal =  userWallet.balance()
+    balBtnLbl.setCaption(bal.toString)
+  }
 
-  mainNobuRef ! ShowInBox
-  mainNobuRef ! ShowBalance
+  def showInBox = {
+    updatePagingAreas(initInBoxPager)
+  }
+
+  balanceCptnBtn.setCaption(userId.id)
+
+  balBtnLbl addClickListener( _ => showBalance)
+  archiveBtn addClickListener( _ => updatePagingAreas(initArchivedPager))
+  junkBtn addClickListener( _ => updatePagingAreas(initJunkPager))
+  inBoxBtn addClickListener( _ => updatePagingAreas(initInBoxPager))
+  sentBtn addClickListener(_ => updatePagingAreas(initSentPager))
+
+  showBalance
+  showInBox
+  setSizeFull
 
   private def updatePagingAreas(pager: MessagePage[_], isForDeletion: Boolean = false): Unit = {
     prevBtn.setEnabled(pager.hasNext)
     nextBtn.setEnabled(pager.hasPrev)
     itemPanelVerticalLayout.removeAllComponents
+
+
+    val registrationNext = nextBtn addClickListener (_ => {
+      Option(nextBtn.getData) foreach ( _.asInstanceOf[Registration].remove)
+      if (pager.hasPrev) {
+        val nextPager = pager.prev
+        Try(updatePagingAreas(nextPager)) recover {
+          case e => Notification.show(e.getMessage)
+        }
+      }
+    })
+
+    nextBtn setData registrationNext
+
+    val registrationPrev = prevBtn addClickListener (_ => {
+      Option(prevBtn.getData) foreach (_.asInstanceOf[Registration].remove)
+      if (pager.hasNext) {
+        val nextPager = pager.next
+        Try(updatePagingAreas(nextPager)) recover {
+          case e => Notification.show(e.getMessage)
+        }
+      }
+    })
+
+    prevBtn setData registrationPrev
 
     pager.messages.reverse foreach {
 
@@ -123,7 +145,9 @@ class NobuMainLayout(
         val tried = Try(MessagePayloadDecoder.decode.apply(msgPayload))
         if(tried.isSuccess) {
           itemPanelVerticalLayout.addComponent(new DeleteMessageComponent(itemPanelVerticalLayout,
-            mainNobuRef, msg))
+            showWrite,
+            inBox,
+            msg))
         }
 
 
@@ -133,12 +157,11 @@ class NobuMainLayout(
           val b = Try(PayloadDecoder.decode.apply(msgPayload))
           if(a.isSuccess) {
             val newC = new NewMessageComponent(itemPanelVerticalLayout,
-              mainNobuRef, msg)
+              showWrite,
+              inBox,
+              msg)
             itemPanelVerticalLayout.addComponent(newC)
 
-          } else if(b.isSuccess) {
-            itemPanelVerticalLayout.addComponent(new IdentityClaimComponent(itemPanelVerticalLayout,
-              mainNobuRef, msg, homeDomain, b.get.asInstanceOf[IdentityClaimMessagePayload]))
           }
         }
 
@@ -149,126 +172,21 @@ class NobuMainLayout(
 
       case msg: SavedAddressedMessage =>
         itemPanelVerticalLayout.addComponent(new SentMessageComponent(itemPanelVerticalLayout,
-          mainNobuRef, msg))
+          showWrite,
+          inBox,
+          msg))
       }
 
-  }*/
+  }
 
 
-  setSizeFull
+  override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
+    messageEventBus publish TrackLodgements(sessId, userId.id, () => showBalance)
+    showBalance
+  }
 
-  /*object NobuMainActor extends UIEventActor {
-
-
-    def initInBoxPager = inBox.inBoxPager(4)
-    def initSentPager = inBox.sentPager(4)
-    def initArchivedPager = inBox.archivedPager(4)
-    def initJunkPager = inBox.junkPager(4)
-
-    var bounties: Map[Long, String] = Map()
-
-    var pager: MessagePage[_] = initInBoxPager
-
-    override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
-
-      case Detach(Some(uiId)) if (ui.getEmbedId == uiId) =>
-        context stop self
-
-
-      case Show(s) => push(Notification.show(s))
-
-      case ShowWrite(to, text) => push {
-        itemPanelVerticalLayout.removeAllComponents()
-        itemPanelVerticalLayout.addComponent(new WriteLayout(mainNobuRef, userId.id, to, text, userDir))
-      }
-
-
-      case _: NewInBoxMessage =>
-        self ! ShowInBox
-
-      case ShowInBox =>
-        pager = initInBoxPager
-        Try(push(updatePagingAreas(pager))) match {
-          case Failure(e) => push(Notification.show(e.getMessage))
-          case _ =>
-        }
-
-      case ComponentEvent(`prevBtn`, _) =>
-        if(pager.hasNext) {
-          pager = pager.next
-          Try(push(updatePagingAreas(pager)))  match {
-            case Failure(e) => push(Notification.show(e.getMessage))
-            case _ =>
-          }
-        }
-
-      case ComponentEvent(`nextBtn`, _) =>
-        if(pager.hasPrev) {
-          pager = pager.prev
-          Try(push(updatePagingAreas(pager)))  match {
-            case Failure(e) => push(Notification.show(e.getMessage))
-            case _ =>
-          }
-
-        }
-
-      case ComponentEvent(`writeBtn`, _) =>
-        self ! ShowWrite()
-
-      case ComponentEvent(`sentBtn`, _) =>
-        pager = initSentPager
-        Try(push(updatePagingAreas(pager)))  match {
-          case Failure(e) => push(Notification.show(e.getMessage))
-          case _ =>
-        }
-
-      case ComponentEvent(`inBoxBtn`, _) =>
-        self ! ShowInBox
-
-      case ComponentEvent(`junkBtn`, _) =>
-        pager = initJunkPager
-        Try(push(updatePagingAreas(pager)))  match {
-          case Failure(e) => push(Notification.show(e.getMessage))
-          case _ =>
-        }
-
-      case ComponentEvent(`archiveBtn`, _) =>
-        pager = initArchivedPager
-        Try(push(updatePagingAreas(pager, isForDeletion = true)))  match {
-          case Failure(e) => push(Notification.show(e.getMessage))
-          case _ =>
-        }
-
-      case ce @ ComponentEvent(`balBtnLbl`, _) => self ! ShowBalance
-
-
-      case ce @ ComponentEvent(`logoutBtn`, _) => push {
-        ui.getSession.setAttribute(Servlet.SessionAttr, null)
-        ui.getNavigator().navigateTo(UnlockClaimView.name)
-        import context.dispatcher
-        context.system.scheduler.scheduleOnce(4 seconds, self, {ui.close()})
-      }
-
-      case NewLodgement(`nId`, _) => self ! ShowBalance
-
-      case ShowBalance =>
-        val bal =  userWallet.balance()
-        push(balBtnLbl.setCaption(bal.toString))
-        //context.system.scheduler.scheduleOnce(4 seconds, self, ShowBalance)
-
-      case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, _:SuccessResponse) =>
-        self ! Show(s"Message away!")
-
-      case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, FailureResponse(_, info)) =>
-        self ! Show(s"Failed to send message - $info")
-
-      case MessageToDelete(index) => inBox.delete(index)
-      case MessageToArchive(index) => inBox.archive(index)
-      case SentMessageToDelete(index) => inBox.deleteSent(index)
-    }
-
-  }*/
-
-  override def enter(viewChangeEvent: ViewChangeEvent): Unit = {}
-
+  override def beforeLeave(event: ViewBeforeLeaveEvent): Unit = {
+    messageEventBus publish UnTrackLodgements(sessId)
+    event.navigate()
+  }
 }

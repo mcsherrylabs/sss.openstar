@@ -1,16 +1,16 @@
 package sss.ui.nobu
 
-import akka.actor.{ActorRef, Props}
+import akka.actor.{Actor, ActorSystem, Props}
 import com.vaadin.navigator.{View, ViewChangeListener}
 import com.vaadin.ui._
 import sss.asado.Status
-import sss.asado.block.BlockChainLedger.NewBlockId
 import sss.asado.block.{BlockClosedEvent, Synchronized}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
+import sss.asado.network.MessageEventBus._
+import sss.ui.nobu.NobuUI.{Detach, SessionEnd}
 import sss.ui.nobu.StateActor.StateQueryStatus
-
 
 import collection.JavaConverters._
 
@@ -19,48 +19,55 @@ object WaitSyncedView {
 }
 
 class WaitSyncedView(implicit
+                     val ui: UI,
                      messageEventBus: MessageEventBus,
                      chainId: GlobalChainIdMask,
+                     actorSystem: ActorSystem,
                      getCurrentHeight: () => Long
-                    ) extends VerticalLayout with View with Helpers {
+                    ) extends VerticalLayout with View with LayoutHelper {
 
   syncedView =>
 
-  /*def makeCaption(h: Long = getCurrentHeight()) = s"Wait please, synchronizing chain (${h})"
+  def makeCaption(h: Long = getCurrentHeight()) = s"Wait please, synchronizing chain (${h})"
 
   val btn = new Button(makeCaption())
-  btn.addClickListener(uiReactor)
 
-  private val ref = uiReactor.actorOf(Props(WaitSyncActor), btn)
+  btn addClickListener( e =>
+      e.getButton.setCaption(makeCaption())
+    )
 
-  messageEventBus.subscribe(classOf[BlockClosedEvent])(ref)
-  messageEventBus.subscribe(classOf[NewBlockId])(ref)
-  messageEventBus.subscribe(classOf[Synchronized])(ref)
-  messageEventBus.subscribe(classOf[Status])(ref)
-  messageEventBus.subscribe(classOf[PeerConnection])(ref)
-  messageEventBus.subscribe(classOf[ConnectionLost])(ref)
+  private val ref = actorSystem.actorOf(Props(WaitSyncActor), s"WaitSync_${sessId}")
 
-  messageEventBus.publish(StateQueryStatus)
+  messageEventBus.subscribe(classOf[Detach])(ref)
+
+  val interestingEvents = Seq(
+    classOf[BlockClosedEvent],
+    classOf[Synchronized],
+    classOf[Status],
+    classOf[PeerConnection],
+    classOf[ConnectionLost]
+  )
 
   val bar = new ProgressBar()
   bar.setIndeterminate(true)
 
   setSizeFull()
   setDefaultComponentAlignment(Alignment.MIDDLE_CENTER)
-  addComponents(bar, btn)*/
+  addComponents(bar, btn)
 
   override def enter(event: ViewChangeListener.ViewChangeEvent): Unit = {
+
+    interestingEvents.subscribe(ref)
     messageEventBus.publish(StateQueryStatus)
   }
 
 
-  /*object WaitSyncActor extends UIEventActor {
+  object WaitSyncActor extends Actor {
 
-    override def react(reactor: ActorRef, broadcaster: ActorRef, ui: UI): Receive = {
+    override def receive: Receive = {
 
-      /*case ComponentEvent(`btn`, _) =>
-        val newCap = makeCaption()
-        push (btn.setCaption(newCap))*/
+      case Detach(uiId) if(getUI.getUIId == uiId) =>
+        context stop self
 
       case BlockClosedEvent(`chainId`, height) =>
         val newCap = makeCaption(height)
@@ -78,7 +85,8 @@ class WaitSyncedView(implicit
         push(syncedView.addComponent(b))
 
       case Status(Synchronized(`chainId`, _, _, _)) | Synchronized(`chainId`, _, _, _) =>
-       push (ui.getNavigator.navigateTo(UnlockClaimView.name))
+        interestingEvents.unsubscribe(self)
+        push (navigator.navigateTo(UnlockClaimView.name))
     }
-  }*/
+  }
 }

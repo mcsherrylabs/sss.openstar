@@ -3,9 +3,9 @@ package sss.ui.nobu
 import akka.actor.Actor
 import akka.actor.Actor.Receive
 import com.typesafe.config.Config
-import com.vaadin.ui.Notification
+import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
-import sss.asado.{MessageKeys, Send}
+import sss.asado.{MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.account.PublicKeyAccount
 import sss.asado.balanceledger.TxOutput
 import sss.asado.chains.Chains.GlobalChainIdMask
@@ -14,23 +14,36 @@ import sss.asado.crypto.SeedBytes
 import sss.asado.ledger.LedgerItem
 import sss.asado.message.{MessageEcryption, MessageInBox, SavedAddressedMessage}
 import sss.asado.message._
+import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.asado.tools.SendTxSupport.SendTx
 import sss.asado.wallet.Wallet
 import sss.db.Db
-import sss.ui.nobu.NobuNodeBridge.{Fail, MessageToSend}
+import sss.ui.nobu.SendMessage.MessageToSend
+import sss.ui.nobu.UIActor.TrackMsgTxId
 
 import scala.util.{Failure, Random, Success, Try}
+
+object SendMessage {
+
+  case class MessageToSend(
+                            from: UniqueNodeIdentifier,
+                           to : UniqueNodeIdentifier,
+                           account: PublicKeyAccount,
+                           text: String,
+                           amount: Int,
+                          )(implicit val ui: UI)
+}
 
 class SendMessage(currentBlockHeight: () => Long,
                   conf: Config
                  )
                  (implicit homeDomain: HomeDomain,
                   db:Db,
-                  sendTx: SendTx,
+                  messageEventBus: MessageEventBus,
                   send: Send,
                   chainId: GlobalChainIdMask
-) extends Logging {
+) extends Logging with BlockingWorkerUIHelper {
 
 
   private lazy val minNumBlocksInWhichToClaim = conf.getInt("messagebox.minNumBlocksInWhichToClaim")
@@ -38,8 +51,8 @@ class SendMessage(currentBlockHeight: () => Long,
   private lazy val amountBuriedInMail = conf.getInt("messagebox.amountBuriedInMail")
 
   def sendMessage: Receive = {
-    case MessageToSend(from, to, account, text, amount, sender) =>
-
+    case m@MessageToSend(from, to, account, text, amount) =>
+      import m.ui
       Try {
 
         log.info("Message To Send begins")
@@ -65,15 +78,16 @@ class SendMessage(currentBlockHeight: () => Long,
             val le = LedgerItem(MessageKeys.BalanceLedger, signedSTx.txId, signedSTx.toBytes)
             val m: SavedAddressedMessage = inBox.addSent(to, encryptedMessage.toMessagePayLoad, le.toBytes)
 
+            messageEventBus publish TrackMsgTxId(ui.getSession.getSession.getId, m.addrMsg.ledgerItem.txIdHexStr)
             send(MessageKeys.MessageAddressed, m.addrMsg, homeDomain.nodeId.id)
 
           case None =>
-            sender ! Fail("No user session, log out and log in again.")
+            show("No user session, log out and log in again.", Notification.Type.ASSISTIVE_NOTIFICATION)
         }
       } match {
         case Failure(e) =>
           log.error(e.toString)
-          sender ! Fail("Couldn't send the message")
+          show("Couldn't send the message", Notification.Type.WARNING_MESSAGE)
         case Success(_) =>
       }
 

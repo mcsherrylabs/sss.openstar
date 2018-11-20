@@ -20,7 +20,7 @@ class UserDirectory(keyFolder: String) {
 
   def loadCombo(combo:ComboBox[String]): Unit = {
     val users = listUsers
-    combo.setDataProvider(new ListDataProvider[String](users.asJava))
+    combo.setItems(users.asJava)
 
   }
 }

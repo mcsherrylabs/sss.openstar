@@ -22,13 +22,14 @@ import sss.asado.wallet.UtxoTracker.NewWallet
 import sss.asado.wallet.Wallet
 import sss.ui.Servlet
 import sss.ui.nobu.BlockingWorkers.BlockingTask
+import sss.ui.nobu.UIActor.StartMessageDownload
 
 
 object CreateIdentity {
 
-  case class Fund(nodeIdentity: NodeIdentity, implicit val ui: UI)
+  case class Fund(nodeIdentity: NodeIdentity)(implicit val ui: UI)
   case class Funded(uiId: Option[String], nodeIdentity: NodeIdentity, amount: Long)
-  case class ClaimIdentity(claim: String, claimTag: String, phrase: String, implicit val ui: UI)
+  case class ClaimIdentity(claim: String, claimTag: String, phrase: String)(implicit val ui: UI)
 
 }
 
@@ -48,11 +49,11 @@ class CreateIdentity(userDir: UserDirectory,
 
   def createIdentity: Receive = {
 
-    case c@ClaimIdentity(claimStr: String, claimTag: String, phrase: String, _) =>
+    case c@ClaimIdentity(claimStr: String, claimTag: String, phrase: String) =>
       import c.ui
       claim(claimStr, claimTag, phrase)
 
-    case f@Fund(nodeIdentity: NodeIdentity,_) =>
+    case f@Fund(nodeIdentity: NodeIdentity) =>
       import f.ui
       fund(nodeIdentity)
   }
@@ -67,14 +68,12 @@ class CreateIdentity(userDir: UserDirectory,
         Option(ui.getSession()) match {
           case Some(sess) =>
 
-            //TODO Make This actor die on session expiry.
-            //MessageDownloadActor(validateBounty, nodeIdentity, userWallet, homeDomain) ! CheckForMessages
-
+            messageEventBus publish StartMessageDownload(sessId, nodeIdentity, userWallet, homeDomain)
             UserSession.note(nodeIdentity, userWallet)
             sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
             val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
             ui.getNavigator.addView(mainView.name, mainView)
-            ui.getNavigator.navigateTo(mainView.name)
+            push( ui.getNavigator.navigateTo(mainView.name))
 
           case None =>
             log.error("Couldn't get ui session?")
@@ -97,17 +96,13 @@ class CreateIdentity(userDir: UserDirectory,
 
     if (identityService.accounts(claim).nonEmpty) {
       show(s"Identity $claim already claimed!",Notification.Type.WARNING_MESSAGE)
+      navigateTo(UnlockClaimView.name)
 
-    } else {
-      Try {
-        nodeIdentityManager.get(claim, claimTag, phrase).getOrElse {
-          nodeIdentityManager(claim, claimTag, phrase)
-        }
-      }
+    } else Try(nodeIdentityManager(claim, claimTag, phrase)) match {
 
-    } match {
       case Failure(e) =>
-
+        show(s"Identity claim $claim failed!",Notification.Type.WARNING_MESSAGE)
+        navigateTo(UnlockClaimView.name)
 
       case Success(nId) =>
         val publicKey = nId.publicKey.toBase64Str
@@ -117,16 +112,16 @@ class CreateIdentity(userDir: UserDirectory,
 
           case Success(tr) if (tr.toString.contains("ok")) =>
             messageEventBus publish NewWallet(buildWallet(nId).walletTracker)
-            messageEventBus publish BlockingTask(Fund(nId, ui))
+            messageEventBus publish BlockingTask(Fund(nId))
 
           case Success(s) =>
             log.info(s.toString)
-            show(s"There was a problem with your $claim, try again.", Notification.Type.WARNING_MESSAGE)
+            show(s"There was a problem with your claim $claim, try again.", Notification.Type.WARNING_MESSAGE)
             navigateTo(UnlockClaimView.name)
 
           case Failure(e) =>
             log.info(e.toString)
-            show(s"There was a problem with your $claim, try again.", Notification.Type.WARNING_MESSAGE)
+            show(s"There was a problem with your claim $claim, try again.", Notification.Type.WARNING_MESSAGE)
             navigateTo(UnlockClaimView.name)
 
         }

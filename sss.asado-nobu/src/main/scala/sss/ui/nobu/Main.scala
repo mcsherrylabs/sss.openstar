@@ -3,7 +3,7 @@ package sss.ui.nobu
 
 import java.io.File
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorRef, ActorSystem}
 import com.vaadin.server.{UIClassSelectionEvent, UICreateEvent, UIProvider}
 import com.vaadin.ui.UI
 import sss.ancillary.{DynConfig, _}
@@ -12,7 +12,6 @@ import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
 import sss.asado.wallet.UtxoTracker.NewWallet
 import sss.ui.nobu.NobuUI.SessionEnd
-
 
 import scala.util.Try
 
@@ -30,13 +29,6 @@ object Main {
     lazy implicit val confImp = conf
     implicit val currentBlockHeightImp = () => currentBlockHeight()
 
-
-    lazy implicit val blockingWorkers: BlockingWorkers =
-      BlockingWorkers(
-        new CreateIdentity(users, buildWallet).createIdentity orElse new SendMessage(() => currentBlockHeight(), conf).sendMessage
-      )
-
-
   }
 
   def main(withArgs: Array[String]) {
@@ -52,6 +44,12 @@ object Main {
       Try(QuorumService.create(globalChainId, "bob", "alice", "eve"))
 
       init // <- init delayed until phrase can be initialised.
+
+
+      BlockingWorkers(
+        new CreateIdentity(users, buildWallet).createIdentity
+          orElse new SendMessage(() => currentBlockHeight(), conf).sendMessage
+      )
 
       StateActor(clientNode)
 
@@ -73,7 +71,7 @@ object Main {
       lazy override val httpServer = ServerLauncher(httpConfig,
         ServletContext("/", "WebContent", InitServlet(buildUIServlet, "/*")),
         ServletContext("/console", "", InitServlet(buildConsoleServlet.get, "/console/*")),
-        ServletContext(s"/$configName/*", "", InitServlet(buildDbAccessServlet.get, s"/$configName/*")),
+        ServletContext(s"/$configName", "", InitServlet(buildDbAccessServlet.get, s"/$configName/*")),
         ServletContext("/service", ""))
 
       startHttpServer

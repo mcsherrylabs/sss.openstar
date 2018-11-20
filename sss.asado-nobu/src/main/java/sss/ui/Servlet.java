@@ -16,7 +16,7 @@ import java.util.function.UnaryOperator;
  */
 @SuppressWarnings("serial")
 @WebServlet(value = "/*", asyncSupported = true)
-//@VaadinServletConfiguration(productionMode = false, ui = NobuUI.class)
+//@VaadinServletConfiguration(productionMode = true, ui = NobuUI.class)
 public class Servlet extends VaadinServlet implements SessionDestroyListener {
 
     public final static String SessionAttr = "NOBUATTR";
@@ -28,6 +28,7 @@ public class Servlet extends VaadinServlet implements SessionDestroyListener {
         this.uiProvider = uiProvider;
         this.broadcastSessionEnd = broadcastSessionEnd;
     }
+
 
     @Override
     protected void servletInitialized() throws ServletException {

@@ -20,10 +20,8 @@ import sss.asado.wallet.{Wallet, WalletIndexTracker}
 import sss.ui.design.CenteredAccordianDesign
 import sss.db.Db
 import sss.ui.Servlet
+import sss.ui.nobu.BlockingWorkers.BlockingTask
 import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded}
-import sss.ui.nobu.NobuNodeBridge.{Fail, Notify}
-import sss.ui.nobu.NobuUI.Detach
-import sss.ui.nobu.WaitKeyGenerationView.Update
 
 import scala.util.{Failure, Success, Try}
 
@@ -41,6 +39,7 @@ class UnlockClaimView(userDir: UserDirectory,
                       buildWallet: NodeIdentity => Wallet
                      )(
                       implicit actorSystem:ActorSystem,
+                      val ui: UI,
                       send: Send,
                       nodeIdentityManager: NodeIdentityManager,
                       identityService: IdentityService,
@@ -48,10 +47,9 @@ class UnlockClaimView(userDir: UserDirectory,
                       db:Db,
                       conf:Config,
                       currentBlockHeight: () => Long,
-                      blockingWorkers: BlockingWorkers,
                       messageEventBus: MessageEventBus,
                       chainId: GlobalChainIdMask
-                      ) extends CenteredAccordianDesign with View with Helpers with Logging {
+                      ) extends CenteredAccordianDesign with View with LayoutHelper with Logging {
 
   private val claimBtnVal = claimBtn
   private val unlockBtnVal = unlockBtn
@@ -90,8 +88,7 @@ class UnlockClaimView(userDir: UserDirectory,
     val phraseRetype = claimPhraseRetype.getValue
     if (phrase != phraseRetype) Notification.show(s"The passwords do not match!", Notification.Type.ERROR_MESSAGE)
     else {
-      //TODO
-      blockingWorkers.submit(ClaimIdentity(claim, claimTag, phrase, ui))
+      messageEventBus publish BlockingTask(ClaimIdentity(claim, claimTag, phrase))
       navigator.navigateTo(WaitKeyGenerationView.name)
     }
   })
@@ -127,17 +124,16 @@ class UnlockClaimView(userDir: UserDirectory,
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
     Option(getSession().getAttribute(Servlet.SessionAttr)) match {
-      case None =>
-        val keyNames = userDir.listUsers
-        if(keyNames.isEmpty) showClaim
-        else showUnlock
       case Some(loggedIn: String) =>
         UserSession(loggedIn) foreach { us =>
           val mainView = new NobuMainLayout(userDir, us.userWallet, us.nodeId)
           navigator.addView(mainView.name, mainView)
           navigator.navigateTo(mainView.name)
         }
-
+      case _ =>
+        val keyNames = userDir.listUsers
+        if(keyNames.isEmpty) showClaim
+        else showUnlock
     }
   }
 

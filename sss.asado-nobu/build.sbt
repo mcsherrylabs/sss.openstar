@@ -31,7 +31,8 @@ libraryDependencies ++= Seq(
   //"org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   "org.scalatra" %% "scalatra" % Vers.scalatraVer,
   "io.spray" %%  "spray-json" % Vers.sprayJsonVer,
-  "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
+  "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer,
+  "ch.qos.logback" % "logback-classic" % "1.0.0" % "runtime"
 )
 
 

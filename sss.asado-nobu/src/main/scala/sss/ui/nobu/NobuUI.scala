@@ -1,7 +1,8 @@
 package sss.ui.nobu
 
 
-import com.vaadin.annotations.{PreserveOnRefresh, Push, Theme}
+import com.vaadin.annotations.{PreserveOnRefresh, Push, Theme, VaadinServletConfiguration}
+import com.vaadin.annotations
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
@@ -12,11 +13,12 @@ import sss.ui.Servlet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
 
+
 /**
   * Created by alan on 6/10/16.
   */
 object NobuUI {
-  case class Detach(ui: Option[String]) extends AsadoEvent
+  case class Detach(ui: Int) extends AsadoEvent
 
   case class SessionEnd(str: String)  extends AsadoEvent
 
@@ -25,7 +27,6 @@ object NobuUI {
 
 @Theme("template")
 @Push
-@PreserveOnRefresh
 class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Logging {
 
   log.info("Constructing new NobuUI")
@@ -38,7 +39,6 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
     import clientNode.{actorSystem,
       globalChainId,
       send,
-      blockingWorkers,
       users,
       messageEventBus,
       nodeIdentityManager,
@@ -51,8 +51,14 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
 
 
-    VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1)
+    UIActor(clientNode, this)
 
+
+    VaadinSession.getCurrent().getSession.getId
+    VaadinSession.getCurrent.getSession.setMaxInactiveInterval(-1)
+
+
+    implicit val ui: UI = this
 
     val navigator = new Navigator(this, this)
     navigator.addViewChangeListener(this)
@@ -85,7 +91,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
 
   override def detach(): Unit = {
-    clientNode.messageEventBus publish Detach(Option(this.getEmbedId))
+    clientNode.messageEventBus publish Detach(this.getUIId)
     super.detach()
   }
 }

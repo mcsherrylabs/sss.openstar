@@ -15,6 +15,8 @@ trait BlockingWorkerUIHelper {
 
   self: Logging =>
 
+  protected def sessId(implicit ui: UI): String = ui.getSession.getSession.getId
+
   def push(f: => Unit)(implicit ui: UI): Unit = PushHelper.push(f)
 
   protected def show(msg: String, t: Notification.Type)(implicit ui: UI): Unit = {
@@ -36,14 +38,13 @@ object BlockingWorkers {
 
   case class BlockingTask(any: Any) extends AsadoEvent
 
-  def apply(r: Receive)(implicit actorSystem: ActorSystem, messageEventBus: MessageEventBus): BlockingWorkers = {
+  def apply(r: Receive)(implicit actorSystem: ActorSystem, messageEventBus: MessageEventBus): ActorRef = {
 
       val router = actorSystem.actorOf(RoundRobinPool(16)
         .props(Props(classOf[BlockingWorker], r))
         .withDispatcher("blocking-dispatcher"), "router")
       messageEventBus.subscribe(classOf[BlockingTask])(router)
-
-      new BlockingWorkers(router)
+    router
   }
 }
 
@@ -58,8 +59,3 @@ class BlockingWorker(r: Receive) extends Actor with ActorLogging {
   }
 }
 
-class BlockingWorkers(router: ActorRef) {
-
-  def submit(a: Any)(implicit sender: ActorRef = ActorRef.noSender) = router.tell(a, sender)
-
-}
