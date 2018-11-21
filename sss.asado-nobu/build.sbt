@@ -15,7 +15,7 @@ resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repo
 
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "8.5.2"
+val vaadinVer = Vers.vaadinVer
 
 coverageEnabled := false
 

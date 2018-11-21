@@ -6,8 +6,7 @@ import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
 import sss.analysis.AnalysisMessages.Message
 import sss.analysis.{Analysis, AnalysisMessages}
-import sss.asado.nodebuilder.ClientNode
-import sss.analysis.Main.dateFormat
+import sss.analysis.Main.{ClientNode, dateFormat}
 
 import scala.util.{Failure, Success, Try}
 

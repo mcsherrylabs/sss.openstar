@@ -4,12 +4,15 @@ package sss.ui.nobu
 import akka.actor.{ActorRef, ActorSystem}
 import akka.actor.Actor.Receive
 import com.typesafe.config.Config
+import com.vaadin.server.VaadinSession
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
 import sss.asado.{Send, UniqueNodeIdentifier}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager}
 import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.identityledger.IdentityService
+import sss.asado.message.MessageDownloadActor
+import sss.asado.message.MessageDownloadActor.CheckForMessages
 import sss.asado.state.HomeDomain
 import sss.db.Db
 import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded}
@@ -22,7 +25,7 @@ import sss.asado.wallet.UtxoTracker.NewWallet
 import sss.asado.wallet.Wallet
 import sss.ui.Servlet
 import sss.ui.nobu.BlockingWorkers.BlockingTask
-import sss.ui.nobu.UIActor.StartMessageDownload
+import sss.ui.nobu.UIActor.TrackSessionRef
 
 
 object CreateIdentity {
@@ -68,11 +71,7 @@ class CreateIdentity(userDir: UserDirectory,
         Option(ui.getSession()) match {
           case Some(sess) =>
 
-            messageEventBus publish StartMessageDownload(sessId, nodeIdentity, userWallet, homeDomain)
-            UserSession.note(nodeIdentity, userWallet)
-            sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
-            val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
-            ui.getNavigator.addView(mainView.name, mainView)
+            val mainView: NobuMainLayout = setUpMainLayout(nodeIdentity, userWallet, sess)
             push( ui.getNavigator.navigateTo(mainView.name))
 
           case None =>
@@ -88,13 +87,27 @@ class CreateIdentity(userDir: UserDirectory,
 
   }
 
+  def setUpMainLayout(nodeIdentity: NodeIdentity, userWallet: Wallet, sess: VaadinSession)(implicit ui: UI): NobuMainLayout = {
+    val msgDownRef = MessageDownloadActor(ValidateBounty.validateBounty, nodeIdentity, userWallet, homeDomain)
+    msgDownRef ! CheckForMessages
+
+    messageEventBus publish TrackSessionRef(sessId, msgDownRef)
+    UserSession.note(nodeIdentity, userWallet)
+    sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
+    val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
+    ui.getNavigator.addView(mainView.name, mainView)
+    mainView
+  }
+
 
   def claim(
             claim: String,
             claimTag: String,
             phrase: String)(implicit ui: UI) = {
 
-    if (identityService.accounts(claim).nonEmpty) {
+    if (!IdentityService.validateIdentity(claim)) {
+      show(s"Identity $claim is invalid, simple lowercase characters only!",Notification.Type.WARNING_MESSAGE)
+    } else if (identityService.accounts(claim).nonEmpty) {
       show(s"Identity $claim already claimed!",Notification.Type.WARNING_MESSAGE)
       navigateTo(UnlockClaimView.name)
 

@@ -5,6 +5,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.typesafe.config.Config
 import com.vaadin.navigator.View
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
+import com.vaadin.server.VaadinSession
 import com.vaadin.ui._
 import sss.ancillary.Logging
 import sss.asado.{Send, UniqueNodeIdentifier}
@@ -22,6 +23,7 @@ import sss.db.Db
 import sss.ui.Servlet
 import sss.ui.nobu.BlockingWorkers.BlockingTask
 import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded}
+import sss.ui.nobu.UIActor.TrackSessionRef
 
 import scala.util.{Failure, Success, Try}
 
@@ -49,7 +51,11 @@ class UnlockClaimView(userDir: UserDirectory,
                       currentBlockHeight: () => Long,
                       messageEventBus: MessageEventBus,
                       chainId: GlobalChainIdMask
-                      ) extends CenteredAccordianDesign with View with LayoutHelper with Logging {
+                      ) extends CenteredAccordianDesign
+  with View
+  with LayoutHelper
+  with Notifications
+  with Logging {
 
   private val claimBtnVal = claimBtn
   private val unlockBtnVal = unlockBtn
@@ -83,13 +89,17 @@ class UnlockClaimView(userDir: UserDirectory,
 
   claimBtnVal.addClickListener(_ => {
     val claim = claimIdentityText.getValue
-    val claimTag = claimTagText.getValue
-    val phrase = claimPhrase.getValue
-    val phraseRetype = claimPhraseRetype.getValue
-    if (phrase != phraseRetype) Notification.show(s"The passwords do not match!", Notification.Type.ERROR_MESSAGE)
-    else {
-      messageEventBus publish BlockingTask(ClaimIdentity(claim, claimTag, phrase))
-      navigator.navigateTo(WaitKeyGenerationView.name)
+    if(!IdentityService.validateIdentity(claim)) {
+      showWarn(s"Lowercase with no spaces only please.")
+    } else {
+      val claimTag = claimTagText.getValue
+      val phrase = claimPhrase.getValue
+      val phraseRetype = claimPhraseRetype.getValue
+      if (phrase != phraseRetype) showWarn(s"The passwords do not match!")
+      else {
+        messageEventBus publish BlockingTask(ClaimIdentity(claim, claimTag, phrase))
+        navigator.navigateTo(WaitKeyGenerationView.name)
+      }
     }
   })
 
@@ -103,16 +113,14 @@ class UnlockClaimView(userDir: UserDirectory,
       Try(nodeIdentityManager(identity, tag, phrase)) match {
         case Failure(e) =>
           log.error("Failed to unlock {} {}", identity, e)
-          Notification.show(s"${e.getMessage}")
+          show(s"${e.getMessage}")
 
         case Success(nodeIdentity) =>
           val userWallet = buildWallet(nodeIdentity)
           Option(ui.getSession()) match {
             case Some(sess) =>
-              UserSession.note(nodeIdentity, userWallet)
-              sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
-              val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
-              ui.getNavigator.addView(mainView.name, mainView)
+
+              val mainView: NobuMainLayout = setupMainLayout(nodeIdentity, userWallet, sess)
               ui.getNavigator.navigateTo(mainView.name)
             case None =>
               log.error("How can there be no session?")
@@ -121,6 +129,18 @@ class UnlockClaimView(userDir: UserDirectory,
       }
     }
   })
+
+  private def setupMainLayout(nodeIdentity: NodeIdentity, userWallet: Wallet, sess: VaadinSession) = {
+    val msgDownRef = MessageDownloadActor(ValidateBounty.validateBounty, nodeIdentity, userWallet, homeDomain)
+    msgDownRef ! CheckForMessages
+
+    messageEventBus publish TrackSessionRef(sessId, msgDownRef)
+    UserSession.note(nodeIdentity, userWallet)
+    sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
+    val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
+    ui.getNavigator.addView(mainView.name, mainView)
+    mainView
+  }
 
   override def enter(viewChangeEvent: ViewChangeEvent): Unit = {
     Option(getSession().getAttribute(Servlet.SessionAttr)) match {

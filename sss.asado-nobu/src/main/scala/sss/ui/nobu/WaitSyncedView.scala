@@ -9,7 +9,7 @@ import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.network.{ConnectionLost, MessageEventBus}
 import sss.asado.peers.PeerManager.PeerConnection
 import sss.asado.network.MessageEventBus._
-import sss.ui.nobu.NobuUI.{Detach, SessionEnd}
+import sss.ui.nobu.NobuUI.Detach
 import sss.ui.nobu.StateActor.StateQueryStatus
 
 import collection.JavaConverters._
@@ -36,7 +36,7 @@ class WaitSyncedView(implicit
       e.getButton.setCaption(makeCaption())
     )
 
-  private val ref = actorSystem.actorOf(Props(WaitSyncActor), s"WaitSync_${sessId}")
+  private val ref = actorSystem.actorOf(Props(WaitSyncActor), s"WaitSync_${ui.getUIId}_${System.currentTimeMillis()}")
 
   messageEventBus.subscribe(classOf[Detach])(ref)
 
@@ -66,7 +66,7 @@ class WaitSyncedView(implicit
 
     override def receive: Receive = {
 
-      case Detach(uiId) if(getUI.getUIId == uiId) =>
+      case Detach(uiId) if(ui.getUIId == uiId) =>
         context stop self
 
       case BlockClosedEvent(`chainId`, height) =>

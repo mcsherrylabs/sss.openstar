@@ -12,5 +12,5 @@ object Vers {
   val sprayJsonVer = "1.3.2"
   val restyVer = "0.3.2"
   val commonsNetVer = "3.+"
-  val vaadinVer = "7.7.13"
+  val vaadinVer = "8.5.2"
 }

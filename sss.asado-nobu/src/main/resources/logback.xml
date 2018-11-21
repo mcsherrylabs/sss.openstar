@@ -41,6 +41,9 @@
     <logger name="sss.asado.network.NetworkControllerActor">
         <level value="INFO"/>
     </logger>
+    <logger name="sss.asado.network.ConnectionHandlerActor">
+        <level value="INFO"/>
+    </logger>
     <logger name="akka.io.TcpOutgoingConnection">
         <level value="INFO"/>
     </logger>

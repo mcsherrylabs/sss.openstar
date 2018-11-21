@@ -17,7 +17,7 @@ import java.util.function.UnaryOperator;
 @SuppressWarnings("serial")
 @WebServlet(value = "/*", asyncSupported = true)
 //@VaadinServletConfiguration(productionMode = true, ui = NobuUI.class)
-public class Servlet extends VaadinServlet implements SessionDestroyListener {
+public class Servlet extends VaadinServlet {
 
     public final static String SessionAttr = "NOBUATTR";
 
@@ -32,30 +32,25 @@ public class Servlet extends VaadinServlet implements SessionDestroyListener {
 
     @Override
     protected void servletInitialized() throws ServletException {
-        getService().addSessionInitListener(new SessionInitListener() {
-            @Override
-            public void sessionInit(SessionInitEvent event) throws ServiceException {
-                event.getSession().addUIProvider(uiProvider);
+        getService().addSessionDestroyListener( event -> {
+            if (event.getSession() != null) {
+                String attr = event.getSession().getSession().getId();
+                if (attr != null) {
+                    broadcastSessionEnd.apply(attr);
+                }
             }
+
         });
+
+        getService().addSessionInitListener( event ->
+                event.getSession().addUIProvider(uiProvider)
+        );
     }
 
 
     @Override
     public void destroy() {
-
-        log("Terminated actor system!");
         super.destroy();
     }
 
-    @Override
-    public void sessionDestroy(SessionDestroyEvent event) {
-        if(event.getSession() != null) {
-            Object attr = event.getSession().getAttribute(SessionAttr);
-            if(attr != null) {
-                broadcastSessionEnd.apply(attr.toString());
-            }
-        }
-
-    }
 }

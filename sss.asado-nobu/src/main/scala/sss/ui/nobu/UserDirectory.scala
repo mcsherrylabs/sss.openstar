@@ -2,7 +2,7 @@ package sss.ui.nobu
 
 import java.io.File
 
-import com.vaadin.data.provider.ListDataProvider
+
 import com.vaadin.ui.ComboBox
 import scala.collection.JavaConverters._
 

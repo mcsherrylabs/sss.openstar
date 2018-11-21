@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{View, ViewBeforeLeaveEvent}
+import com.vaadin.server.Page
 import com.vaadin.shared.Registration
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
@@ -29,9 +30,10 @@ import scala.util.{Failure, Success, Try}
   */
 
 object NobuMainLayout {
-  case class ShowWrite(to: String = "", text: String = "")
-  case class Show(s: String)
-  case object ShowBalance
+
+  type ShowWrite = (Option[String], String) => Unit
+
+
 }
 
 class NobuMainLayout(
@@ -69,7 +71,7 @@ class NobuMainLayout(
   val balBtnLbl = balanceValuBtnLbl
 
 
-  private def showWrite(to: String = "", text: String = ""): Unit = {
+  private def showWrite(to: Option[String] = None, text: String = ""): Unit = {
     itemPanelVerticalLayout.removeAllComponents()
     itemPanelVerticalLayout.addComponent(new WriteLayout(showInBox, userId.id, to, text, userDir))
   }

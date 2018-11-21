@@ -3,7 +3,7 @@ package sss.ui.nobu
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Actor.Receive
-import akka.actor.{Actor, ActorRef, ActorSystem, Props}
+import akka.actor.{Actor, ActorRef, ActorSystem, PoisonPill, Props, Terminated}
 import com.vaadin.ui.UI
 import sss.asado.block.{NotSynchronized, Synchronized}
 import sss.asado.message.{FailureResponse, MessageDownloadActor, SuccessResponse}
@@ -44,10 +44,8 @@ object UIActor {
 
   private val uiActors: AtomicRefMap = new AtomicReference[Map[String, ActorRef]](Map.empty)
 
-  case class StartMessageDownload(sessId: String,
-                                  nodeIdentity: NodeIdentity,
-                                  wallet: Wallet,
-                                  home: HomeDomain) extends AsadoEvent
+  case class TrackSessionRef(sessId: String,
+                             ref: ActorRef) extends AsadoEvent
 
   case class UnTrackLodgements(sessId: String) extends AsadoEvent
   case class TrackLodgements(sessId: String, who: UniqueNodeIdentifier, f: () => Unit) extends AsadoEvent
@@ -56,13 +54,13 @@ object UIActor {
 
   def apply(clientNode: ClientNode, ui: UI)(implicit as: ActorSystem): ActorRef = {
 
-    def makeRef(id: String): ActorRef = {
-      val ref = as.actorOf(Props(classOf[UIActor], clientNode, uiActors, ui), s"UIActor${id}")
+    def makeRef(sessId: String): ActorRef = {
+      val ref = as.actorOf(Props(classOf[UIActor], clientNode, uiActors, ui), s"UIActor${sessId}")
       clientNode.messageEventBus.subscribe(classOf[Detach])(ref)
       clientNode.messageEventBus.subscribe(MessageKeys.MessageResponse)(ref)
       clientNode.messageEventBus.subscribe(classOf[TrackMsgTxId])(ref)
       clientNode.messageEventBus.subscribe(classOf[UnTrackLodgements])(ref)
-      clientNode.messageEventBus.subscribe(classOf[StartMessageDownload])(ref)
+      clientNode.messageEventBus.subscribe(classOf[TrackSessionRef])(ref)
       clientNode.messageEventBus.subscribe(classOf[TrackLodgements])(ref)
       clientNode.messageEventBus.subscribe(classOf[NewLodgement])(ref)
       //messageEventBus.subscribe (classOf[NewInBoxMessage])(mainNobuRef) <-- TODO
@@ -82,7 +80,6 @@ object UIActor {
 
   }
 
-  case object NoUI
 }
 
 class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
@@ -94,6 +91,7 @@ class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
 
   override def postStop(): Unit = {
     log.info(s"UI Actor $sessId is down, ${refs.get.size} remain")
+    trackingRefs foreach (_ ! PoisonPill)
   }
 
   private val chainId = clientNode.chain.id
@@ -101,6 +99,7 @@ class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
 
   override def receive: Receive = sessionEnd(sessId) orElse messages orElse lodgements
 
+  private var trackingRefs: Set[ActorRef] = Set.empty
   private var txIds: Set[String] = Set.empty
   private var lodgementsFor: Option[(String, () => Unit)] = None
 
@@ -118,17 +117,21 @@ class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
 
   private def messages: Receive = {
 
-    case StartMessageDownload(`sessId`, nodeIdentity, userWallet, homeDomain) =>
-      MessageDownloadActor(validateBounty, nodeIdentity, userWallet, homeDomain) ! CheckForMessages
+    case Terminated(ref) =>
+      trackingRefs -= ref
+
+    case TrackSessionRef(`sessId`, ref) =>
+      trackingRefs += ref
+      context watch ref
 
     case TrackMsgTxId(`sessId`, txIdStr) =>
        txIds += txIdStr
 
-    case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, resp: SuccessResponse) if (txIds.contains(resp.txIdStr)) =>
+    case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, resp: SuccessResponse) if txIds.contains(resp.txIdStr) =>
       push (show(s"Message away!"))
       txIds -= resp.txIdStr
 
-    case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, resp: FailureResponse) if (txIds.contains(resp.txIdStr)) =>
+    case IncomingMessage(`chainId`, MessageKeys.MessageResponse, _, resp: FailureResponse) if txIds.contains(resp.txIdStr) =>
       push (showWarn(s"Failed to send message - ${resp.info}"))
       txIds -= resp.txIdStr
 

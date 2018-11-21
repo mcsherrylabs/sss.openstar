@@ -19,7 +19,8 @@ import sss.asado.wallet.WalletPersistence
 import sss.asado.wallet.WalletPersistence.Lodgement
 import sss.db.Db
 import sss.ui.design.MessageDesign
-import sss.ui.nobu.NobuNodeBridge.{MessageToArchive}
+import sss.ui.nobu.NobuMainLayout.ShowWrite
+import sss.ui.nobu.NobuNodeBridge.MessageToArchive
 import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
@@ -91,17 +92,17 @@ trait MsgDetails {
 }
 
 class MessageComponent(parentLayout: Layout,
-                       showWrite: (String, String) => Unit,
+                       showWrite: ShowWrite,
                        protected val msgDetails: MsgDetails
                        ) extends MessageDesign {
 
   forwardMsgBtn.addClickListener(_ => {
-      showWrite("", msgDetails.text)
+      showWrite(None, msgDetails.text)
     }
   )
 
   replyMsgBtn.addClickListener(_ => {
-    showWrite(msgDetails.fromTo, msgDetails.text)
+    showWrite(Option(msgDetails.fromTo), msgDetails.text)
   })
 
   messageText.setValue(msgDetails.text)
@@ -112,13 +113,11 @@ class MessageComponent(parentLayout: Layout,
 
 
 
-class NewMessageComponent(parentLayout: Layout, showWrite: (String, String) => Unit, inBox: MessageInBox, msg:Message)
+class NewMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:Message)
                          (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends
   MessageComponent(parentLayout,
     showWrite,
     toDetails(msg)) {
-
-  //if(msgDetails.canClaim) mainActorRef ! ClaimBounty(msg.index, msg.tx.toSignedTxEntry, msgDetails.secret)
 
   deleteMsgBtn.addClickListener(_ => {
       inBox.archive(msg.index)
@@ -127,7 +126,7 @@ class NewMessageComponent(parentLayout: Layout, showWrite: (String, String) => U
 
 }
 
-class DeleteMessageComponent(parentLayout: Layout, showWrite: (String, String) => Unit, inBox: MessageInBox, msg:Message)
+class DeleteMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:Message)
                             (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
   extends MessageComponent(parentLayout, showWrite,
     toDetails(msg)) {
@@ -140,7 +139,7 @@ class DeleteMessageComponent(parentLayout: Layout, showWrite: (String, String) =
   })
 }
 
-class SentMessageComponent(parentLayout: Layout, showWrite: (String, String) => Unit, inBox: MessageInBox, msg:SavedAddressedMessage)
+class SentMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:SavedAddressedMessage)
                           (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
   extends MessageComponent(parentLayout, showWrite, toDetails(msg)) {
 

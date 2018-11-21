@@ -3,9 +3,9 @@ package sss.ui
 import akka.actor.{ActorRef, Props}
 import akka.agent.Agent
 import com.vaadin.ui._
+import sss.analysis.Main.ClientNode
 import sss.analysis._
 import sss.ancillary.Logging
-import sss.asado.nodebuilder.ClientNode
 import sss.ui.DashBoard._
 import sss.ui.reactor._
 

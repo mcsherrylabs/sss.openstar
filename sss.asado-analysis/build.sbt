@@ -41,7 +41,7 @@ libraryDependencies ++= Seq(
   // https://mvnrepository.com/artifact/javax.portlet/portlet-api
   "javax.portlet" % "portlet-api" % "2.0",
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer,
-  "org.vaadin.addon" % "jfreechartwrapper" % "3.0.3" excludeAll ExclusionRule(organization = "javax.servlet"),
+  "org.vaadin.addon" % "jfreechartwrapper" % "4.0.0" excludeAll ExclusionRule(organization = "javax.servlet"),
 
 )
 

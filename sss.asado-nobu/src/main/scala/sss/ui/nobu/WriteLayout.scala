@@ -9,7 +9,7 @@ import sss.asado.network.MessageEventBus
 import sss.ui.design.WriteDesign
 import sss.ui.nobu.BlockingWorkers.BlockingTask
 import sss.ui.nobu.SendMessage.MessageToSend
-
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
   */
 
 
-class WriteLayout(showInBox: => Unit, from: String, to: String, text: String, userDir: UserDirectory)
+class WriteLayout(showInBox: => Unit, from: String, to: Option[String], text: String, userDir: UserDirectory)
                  (implicit identityQuery: IdentityServiceQuery,
                   val ui: UI,
                   messageEventBus: MessageEventBus)
@@ -27,15 +27,15 @@ class WriteLayout(showInBox: => Unit, from: String, to: String, text: String, us
     with Notifications
 {
 
-
   import NobuUI.CRLF
 
   scheduleCombo setVisible false
 
+  toCombo.setItems(identityQuery.list().asJava)
   toCombo.setEmptySelectionAllowed(true)
-  userDir.loadCombo(toCombo)
 
-  toCombo.setValue(to)
+  to map (toCombo.setValue(_))
+
 
   if (text.length > 0) messageText.setValue(CRLF + text)
 
@@ -77,7 +77,7 @@ class WriteLayout(showInBox: => Unit, from: String, to: String, text: String, us
   private def sendMessage(amount: Int, to: String, ac: PublicKeyAccount): Unit = {
     Option(messageText.getValue) match {
       case None => showWarn("Cannot send an empty message")
-      case Some(text) if text.length == 0 =>
+      case Some(text) if text.trim.length == 0 =>
         showWarn("Cannot send an empty message")
       case Some(text) =>
         sendButton setEnabled false
