@@ -1,27 +1,23 @@
 package sss.ui.nobu
 
-import akka.actor.ActorRef
 import com.vaadin.server.FontAwesome
-import com.vaadin.ui.{Layout, Notification}
+import com.vaadin.ui.Layout
 import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.Logging
 import sss.asado.account.NodeIdentity
-import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.asado.balanceledger._
-import sss.asado.contract.SingleIdentityEnc
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
 import sss.asado.message.MessageEcryption.EncryptedMessage
-import sss.asado.message.{Message, MessageInBox, MessagePayloadDecoder, SavedAddressedMessage}
-import sss.asado.state.HomeDomain
-import sss.asado.wallet.WalletPersistence
-import sss.asado.wallet.WalletPersistence.Lodgement
-import sss.db.Db
+import sss.asado.message.{
+  Message,
+  MessageInBox,
+  MessagePayloadDecoder,
+  SavedAddressedMessage
+}
 import sss.ui.design.MessageDesign
 import sss.ui.nobu.NobuMainLayout.ShowWrite
-import sss.ui.nobu.NobuNodeBridge.MessageToArchive
-import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
 
@@ -29,54 +25,62 @@ import scala.util.{Failure, Success, Try}
   * Created by alan on 6/10/16.
   */
 object MessageComponent extends Logging {
- val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
+  val dtFmt = DateTimeFormat.forPattern("dd MMM yyyy HH:mm")
 
-  def toDetails(savedMsg: SavedAddressedMessage)
-           (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
+  def toDetails(savedMsg: SavedAddressedMessage)(
+      implicit nodeIdentity: NodeIdentity,
+      identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 
-    val bount = savedMsg.addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry.txEntryBytes.toTx.outs(1).amount
-    val enc = MessagePayloadDecoder.decode(savedMsg.addrMsg.msgPayload).asInstanceOf[EncryptedMessage]
+    val bount =
+      savedMsg.addrMsg.ledgerItem.txEntryBytes.toSignedTxEntry.txEntryBytes.toTx
+        .outs(1)
+        .amount
+    val enc = MessagePayloadDecoder
+      .decode(savedMsg.addrMsg.msgPayload)
+      .asInstanceOf[EncryptedMessage]
 
-        Try(identityServiceQuery.account(savedMsg.to)) match {
-          case Failure(e) => throw e
-          case Success(recipient) =>
-            val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
-            new MsgDetails {
-              override val secret: Array[Byte] = msgText.secret
-              override val text: String = msgText.text
-              override val fromTo: String = savedMsg.to
-              override val bounty: Int = bount
-              override val createdAt: LocalDateTime = savedMsg.savedAt
-              override val canClaim: Boolean = false
-            }
+    Try(identityServiceQuery.account(savedMsg.to)) match {
+      case Failure(e) => throw e
+      case Success(recipient) =>
+        val msgText = enc.decrypt(nodeIdentity, recipient.publicKey)
+        new MsgDetails {
+          override val secret: Array[Byte] = msgText.secret
+          override val text: String = msgText.text
+          override val fromTo: String = savedMsg.to
+          override val bounty: Int = bount
+          override val createdAt: LocalDateTime = savedMsg.savedAt
+          override val canClaim: Boolean = false
         }
+    }
 
   }
 
-
-  def toDetails(msg: Message)
-           (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery): MsgDetails = {
+  def toDetails(msg: Message)(
+      implicit nodeIdentity: NodeIdentity,
+      identityServiceQuery: IdentityServiceQuery): MsgDetails = {
 
     val tx = msg.tx.toSignedTxEntry.txEntryBytes.toTx
     val bount = tx.outs(1).amount
 
-    val enc = MessagePayloadDecoder.decode(msg.msgPayload).asInstanceOf[EncryptedMessage]
+    val enc = MessagePayloadDecoder
+      .decode(msg.msgPayload)
+      .asInstanceOf[EncryptedMessage]
 
-        Try(identityServiceQuery.account(msg.from)) match {
-          case Failure(e) => throw e
-          case Success(sender) =>
-            val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
-            new MsgDetails {
-              override val secret: Array[Byte] = msgText.secret
-              override val text: String = msgText.text
-              override val fromTo: String = msg.from
-              override val bounty: Int = bount
-              override val createdAt: LocalDateTime = msg.createdAt
-              override val canClaim: Boolean = true
-            }
+    Try(identityServiceQuery.account(msg.from)) match {
+      case Failure(e) => throw e
+      case Success(sender) =>
+        val msgText = enc.decrypt(nodeIdentity, sender.publicKey)
+        new MsgDetails {
+          override val secret: Array[Byte] = msgText.secret
+          override val text: String = msgText.text
+          override val fromTo: String = msg.from
+          override val bounty: Int = bount
+          override val createdAt: LocalDateTime = msg.createdAt
+          override val canClaim: Boolean = true
         }
-
     }
+
+  }
 
 }
 
@@ -93,13 +97,12 @@ trait MsgDetails {
 
 class MessageComponent(parentLayout: Layout,
                        showWrite: ShowWrite,
-                       protected val msgDetails: MsgDetails
-                       ) extends MessageDesign {
+                       protected val msgDetails: MsgDetails)
+    extends MessageDesign {
 
   forwardMsgBtn.addClickListener(_ => {
-      showWrite(None, msgDetails.text)
-    }
-  )
+    showWrite(None, msgDetails.text)
+  })
 
   replyMsgBtn.addClickListener(_ => {
     showWrite(Option(msgDetails.fromTo), msgDetails.text)
@@ -111,25 +114,28 @@ class MessageComponent(parentLayout: Layout,
 
 }
 
-
-
-class NewMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:Message)
-                         (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery) extends
-  MessageComponent(parentLayout,
-    showWrite,
-    toDetails(msg)) {
+class NewMessageComponent(parentLayout: Layout,
+                          showWrite: ShowWrite,
+                          inBox: MessageInBox,
+                          msg: Message)(
+    implicit nodeIdentity: NodeIdentity,
+    identityServiceQuery: IdentityServiceQuery)
+    extends MessageComponent(parentLayout, showWrite, toDetails(msg)) {
 
   deleteMsgBtn.addClickListener(_ => {
-      inBox.archive(msg.index)
-      parentLayout.removeComponent(NewMessageComponent.this)
+    inBox.archive(msg.index)
+    parentLayout.removeComponent(NewMessageComponent.this)
   })
 
 }
 
-class DeleteMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:Message)
-                            (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
-  extends MessageComponent(parentLayout, showWrite,
-    toDetails(msg)) {
+class DeleteMessageComponent(parentLayout: Layout,
+                             showWrite: ShowWrite,
+                             inBox: MessageInBox,
+                             msg: Message)(
+    implicit nodeIdentity: NodeIdentity,
+    identityServiceQuery: IdentityServiceQuery)
+    extends MessageComponent(parentLayout, showWrite, toDetails(msg)) {
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
 
@@ -139,9 +145,13 @@ class DeleteMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: 
   })
 }
 
-class SentMessageComponent(parentLayout: Layout, showWrite: ShowWrite, inBox: MessageInBox, msg:SavedAddressedMessage)
-                          (implicit nodeIdentity: NodeIdentity, identityServiceQuery: IdentityServiceQuery)
-  extends MessageComponent(parentLayout, showWrite, toDetails(msg)) {
+class SentMessageComponent(parentLayout: Layout,
+                           showWrite: ShowWrite,
+                           inBox: MessageInBox,
+                           msg: SavedAddressedMessage)(
+    implicit nodeIdentity: NodeIdentity,
+    identityServiceQuery: IdentityServiceQuery)
+    extends MessageComponent(parentLayout, showWrite, toDetails(msg)) {
 
   deleteMsgBtn.setIcon(FontAwesome.TRASH_O)
 

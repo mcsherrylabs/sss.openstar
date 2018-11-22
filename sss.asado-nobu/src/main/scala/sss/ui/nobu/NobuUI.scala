@@ -20,6 +20,8 @@ import sss.ui.nobu.NobuUI.Detach
 object NobuUI {
   case class Detach(ui: Int) extends AsadoEvent
 
+  val SessionAttr = "NOBU"
+
   case class SessionEnd(str: String)  extends AsadoEvent
 
   lazy val CRLF = System.getProperty("line.separator")
@@ -33,7 +35,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
   override def init(vaadinRequest: VaadinRequest): Unit = {
 
-    val sessIntact = Option(getSession().getAttribute(Servlet.SessionAttr))
+    val sessIntact = Option(getSession().getAttribute(NobuUI.SessionAttr))
     log.info(s"init NobuUI $sessIntact")
 
     import clientNode.{actorSystem,
@@ -77,7 +79,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
   override def beforeViewChange(viewChangeEvent: ViewChangeEvent): Boolean = {
 
-    (Option(getSession().getAttribute(Servlet.SessionAttr)), viewChangeEvent.getViewName) match {
+    (Option(getSession().getAttribute(NobuUI.SessionAttr)), viewChangeEvent.getViewName) match {
       case (_, WaitKeyGenerationView.name) => true
       case (_, WaitSyncedView.name) => true
       case (_, UnlockClaimView.name) => true

@@ -93,7 +93,7 @@ class CreateIdentity(userDir: UserDirectory,
 
     messageEventBus publish TrackSessionRef(sessId, msgDownRef)
     UserSession.note(nodeIdentity, userWallet)
-    sess.setAttribute(Servlet.SessionAttr, nodeIdentity.id)
+    sess.setAttribute(NobuUI.SessionAttr, nodeIdentity.id)
     val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
     ui.getNavigator.addView(mainView.name, mainView)
     mainView

@@ -5,9 +5,10 @@ import com.vaadin.server.{UIClassSelectionEvent, UICreateEvent, UIProvider}
 import com.vaadin.ui.UI
 import org.joda.time.format.DateTimeFormat
 import sss.ancillary.{DynConfig, _}
-import sss.asado.nodebuilder.PartialNode
+import sss.asado.nodebuilder.{HomeDomainBuilder, PartialNode}
+import sss.asado.peers.PeerManager.IdQuery
 import sss.asado.quorumledger.QuorumService
-import sss.ui.{ExportServlet, MainUI}
+import sss.ui.{ExportServlet, GenericUIProvider, MainUI}
 
 import scala.util.Try
 
@@ -16,7 +17,7 @@ import scala.util.Try
   */
 object Main {
 
-  trait ClientNode extends PartialNode
+  trait ClientNode extends PartialNode with HomeDomainBuilder
 
   val dateFormat =  DateTimeFormat.forPattern("yyyy-MM-dd HH:mm")
 
@@ -33,7 +34,13 @@ object Main {
 
       init // <- init delayed until phrase can be initialised.
 
+      startUnsubscribedHandler
+
+      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
+
       clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
+
+      synchronization.startSync
 
       val httpConfig = DynConfig[ServerConfig]("httpServerConfig")
 
@@ -44,17 +51,7 @@ object Main {
 
       startHttpServer
 
-      class AnalysisUIProvider extends UIProvider {
-
-        override def getUIClass(event: UIClassSelectionEvent): Class[_ <: UI] = classOf[MainUI]
-
-        override def createInstance(event: UICreateEvent): UI = {
-          new MainUI(clientNode)
-        }
-
-      }
-
-      def buildUIServlet = new sss.ui.Servlet(new AnalysisUIProvider)
+      def buildUIServlet = new sss.ui.Servlet(GenericUIProvider(classOf[MainUI], _ => new MainUI(clientNode)))
     }
 
   }

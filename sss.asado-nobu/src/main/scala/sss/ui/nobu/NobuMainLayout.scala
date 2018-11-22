@@ -79,7 +79,7 @@ class NobuMainLayout(
   writeBtn.addClickListener( _ => showWrite())
 
   logoutBtn.addClickListener(_ => {
-    ui.getSession.setAttribute(Servlet.SessionAttr, null)
+    ui.getSession.setAttribute(NobuUI.SessionAttr, null)
     ui.getNavigator().navigateTo(UnlockClaimView.name)
   })
 

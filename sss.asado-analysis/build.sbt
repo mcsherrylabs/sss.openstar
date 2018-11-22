@@ -35,7 +35,6 @@ libraryDependencies ++= Seq(
   //"org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   //"org.vaadin.addons" % "animator" % "1.7.4",
   //"com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % Vers.sssVaadinReact,
   "org.scalatra" %% "scalatra" % Vers.scalatraVer,
   "io.spray" %%  "spray-json" % Vers.sprayJsonVer,
   // https://mvnrepository.com/artifact/javax.portlet/portlet-api
