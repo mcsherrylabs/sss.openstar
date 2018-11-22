@@ -1,78 +1,121 @@
 package sss.ui.nobu
 
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, ActorSystem}
 import akka.actor.Actor.Receive
-import com.vaadin.ui.Notification
+import com.typesafe.config.Config
+import com.vaadin.server.VaadinSession
+import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
+import sss.asado.{Send, UniqueNodeIdentifier}
 import sss.asado.account.{NodeIdentity, NodeIdentityManager}
-
+import sss.asado.chains.Chains.GlobalChainIdMask
 import sss.asado.identityledger.IdentityService
+import sss.asado.message.MessageDownloadActor
+import sss.asado.message.MessageDownloadActor.CheckForMessages
 import sss.asado.state.HomeDomain
-
 import sss.db.Db
-import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded, NewClaimedIdentity}
-import sss.ui.nobu.NobuNodeBridge.{Fail}
+import sss.ui.nobu.CreateIdentity.{ClaimIdentity, Fund, Funded}
 import us.monoid.web.Resty
 
 import scala.util.{Failure, Success, Try}
 import sss.asado.network.MessageEventBus
 import sss.asado.util.ByteArrayEncodedStrOps.ByteArrayToBase64UrlStr
-import sss.ui.nobu.WaitKeyGenerationView.Update
+import sss.asado.wallet.UtxoTracker.NewWallet
+import sss.asado.wallet.Wallet
+import sss.ui.Servlet
+import sss.ui.nobu.BlockingWorkers.BlockingTask
+import sss.ui.nobu.UIActor.TrackSessionRef
+
 
 object CreateIdentity {
 
-  case class Fund(uiId: Option[String], nodeIdentity: NodeIdentity, sndr: ActorRef)
+  case class Fund(nodeIdentity: NodeIdentity)(implicit val ui: UI)
   case class Funded(uiId: Option[String], nodeIdentity: NodeIdentity, amount: Long)
-  case class NewClaimedIdentity(nodeIdentity: NodeIdentity)
-  case class ClaimIdentity(uiId: Option[String], claim: String, claimTag: String, phrase: String, sndr: ActorRef)
+  case class ClaimIdentity(claim: String, claimTag: String, phrase: String)(implicit val ui: UI)
 
 }
 
-class CreateIdentity(implicit nodeIdentityManager: NodeIdentityManager,
+class CreateIdentity(userDir: UserDirectory,
+                     buildWallet: NodeIdentity => Wallet)(
+                     implicit actorSystem:ActorSystem,
+                     currentBlockHeight: () => Long,
+                     conf: Config,
+                     send: Send,
+                     chainId: GlobalChainIdMask,
+                     nodeIdentityManager: NodeIdentityManager,
                      homeDomain: HomeDomain,
                      identityService: IdentityService,
                      messageEventBus: MessageEventBus,
-                     db:Db) extends Logging {
+                     db:Db) extends Logging with BlockingWorkerUIHelper {
+
 
   def createIdentity: Receive = {
 
-    case ClaimIdentity(uiId: Option[String], claimStr: String, claimTag: String, phrase: String, sendr: ActorRef) =>
-      claim(uiId, claimStr, claimTag, phrase, sendr)
+    case c@ClaimIdentity(claimStr: String, claimTag: String, phrase: String) =>
+      import c.ui
+      claim(claimStr, claimTag, phrase)
 
-    case Fund(uiId: Option[String], nodeIdentity: NodeIdentity, sendr: ActorRef) =>
-      fund(uiId,nodeIdentity, sendr)
+    case f@Fund(nodeIdentity: NodeIdentity) =>
+      import f.ui
+      fund(nodeIdentity)
   }
 
-  def fund(uiId: Option[String], nodeIdentity: NodeIdentity, sender: ActorRef) = {
+  def fund(nodeIdentity: NodeIdentity)(implicit ui: UI) = {
     //localhost:8070/claim/debit?to=cavan1&amount=100
+
     val amount = 100
     Try(new Resty().text(s"${homeDomain.http}/claim/debit?to=${nodeIdentity.id}&amount=$amount")) match {
       case Success(s) =>
-        sender ! Funded(uiId, nodeIdentity, amount)
+        val userWallet = buildWallet(nodeIdentity)
+        Option(ui.getSession()) match {
+          case Some(sess) =>
+
+            val mainView: NobuMainLayout = setUpMainLayout(nodeIdentity, userWallet, sess)
+            push( ui.getNavigator.navigateTo(mainView.name))
+
+          case None =>
+            log.error("Couldn't get ui session?")
+        }
 
       case Failure(e) =>
         log.warn("Failed to fund {}", nodeIdentity.id)
         log.warn("Failed to fund exception {}", e)
-        sender ! Fail(s"Failed to fund ${nodeIdentity.id}")
+        show(s"Failed to fund ${nodeIdentity.id}", Notification.Type.WARNING_MESSAGE)
+        navigateTo(UnlockClaimView.name)
     }
 
   }
 
-  def claim(uiId: Option[String], claim: String, claimTag: String, phrase: String, sender: ActorRef) = {
+  def setUpMainLayout(nodeIdentity: NodeIdentity, userWallet: Wallet, sess: VaadinSession)(implicit ui: UI): NobuMainLayout = {
+    val msgDownRef = MessageDownloadActor(ValidateBounty.validateBounty, nodeIdentity, userWallet, homeDomain)
+    msgDownRef ! CheckForMessages
 
-    if (identityService.accounts(claim).nonEmpty) {
-      sender ! Fail(s"Identity $claim already claimed!")
-    } else {
-      Try {
-        nodeIdentityManager.get(claim, claimTag, phrase).getOrElse {
-          nodeIdentityManager(claim, claimTag, phrase)
-        }
-      }
+    messageEventBus publish TrackSessionRef(sessId, msgDownRef)
+    UserSession.note(nodeIdentity, userWallet)
+    sess.setAttribute(NobuUI.SessionAttr, nodeIdentity.id)
+    val mainView = new NobuMainLayout(userDir, userWallet, nodeIdentity)
+    ui.getNavigator.addView(mainView.name, mainView)
+    mainView
+  }
 
-    } match {
+
+  def claim(
+            claim: String,
+            claimTag: String,
+            phrase: String)(implicit ui: UI) = {
+
+    if (!IdentityService.validateIdentity(claim)) {
+      show(s"Identity $claim is invalid, simple lowercase characters only!",Notification.Type.WARNING_MESSAGE)
+    } else if (identityService.accounts(claim).nonEmpty) {
+      show(s"Identity $claim already claimed!",Notification.Type.WARNING_MESSAGE)
+      navigateTo(UnlockClaimView.name)
+
+    } else Try(nodeIdentityManager(claim, claimTag, phrase)) match {
+
       case Failure(e) =>
-        sender ! Fail(s"Could not generate or retrieve identity key file.")
+        show(s"Identity claim $claim failed!",Notification.Type.WARNING_MESSAGE)
+        navigateTo(UnlockClaimView.name)
 
       case Success(nId) =>
         val publicKey = nId.publicKey.toBase64Str
@@ -81,13 +124,18 @@ class CreateIdentity(implicit nodeIdentityManager: NodeIdentityManager,
           s"${homeDomain.http}/console/command?1=claim&2=${claim}&3=${publicKey}")) match {
 
           case Success(tr) if (tr.toString.contains("ok")) =>
-            sender ! NewClaimedIdentity(nId)
+            messageEventBus publish NewWallet(buildWallet(nId).walletTracker)
+            messageEventBus publish BlockingTask(Fund(nId))
+
           case Success(s) =>
             log.info(s.toString)
-            sender ! Fail(s"There was a problem with your $claim, try again.")
+            show(s"There was a problem with your claim $claim, try again.", Notification.Type.WARNING_MESSAGE)
+            navigateTo(UnlockClaimView.name)
+
           case Failure(e) =>
             log.info(e.toString)
-            sender ! Fail(s"There was a problem with your $claim, try again.")
+            show(s"There was a problem with your claim $claim, try again.", Notification.Type.WARNING_MESSAGE)
+            navigateTo(UnlockClaimView.name)
 
         }
     }

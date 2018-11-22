@@ -38,6 +38,15 @@
     <logger name="sss.asado.network.MessageEventBus">
         <level value="DEBUG"/>
     </logger>
+    <logger name="sss.asado.network.NetworkControllerActor">
+        <level value="INFO"/>
+    </logger>
+    <logger name="sss.asado.network.ConnectionHandlerActor">
+        <level value="INFO"/>
+    </logger>
+    <logger name="akka.io.TcpOutgoingConnection">
+        <level value="INFO"/>
+    </logger>
     <logger name="sss.db">
         <level value="WARN"/>
     </logger>

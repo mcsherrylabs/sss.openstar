@@ -30,13 +30,17 @@ lazy val node = (project in file("sss.asado-node"))
   .settings(commonSettings)
   .dependsOn(common % "compile->compile;test->test", network, ledger)
 
+lazy val ui_util = (project in file("sss.asado-ui-util"))
+  .settings(commonSettings)
+  .dependsOn(common % "compile->compile;test->test")
+
 lazy val nobu = (project in file("sss.asado-nobu"))
   .settings(commonSettings)
-  .dependsOn(node, ledger)
+  .dependsOn(node, ledger, ui_util)
 
 lazy val analysis = (project in file("sss.asado-analysis"))
   .settings(commonSettings)
-  .dependsOn(common % "compile->compile;test->test", node)
+  .dependsOn(common % "compile->compile;test->test", node, ui_util)
 
 lazy val sandbox = (project in file("sandbox"))
   .settings(commonSettings)

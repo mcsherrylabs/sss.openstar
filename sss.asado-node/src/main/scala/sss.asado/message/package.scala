@@ -5,6 +5,7 @@ import sss.asado.balanceledger._
 import sss.asado.ledger.{LedgerItem, _}
 import sss.asado.message.serialize._
 import sss.asado.util.Serialize._
+import sss.asado.util.ByteArrayEncodedStrOps._
 /**
   * Created by alan on 6/6/16.
   */
@@ -15,6 +16,7 @@ package object message {
   trait MessageResponse {
     val success: Boolean
     val txId: TxId
+    lazy val txIdStr: String = txId.toBase64Str
 
     override def equals(obj: scala.Any): Boolean = {
       obj match {

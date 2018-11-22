@@ -1,6 +1,7 @@
 package sss.asado.message
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import sss.asado.account.NodeIdentity
@@ -12,7 +13,7 @@ import sss.asado.balanceledger._
 import sss.asado.common.block.{BlockChainTxId, TxMessage}
 import sss.asado.identityledger.IdentityServiceQuery
 import sss.asado.ledger._
-import sss.asado.message.MessageDownloadActor.{CheckForMessages, ForceCheckForMessages, NewInBoxMessage, ValidateBounty}
+import sss.asado.message.MessageDownloadActor._
 import sss.asado.message.MessageEcryption.EncryptedMessage
 import sss.asado.{AsadoEvent, MessageKeys, Send, UniqueNodeIdentifier}
 import sss.asado.network.MessageEventBus
@@ -34,10 +35,13 @@ import scala.util.{Failure, Success, Try}
 object MessageDownloadActor {
 
   type ValidateBounty = (Long, UniqueNodeIdentifier) => Boolean
+  type AtomicNodeActorRefMap = AtomicReference[Map[UniqueNodeIdentifier, ActorRef]]
 
   case object CheckForMessages
   case object ForceCheckForMessages
   case class NewInBoxMessage(msg: Message) extends AsadoEvent
+
+  private val onePerNodeId: AtomicNodeActorRefMap = new AtomicReference(Map.empty)
 
   def apply(validateBounty: ValidateBounty,
             who: NodeIdentity,
@@ -48,9 +52,12 @@ object MessageDownloadActor {
                                     identityServiceQuery: IdentityServiceQuery,
                                     send: Send,
                                     chainId: GlobalChainIdMask): ActorRef = {
-    actorSystem.actorOf(
+    val nodeId = who.id
+
+    lazy val makeMessageDownloadActor: ActorRef = actorSystem.actorOf(
       Props(classOf[MessageDownloadActor],
         validateBounty,
+        onePerNodeId,
         who,
         userWallet,
         homeDomain,
@@ -60,9 +67,16 @@ object MessageDownloadActor {
         send,
         chainId)
     )
+
+    onePerNodeId.updateAndGet( all => {
+      if(all contains(nodeId)) all
+      else all + (nodeId -> makeMessageDownloadActor)
+    })(nodeId)
+
   }
 }
 class MessageDownloadActor(validateBounty: ValidateBounty,
+                           refMap: AtomicNodeActorRefMap,
                            userId: NodeIdentity,
                            userWallet: Wallet,
                            homeDomain: HomeDomain,
@@ -81,6 +95,15 @@ class MessageDownloadActor(validateBounty: ValidateBounty,
   messageEventBus.subscribe(MessageKeys.EndMessagePage)
 
   log.info("MessageDownload actor has started...")
+
+
+  override def postStop(): Unit = {
+
+    refMap.getAndUpdate( refs =>
+      refs - userId.id
+    )
+
+  }
 
   private val who = userId.id
   private val inBox = MessageInBox(who)

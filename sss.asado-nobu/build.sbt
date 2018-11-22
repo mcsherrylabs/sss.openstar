@@ -15,11 +15,9 @@ resolvers += "Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repo
 
 //Seq(vaadinWebSettings: _*)
 
-val vaadinVer = "7.7.13"
+val vaadinVer = Vers.vaadinVer
 
 coverageEnabled := false
-
-//dependencyOverrides += "com.mcsherrylabs" %% "sss-ancillary" % "1.0"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor" % Vers.akkaVer,
@@ -30,12 +28,11 @@ libraryDependencies ++= Seq(
   "com.vaadin" % "vaadin-client-compiler" % vaadinVer,
   "com.vaadin" % "vaadin-client-compiled" % vaadinVer,
   "us.monoid.web" % "resty" % Vers.restyVer,
-  "org.vaadin.icons" % "vaadin-icons" % "1.0.1",
-  "org.vaadin.addons" % "animator" % "1.7.4",
-  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % Vers.sssVaadinReact,
+  //"org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   "org.scalatra" %% "scalatra" % Vers.scalatraVer,
   "io.spray" %%  "spray-json" % Vers.sprayJsonVer,
-  "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer
+  "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer,
+  "ch.qos.logback" % "logback-classic" % "1.0.0" % "runtime"
 )
 
 

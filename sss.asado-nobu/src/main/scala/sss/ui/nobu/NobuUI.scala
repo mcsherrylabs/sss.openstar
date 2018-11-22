@@ -1,7 +1,8 @@
 package sss.ui.nobu
 
 
-import com.vaadin.annotations.{PreserveOnRefresh, Push, Theme}
+import com.vaadin.annotations.{PreserveOnRefresh, Push, Theme, VaadinServletConfiguration}
+import com.vaadin.annotations
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
@@ -11,13 +12,15 @@ import sss.asado.AsadoEvent
 import sss.ui.Servlet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
-import sss.ui.reactor.UIReactor
+
 
 /**
   * Created by alan on 6/10/16.
   */
 object NobuUI {
-  case class Detach(ui: Option[String]) extends AsadoEvent
+  case class Detach(ui: Int) extends AsadoEvent
+
+  val SessionAttr = "NOBU"
 
   case class SessionEnd(str: String)  extends AsadoEvent
 
@@ -26,34 +29,39 @@ object NobuUI {
 
 @Theme("template")
 @Push
-@PreserveOnRefresh
 class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Logging {
 
   log.info("Constructing new NobuUI")
 
   override def init(vaadinRequest: VaadinRequest): Unit = {
 
-    val sessIntact = Option(getSession().getAttribute(Servlet.SessionAttr))
+    val sessIntact = Option(getSession().getAttribute(NobuUI.SessionAttr))
     log.info(s"init NobuUI $sessIntact")
 
     import clientNode.{actorSystem,
       globalChainId,
       send,
-      blockingWorkers,
       users,
       messageEventBus,
       nodeIdentityManager,
       identityService,
       db,
-      homeDomain
+      homeDomain,
+      currentBlockHeightImp,
+      confImp
     }
 
-    implicit val conf = clientNode.conf
-    implicit val currentBlockHeight = () => clientNode.currentBlockHeight()
 
-    VaadinSession.getCurrent().getSession().setMaxInactiveInterval(-1)
 
-    implicit val uiReactor = UIReactor(this)
+    UIActor(clientNode, this)
+
+
+    VaadinSession.getCurrent().getSession.getId
+    VaadinSession.getCurrent.getSession.setMaxInactiveInterval(-1)
+
+
+    implicit val ui: UI = this
+
     val navigator = new Navigator(this, this)
     navigator.addViewChangeListener(this)
 
@@ -71,7 +79,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
   override def beforeViewChange(viewChangeEvent: ViewChangeEvent): Boolean = {
 
-    (Option(getSession().getAttribute(Servlet.SessionAttr)), viewChangeEvent.getViewName) match {
+    (Option(getSession().getAttribute(NobuUI.SessionAttr)), viewChangeEvent.getViewName) match {
       case (_, WaitKeyGenerationView.name) => true
       case (_, WaitSyncedView.name) => true
       case (_, UnlockClaimView.name) => true
@@ -85,7 +93,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
 
 
   override def detach(): Unit = {
-    clientNode.messageEventBus publish Detach(Option(this.getEmbedId))
+    clientNode.messageEventBus publish Detach(this.getUIId)
     super.detach()
   }
 }

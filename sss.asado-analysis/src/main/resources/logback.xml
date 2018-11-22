@@ -29,5 +29,8 @@
     <logger name="sss.db">
         <level value="WARN"/>
     </logger>
+    <logger name="org.eclipse.jetty">
+        <level value="INFO"/>
+    </logger>
 
 </configuration>

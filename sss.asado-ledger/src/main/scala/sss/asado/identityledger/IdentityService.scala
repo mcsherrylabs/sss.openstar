@@ -38,7 +38,7 @@ trait IdentityService extends IdentityServiceQuery {
 
 object IdentityService {
 
-  private[identityledger] def validateIdentity(id: String): Boolean = {
+  def validateIdentity(id: String): Boolean = {
     Try(norm(id) == id).getOrElse(false)
   }
 

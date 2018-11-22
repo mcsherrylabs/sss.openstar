@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.agent.Agent
 import com.vaadin.ui._
-import sss.asado.nodebuilder.ClientNode
+import sss.analysis.Main.ClientNode
 import sss.asado.util.ByteArrayEncodedStrOps._
 import sss.ui.DashBoard._
 /**

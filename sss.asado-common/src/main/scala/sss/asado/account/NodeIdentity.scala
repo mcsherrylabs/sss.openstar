@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import com.typesafe.config.Config
 import scorex.crypto.signatures.SigningFunctions.{MessageToSign, PublicKey, SharedSecret, Signature}
+import sss.ancillary.Logging
 import sss.asado.crypto.SeedBytes
 
 import scala.io.StdIn
@@ -27,7 +28,7 @@ trait NodeIdentity {
   def createSharedSecret(publicKey: PublicKey): SharedSecret
 }
 
-class NodeIdentityManager(seedBytes: SeedBytes) {
+class NodeIdentityManager(seedBytes: SeedBytes) extends Logging {
 
   val nodeIdKey = "nodeId"
   val tagKey = "tag"
@@ -78,6 +79,7 @@ class NodeIdentityManager(seedBytes: SeedBytes) {
   def apply(nodeKey: PrivateKeyAccount,
             nodeId: String,
             tagOfNodeKey: String): NodeIdentity = {
+
     new NodeIdentity {
       override def verify(sig: Signature, msg: Array[Byte]): Boolean = nodeKey.verify(sig, msg)
       override def sign(msg: MessageToSign): Signature = nodeKey.sign(msg)

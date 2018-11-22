@@ -36,7 +36,7 @@ import org.jfree.data.xy.XYSeries;
 
 import com.vaadin.ui.Component;
 import com.vaadin.ui.Panel;
-import com.vaadin.ui.themes.Reindeer;
+import com.vaadin.ui.themes.ValoTheme;
 
 /**
  * Simple Vaadin app for testing purposes that displays some ugly charts with
@@ -45,7 +45,7 @@ import com.vaadin.ui.themes.Reindeer;
 public class JFreeChartWrapperSample extends VerticalLayout {
 
     public JFreeChartWrapperSample() {
-        setStyleName(Reindeer.PANEL_LIGHT);
+        setStyleName(ValoTheme.PANEL_BORDERLESS);
         //setScrollable(true);
         addComponent(createBasicDemo());
 

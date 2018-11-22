@@ -4,7 +4,7 @@ import akka.agent.Agent
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
 import sss.analysis.{WalletAnalysis, WalletsAnalysis}
-import sss.asado.nodebuilder.ClientNode
+import sss.analysis.Main.ClientNode
 import sss.ui.DashBoard._
 
 /**

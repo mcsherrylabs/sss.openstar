@@ -3,8 +3,12 @@ package sss.analysis
 
 import akka.actor.Actor
 import org.joda.time.LocalDateTime
+import sss.analysis.Main.ClientNode
+import sss.asado.UniqueNodeIdentifier
 import sss.ui.DashBoard.{Connected, LostConnection, NewBlockAnalysed, status}
 import sss.asado.actor.AsadoEventSubscribedActor
+import sss.asado.network.ConnectionLost
+import sss.asado.peers.PeerManager.PeerConnection
 import sss.ui.reactor.UIReactor
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,47 +24,28 @@ class AnalysingActor (clientNode: ClientNode) extends Actor with AsadoEventSubsc
   private case class Analyse(blockHeight: Long, lastAnalysis: Analysis)
   private case class CheckForAnalysis(block: Long)
 
-
   import clientNode._
 
-  override def receive: Receive = connecting orElse analysis
+  messageEventBus subscribe classOf[PeerConnection]
+  messageEventBus subscribe classOf[ConnectionLost]
 
-  private def connecting: Receive = {
-    case RemoteLeaderEvent(conn) =>
-      context.become(connected(conn.nodeId) orElse analysis)
-      status.alter(s => s.copy(whoConnectedTo = conn.nodeId))
-      UIReactor.eventBroadcastActorRef ! Connected(conn.nodeId)
+  private var connectedTo: Option[UniqueNodeIdentifier] = None
 
+  override def receive: Receive = analysis
 
-    case ConnectHomeDelay(delay) =>
-      context.system.scheduler.scheduleOnce(
-        FiniteDuration(delay, SECONDS),
-        self, ConnectHome)
-
-    case ConnectHome =>
-      connectHome
-      self ! ConnectHomeDelay()
-
-  }
-
-  private def connected(connectedTo: String): Receive = {
-    case NotOrderedEvent =>
-      status.alter(s => s.copy(whoConnectedTo = "Disconnected"))
-      UIReactor.eventBroadcastActorRef ! LostConnection
-      context.become(connecting orElse analysis)
-      self ! ConnectHomeDelay()
-
-    case ConnectHome => log.info("Already connected, ignore ConnectHome")
-  }
 
   private def analysis: Receive = {
-    case StateMachineInitialised =>
-      net
-      self ! ConnectHomeDelay()
-      context.system.scheduler.scheduleOnce(
-        FiniteDuration(config.getInt("analysis.delay"), MINUTES),
-        self, CheckForAnalysis(bc.lastBlockHeader.height))
 
+    case PeerConnection(nId, _) =>
+      connectedTo = Some(nId)
+      status.alter(s => s.copy(whoConnectedTo = nId))
+      UIReactor.eventBroadcastActorRef ! Connected(nId)
+      self ! CheckForAnalysis(bc.lastBlockHeader.height)
+
+    case ConnectionLost(nId) if(Option(nId) == connectedTo) =>
+      status.alter(s => s.copy(whoConnectedTo = "Disconnected"))
+      connectedTo = None
+      UIReactor.eventBroadcastActorRef ! LostConnection
 
     case CheckForAnalysis(blockHeight) if(!Analysis.isCheckpoint(blockHeight)) =>
       self ! CheckForAnalysis(blockHeight - 1)

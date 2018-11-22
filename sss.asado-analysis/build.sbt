@@ -35,13 +35,12 @@ libraryDependencies ++= Seq(
   //"org.vaadin.icons" % "vaadin-icons" % "1.0.1",
   //"org.vaadin.addons" % "animator" % "1.7.4",
   //"com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT",
-  "com.mcsherrylabs" %% "sss-vaadin-akka-reactive" % Vers.sssVaadinReact,
   "org.scalatra" %% "scalatra" % Vers.scalatraVer,
   "io.spray" %%  "spray-json" % Vers.sprayJsonVer,
   // https://mvnrepository.com/artifact/javax.portlet/portlet-api
   "javax.portlet" % "portlet-api" % "2.0",
   "com.typesafe.akka" %% "akka-slf4j" % Vers.akkaVer,
-  "org.vaadin.addon" % "jfreechartwrapper" % "3.0.3" excludeAll ExclusionRule(organization = "javax.servlet"),
+  "org.vaadin.addon" % "jfreechartwrapper" % "4.0.0" excludeAll ExclusionRule(organization = "javax.servlet"),
 
 )
 

@@ -2,7 +2,7 @@ package sss.ui
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.vaadin.data.Property.{ValueChangeEvent, ValueChangeListener}
+import com.vaadin.data.HasValue.{ValueChangeEvent, ValueChangeListener}
 import com.vaadin.ui.Button.{ClickEvent, ClickListener}
 import com.vaadin.ui._
 import org.jfree.chart.JFreeChart
@@ -13,7 +13,7 @@ import org.jfree.data.xy.DefaultTableXYDataset
 import org.vaadin.addon.JFreeChartWrapper
 import sss.analysis.BlockSeriesFactory
 import sss.analysis.BlockSeriesFactory.BlockSeries
-import sss.asado.nodebuilder.ClientNode
+import sss.analysis.Main.ClientNode
 
 import scala.util.{Failure, Try}
 
@@ -109,9 +109,9 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   vLayout2.addComponents(xChange, xMaxChange)
   vLayout3.addComponents(yMinChange, yMaxChange)
 
-  yMaxChange.addValueChangeListener(new ValueChangeListener {
-    override def valueChange(event: ValueChangeEvent): Unit = Try {
-      if(event.getProperty.getValue != "") {
+  yMaxChange.addValueChangeListener(new ValueChangeListener[String] {
+    override def valueChange(event: ValueChangeEvent[String]): Unit = Try {
+      if(event.getValue != "") {
         val newUpper = yMaxChange.getValue.toInt
         val r = y.getRange
         y.setRange(r.getLowerBound, newUpper)
@@ -122,9 +122,9 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
     }
   })
 
-  yMinChange.addValueChangeListener(new ValueChangeListener {
-    override def valueChange(event: ValueChangeEvent): Unit = Try {
-      if(event.getProperty.getValue != "") {
+  yMinChange.addValueChangeListener(new ValueChangeListener[String] {
+    override def valueChange(event: ValueChangeEvent[String]): Unit = Try {
+      if(event.getValue != "") {
         val newLower = yMinChange.getValue.toInt
         val r = y.getRange
         y.setRange(newLower, r.getUpperBound)
@@ -136,9 +136,9 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
   })
 
 
-  xMaxChange.addValueChangeListener(new ValueChangeListener {
-    override def valueChange(event: ValueChangeEvent): Unit = Try {
-      if(event.getProperty.getValue != "") {
+  xMaxChange.addValueChangeListener(new ValueChangeListener[String] {
+    override def valueChange(event: ValueChangeEvent[String]): Unit = Try {
+      if(event.getValue != "") {
         val newUpper = xMaxChange.getValue.toInt
         val r = x.getRange
         x.setRange(r.getLowerBound, newUpper)
@@ -149,9 +149,9 @@ class ChartsTab(clientNode:  ClientNode) extends VerticalLayout {
     }
   })
 
-  xChange.addValueChangeListener(new ValueChangeListener {
-    override def valueChange(event: ValueChangeEvent): Unit = Try {
-      if(event.getProperty.getValue != "") {
+  xChange.addValueChangeListener(new ValueChangeListener[String] {
+    override def valueChange(event: ValueChangeEvent[String]): Unit = Try {
+      if(event.getValue != "") {
         val newLower = xChange.getValue.toInt
         val r = x.getRange
         update(newLower)
