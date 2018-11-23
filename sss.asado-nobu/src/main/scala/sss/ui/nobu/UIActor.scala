@@ -44,6 +44,7 @@ object UIActor {
 
   private val uiActors: AtomicRefMap = new AtomicReference[Map[String, ActorRef]](Map.empty)
 
+  case class WithUI(ui: UI)
   case class TrackSessionRef(sessId: String,
                              ref: ActorRef) extends AsadoEvent
 
@@ -55,7 +56,8 @@ object UIActor {
   def apply(clientNode: ClientNode, ui: UI)(implicit as: ActorSystem): ActorRef = {
 
     def makeRef(sessId: String): ActorRef = {
-      val ref = as.actorOf(Props(classOf[UIActor], clientNode, uiActors, ui), s"UIActor${sessId}")
+      val ref = as.actorOf(Props(classOf[UIActor], clientNode, uiActors), s"UIActor${sessId}")
+      ref ! WithUI(ui)
       clientNode.messageEventBus.subscribe(classOf[Detach])(ref)
       clientNode.messageEventBus.subscribe(MessageKeys.MessageResponse)(ref)
       clientNode.messageEventBus.subscribe(classOf[TrackMsgTxId])(ref)
@@ -74,15 +76,16 @@ object UIActor {
 
       all.get(sessId) match {
         case None => all + (sessId -> makeRef(sessId))
-        case _ => all
+        case Some(ref) =>
+          ref ! WithUI(ui)
+          all
       }
     })(sessId)
 
   }
-
 }
 
-class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
+class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)
     extends Actor
       with OnSessionEnd
       with Notifications
@@ -90,20 +93,28 @@ class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
 
 
   override def postStop(): Unit = {
-    log.info(s"UI Actor $sessId is down, ${refs.get.size} remain")
+    log.info(s"UI Actor {} is down, ${refs.get.size} remain", self.path.name)
     trackingRefs foreach (_ ! PoisonPill)
   }
 
   private val chainId = clientNode.chain.id
-  private val sessId = ui.getSession.getSession.getId
 
-  override def receive: Receive = sessionEnd(sessId) orElse messages orElse lodgements
+
+  override def receive: Receive = waitForUI
 
   private var trackingRefs: Set[ActorRef] = Set.empty
   private var txIds: Set[String] = Set.empty
   private var lodgementsFor: Option[(String, () => Unit)] = None
 
-  private def lodgements: Receive = {
+  private def waitForUI: Receive = {
+    case WithUI(ui:UI) =>
+      implicit val uiImp = ui
+      implicit val sessId = ui.getSession.getSession.getId
+      context become (waitForUI orElse sessionEnd(sessId) orElse messages orElse lodgements)
+
+  }
+
+  private def lodgements(implicit ui:UI, sessId: String): Receive = {
 
     case UnTrackLodgements(`sessId`) =>
       lodgementsFor = None
@@ -115,7 +126,7 @@ class UIActor(clientNode: ClientNode, val refs: AtomicRefMap)(implicit ui: UI)
       push (lodgementsFor.get._2())
   }
 
-  private def messages: Receive = {
+  private def messages(implicit ui:UI, sessId: String): Receive = {
 
     case Terminated(ref) =>
       trackingRefs -= ref

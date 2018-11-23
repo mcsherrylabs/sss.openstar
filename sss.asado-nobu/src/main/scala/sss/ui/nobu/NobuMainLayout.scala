@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import com.typesafe.config.Config
 import com.vaadin.navigator.ViewChangeListener.ViewChangeEvent
 import com.vaadin.navigator.{View, ViewBeforeLeaveEvent}
-import com.vaadin.server.Page
+
 import com.vaadin.shared.Registration
 import com.vaadin.ui.{Notification, UI}
 import sss.ancillary.Logging
@@ -18,8 +18,8 @@ import sss.asado.network.MessageEventBus
 import sss.asado.state.HomeDomain
 import sss.asado.wallet.Wallet
 import sss.db.Db
-import sss.ui.Servlet
 import sss.ui.design.NobuMainDesign
+import sss.ui.nobu.NobuUI.Logout
 import sss.ui.nobu.UIActor.{TrackLodgements, UnTrackLodgements}
 
 import scala.language.postfixOps
@@ -81,6 +81,7 @@ class NobuMainLayout(
   logoutBtn.addClickListener(_ => {
     ui.getSession.setAttribute(NobuUI.SessionAttr, null)
     ui.getNavigator().navigateTo(UnlockClaimView.name)
+    messageEventBus publish Logout(userId.id)
   })
 
   private lazy val inBox = MessageInBox(userId.id)

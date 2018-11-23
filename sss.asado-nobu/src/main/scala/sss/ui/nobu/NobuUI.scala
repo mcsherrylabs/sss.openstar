@@ -8,7 +8,7 @@ import com.vaadin.navigator.{Navigator, ViewChangeListener}
 import com.vaadin.server.{VaadinRequest, VaadinSession}
 import com.vaadin.ui.UI
 import sss.ancillary.Logging
-import sss.asado.AsadoEvent
+import sss.asado.{AsadoEvent, UniqueNodeIdentifier}
 import sss.ui.Servlet
 import sss.ui.nobu.Main.ClientNode
 import sss.ui.nobu.NobuUI.Detach
@@ -18,7 +18,9 @@ import sss.ui.nobu.NobuUI.Detach
   * Created by alan on 6/10/16.
   */
 object NobuUI {
+
   case class Detach(ui: Int) extends AsadoEvent
+  case class Logout(who: UniqueNodeIdentifier) extends AsadoEvent
 
   val SessionAttr = "NOBU"
 
