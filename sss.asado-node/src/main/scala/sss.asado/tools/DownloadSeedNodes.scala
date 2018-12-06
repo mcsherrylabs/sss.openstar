@@ -22,10 +22,12 @@ object DownloadSeedNodes extends Logging {
     get(url) map {
       _.split("::")
         .map (_.split(":"))
-        .map (ary => NodeId(ary(0), toInetSocketAddress(ary(1), ary(2))))
+        .map (ary => Try(NodeId(ary(0), toInetSocketAddress(ary(1), ary(2)))))
+        .collect { case Success(n) => n }
         .toSet
     } match {
-      case Success(s) => s
+      case Success(s) =>
+        s
       case Failure(e) =>
         log.warn(e.toString)
         Set.empty
