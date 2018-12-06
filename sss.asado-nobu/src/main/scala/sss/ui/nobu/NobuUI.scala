@@ -72,6 +72,7 @@ class NobuUI(clientNode: ClientNode) extends UI with ViewChangeListener with Log
     val waitSyncView = new WaitSyncedView()
     navigator.addView(WaitSyncedView.name, waitSyncView)
     navigator.addView(UnlockClaimView.name, claimUnlockView)
+    navigator.setErrorView(claimUnlockView)
     navigator.addView(WaitKeyGenerationView.name, new WaitKeyGenerationView())
 
     navigator.navigateTo(WaitSyncedView.name)
