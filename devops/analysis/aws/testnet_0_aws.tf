@@ -34,7 +34,7 @@ resource "aws_instance" "openstar_testnet_analysis" {
   }
 
   provisioner "file" {
-    source      = "../../../sss.asado-analysis/target/universal/${var.product_name}.zip"
+    source      = "../../../sss.openstar-analysis/target/universal/${var.product_name}.zip"
     destination = "~/${var.product_name}.zip"
 
   }

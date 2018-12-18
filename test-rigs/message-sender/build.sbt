@@ -33,13 +33,13 @@ libraryDependencies += "com.mcsherrylabs" %% "sss-db" % "0.9.33"
 
 libraryDependencies += "com.mcsherrylabs" %% "sss-console-util" % "0.1.2"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-network" % "0.3-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-openstar-network" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-node" % "0.3-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-openstar-node" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-common" % "0.3-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-openstar-common" % "0.3-SNAPSHOT"
 
-libraryDependencies += "com.mcsherrylabs" %% "sss-asado-ledger" % "0.3-SNAPSHOT"
+libraryDependencies += "com.mcsherrylabs" %% "sss-openstar-ledger" % "0.3-SNAPSHOT"
 
 libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.+"
 
