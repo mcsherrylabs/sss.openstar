@@ -17,8 +17,8 @@ cache:
   - C:\sbt\
   - C:\Users\appveyor\.ivy2
 artifacts:
-  - path: sss.asado-nobu\target\universal\jdkpackager\bundles\
-  - path: sss.asado-nobu\target\windows\nobu.msi
+  - path: sss.openstar-nobu\target\universal\jdkpackager\bundles\
+  - path: sss.openstar-nobu\target\windows\nobu.msi
 
 ## secure: 9XNg3ghtOsTqeMeG1X4FyNE8jMjhtv5IeJrn/gLsWOtCkInRaIZZvdi22cC3GIcc
 deploy:

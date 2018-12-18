@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="ERRFILE" class="ch.qos.logback.core.FileAppender">
+        <file>${nodeId:-node}-openstar.log</file>
+        <append>true</append>
+        <encoder>
+            <pattern>%date{MM/dd HH:mm:ss} %-5level[%.15thread] %logger{1} %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.out</target>
+        <encoder>
+            <pattern>[%.-1level %-28logger{0} %d{HH:mm:ss.SSS}] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root>
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ERRFILE"/>
+    </root>
+    <logger name="com.zaxxer.hikari">
+        <level value="off"/>
+    </logger>
+    <logger name="sss.openstar.balanceledger.BalanceLedger">
+        <level value="WARN"/>
+    </logger>
+    <logger name="sss.openstar.contract.CoinbaseValidator">
+        <level value="WARN"/>
+    </logger>
+    <logger name="sss.openstar.chains.BlockCloseDistributorActor">
+        <level value="DEBUG"/>
+    </logger>
+    <logger name="sss.openstar.network.MessageEventBus">
+        <level value="DEBUG"/>
+    </logger>
+    <logger name="sss.openstar.network.NetworkControllerActor">
+        <level value="INFO"/>
+    </logger>
+    <logger name="sss.openstar.network.ConnectionHandlerActor">
+        <level value="INFO"/>
+    </logger>
+    <logger name="akka.io.TcpOutgoingConnection">
+        <level value="INFO"/>
+    </logger>
+    <logger name="sss.db">
+        <level value="WARN"/>
+    </logger>
+    <logger name="org.eclipse.jetty">
+        <level value="INFO"/>
+    </logger>
+
+</configuration>

@@ -38,7 +38,7 @@ deploy:
   api_key: ${git_api_key}
   file_glob: true
   file:
-   - "sss.asado-nobu/target/universal/jdkpackager/bundles/**"
-   - "sss.asado-nobu/target/universal/*.zip"
-   - "sss.asado-node/target/universal/*.zip"
+   - "sss.openstar-nobu/target/universal/jdkpackager/bundles/**"
+   - "sss.openstar-nobu/target/universal/*.zip"
+   - "sss.openstar-node/target/universal/*.zip"
   skip_cleanup: true

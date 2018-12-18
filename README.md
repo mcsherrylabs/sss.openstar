@@ -1,18 +1,18 @@
-# sss.asado
+# sss.openstar
 Scala Based DLT 
  
-[![Build Status](https://travis-ci.org/mcsherrylabs/sss.asado.svg?branch=master)](https://travis-ci.org/mcsherrylabs/sss.asado)   [![Coverage Status](https://coveralls.io/repos/github/mcsherrylabs/sss.asado/badge.svg?branch=master)](https://coveralls.io/github/mcsherrylabs/sss.asado?branch=master)
+[![Build Status](https://travis-ci.org/mcsherrylabs/sss.openstar.svg?branch=master)](https://travis-ci.org/mcsherrylabs/sss.openstar)   [![Coverage Status](https://coveralls.io/repos/github/mcsherrylabs/sss.openstar/badge.svg?branch=master)](https://coveralls.io/github/mcsherrylabs/sss.openstar?branch=master)
 
 This codebase is a work in progress containing a modular blockchain, a proof of concept 'mail' service, a client for the mail service and some test rigs.
 
-For a more general discussion of the asado code base see the Wiki
+For a more general discussion of the openstar code base see the Wiki
     
 The core code modules are ... 
  
-- [common](https://github.com/mcsherrylabs/sss.asado/tree/master/sss.asado-common)
-- [ledger](https://github.com/mcsherrylabs/sss.asado/tree/master/sss.asado-ledger)
-- [network](https://github.com/mcsherrylabs/sss.asado/tree/master/sss.asado-network)
-- [node](https://github.com/mcsherrylabs/sss.asado/tree/master/sss.asado-node)
+- [common](https://github.com/mcsherrylabs/sss.openstar/tree/master/sss.openstar-common)
+- [ledger](https://github.com/mcsherrylabs/sss.openstar/tree/master/sss.openstar-ledger)
+- [network](https://github.com/mcsherrylabs/sss.openstar/tree/master/sss.openstar-network)
+- [node](https://github.com/mcsherrylabs/sss.openstar/tree/master/sss.openstar-node)
 
   
 ## Testing

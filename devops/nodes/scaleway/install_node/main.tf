@@ -1,6 +1,6 @@
 
 variable "host" {}
-variable "product_name" { default = "sss-asado-node-0.4.0-SNAPSHOT"}
+variable "product_name" { default = "sss-openstar-node-0.4.0-SNAPSHOT"}
 variable "id_phrase" { default = "password" }
 variable "id_name" { }
 
@@ -14,7 +14,7 @@ resource "null_resource" "openstar_testnet" {
   }
 
   provisioner "file" {
-    source = "../../../sss.asado-node/target/universal/${var.product_name}.zip"
+    source = "../../../sss.openstar-node/target/universal/${var.product_name}.zip"
     destination = "~/${var.product_name}.zip"
   }
 

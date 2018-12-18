@@ -4,7 +4,7 @@
 /sss-hsql-ledger1.script
 /sss-hsql-ledger1.properties
 /push_mcs.sh
-/asado.log
+/openstar.log
 ### JetBrains template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio
 
@@ -76,11 +76,11 @@ READ_RE_DEPS
 testKey.tag
 test-rigs/dumptags/
 keys/
-sss.asado-nobu/keys/
-sss.asado-node/*.testTag
-sss.asado-node/*.testtag
+sss.openstar-nobu/keys/
+sss.openstar-node/*.testTag
+sss.openstar-node/*.testtag
 *.defaultTag
-sss.asado-nobu/WebContent/VAADIN/themes/template/styles.scss.cache
+sss.openstar-nobu/WebContent/VAADIN/themes/template/styles.scss.cache
 .terraform/
 terraform.tfstate
 terraform.tfstate.backup
