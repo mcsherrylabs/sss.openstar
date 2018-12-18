@@ -31,7 +31,7 @@ class MilfordUI extends UI with ViewChangeListener with Logging {
     navigator.addViewChangeListener(this)
     navigator.addView("landing", new LandingView())
     navigator.addView("wallView", new WallView())
-    navigator.navigateTo("landing")
+    navigator.navigateTo("wallView")
 
   }
 

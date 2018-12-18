@@ -1,9 +1,11 @@
 package sss.ui.nobu
 
 import com.vaadin.navigator.View
-import sss.ui.milford.design.{Message, TextMsg}
+import sss.ui.milford.design.{Message, Structure, TextMsg}
 
-class WallView extends Message with View{
+class WallView extends Structure with View{
 
-  addComponent(new TextMsg())
+  val m = new Message()
+  m.addComponent(new TextMsg())
+  itemPanel.setContent(m)
 }

@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+ <head>
+  <meta charset="UTF-8">
+  <meta name="design-properties" content="{&quot;RULERS_VISIBLE&quot;:true,&quot;GUIDELINES_VISIBLE&quot;:false,&quot;SNAP_TO_OBJECTS&quot;:true,&quot;SNAP_TO_GRID&quot;:true,&quot;SNAPPING_DISTANCE&quot;:10,&quot;GENERATE_GETTERS&quot;:false,&quot;JAVA_SOURCES_ROOT&quot;:&quot;src/main/java&quot;,&quot;THEME&quot;:&quot;valo&quot;}">
+  <meta name="vaadin-version" content="8.1.5">
+ </head>
+ <body>
+  <vaadin-vertical-layout style-name="valo-menu-responsive no-margin" responsive id="responsive-application-template">
+   <vaadin-horizontal-layout style-name="valo-menu-responsive no-margin" responsive width-full>
+    <vaadin-css-layout style-name="v-component-group no-margin" size-full :middle>
+     <vaadin-button icon="theme://images/favicon.png" plain-text _id="openstarLogo">
+       Openstar 
+     </vaadin-button>
+    </vaadin-css-layout>
+    <vaadin-horizontal-layout spacing="false" width-full>
+     <vaadin-css-layout style-name="LAYOUT_COMPONENT_GROUP" _id="searchGroup">
+      <vaadin-text-field _id="searchField"></vaadin-text-field>
+      <vaadin-button icon="fonticon://Vaadin-Icons/e805" plain-text _id="searchBtn"></vaadin-button>
+     </vaadin-css-layout>
+    </vaadin-horizontal-layout>
+   </vaadin-horizontal-layout>
+   <vaadin-horizontal-layout style-name="valo-menu-responsive no-margin" responsive size-full>
+    <vaadin-css-layout style-name="valo-menu" _id="lhs">
+     <vaadin-css-layout style-name="valo-menu-part" width="162px">
+      <vaadin-css-layout style-name="valo-menuitems" _id="menuItems">
+       <vaadin-button icon="fonticon://FontAwesome/f080" primary-style-name="valo-menu-item" _id="statusButton">
+         Status 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f01c" primary-style-name="valo-menu-item" _id="inboxButton">
+         Inbox 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f187" primary-style-name="valo-menu-item" _id="archiveButton">
+         Archive 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f1d9" primary-style-name="valo-menu-item" _id="sentButton">
+         Sent 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f059" primary-style-name="valo-menu-item" _id="junkButton">
+         Junk 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f1de" primary-style-name="valo-menu-item" _id="settingsButton">
+         Settings 
+       </vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f08b" primary-style-name="valo-menu-item" plain-text _id="logoutButton">
+         Logout 
+       </vaadin-button>
+      </vaadin-css-layout>
+     </vaadin-css-layout>
+    </vaadin-css-layout>
+    <vaadin-vertical-layout style-name="no-margin" size-full _id="content" :expand>
+     <vaadin-horizontal-layout style-name="back-color-blue" width-full _id="statusLayout" :middle>
+      <vaadin-css-layout style-name="v-component-group" :middle>
+       <vaadin-button enabled="false" style-name="small borderless-colored" responsive plain-text _id="balanceCptnBtn">
+         Balance 
+       </vaadin-button>
+       <vaadin-button style-name="small borderless-colored" plain-text _id="balanceValuBtnLbl">
+         Unknown 
+       </vaadin-button>
+      </vaadin-css-layout>
+      <vaadin-css-layout style-name="v-component-group" :middle>
+       <vaadin-button icon="fonticon://FontAwesome/f053" style-name="small borderless-colored" _id="prevButton"></vaadin-button>
+       <vaadin-button icon="fonticon://FontAwesome/f054" style-name="small borderless-colored" _id="nextButton"></vaadin-button>
+      </vaadin-css-layout>
+     </vaadin-horizontal-layout>
+     <vaadin-panel style-name="paneloverflow messagepanel no-margin" size-full _id="itemPanel" :expand>
+      <vaadin-vertical-layout _id="itemPanelVerticalLayout"></vaadin-vertical-layout>
+     </vaadin-panel>
+    </vaadin-vertical-layout>
+    <vaadin-css-layout style-name="valo-menu-part" width="162px" _id="rhs"></vaadin-css-layout>
+   </vaadin-horizontal-layout>
+  </vaadin-vertical-layout>
+ </body>
+</html>
