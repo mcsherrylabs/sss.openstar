@@ -18,34 +18,24 @@ object PeerManager {
 
   case class PeerConnection(nodeId: UniqueNodeIdentifier, c: Capabilities) extends OpenstarEvent
   case class UnQuery(q: Query)
+  case class AddQuery(q: Query)
 
   trait Query
-  case class ChainQuery(chainId: GlobalChainIdMask) extends Query
+  case class ChainQuery(chainId: GlobalChainIdMask, numConns: Int) extends Query
   case class IdQuery(ids: Set[UniqueNodeIdentifier]) extends Query
 
-  case class Capabilities(supportedChains: GlobalChainIdMask) {
-    def contains(chainIdMask: GlobalChainIdMask): Boolean = {
-      IntBitSet(supportedChains).contains(chainIdMask)
-    }
-  }
-
-  implicit class CapabilitiesToBytes(val c: Capabilities) extends ToBytes {
-    def toBytes: Array[Byte] = ByteSerializer(c.supportedChains).toBytes
-  }
-
-  implicit class CapabilitiesFromBytes(val bs: Array[Byte]) extends AnyVal {
-    def toCapabilities: Capabilities = Capabilities(bs.extract(ByteDeSerialize))
-  }
 
 }
 
 class PeerManager(networkRef: NetworkRef,
-                  bootstrapNodes: Set[NodeId],
+                  bootstrapNodes: Set[(NodeId, Capabilities)],
                   ourCapabilities: Capabilities,
-                  eventMessageBus: MessageEventBus
+                  eventMessageBus: MessageEventBus,
+                  discovery: Discovery
                   )
                  (implicit actorSystem: ActorSystem) extends PeerQuery {
 
+  bootstrapNodes foreach {case (n, c) => discovery.insert(n, c.supportedChains) }
 
   override def addQuery(q: Query): Unit = {
     ref ! q
@@ -55,7 +45,7 @@ class PeerManager(networkRef: NetworkRef,
 
   private val ref = actorSystem.actorOf(Props(classOf[PeerManagerActor],
     networkRef,
-    bootstrapNodes,
+
     ourCapabilities,
     eventMessageBus
     ), "PeerManagerActor")
