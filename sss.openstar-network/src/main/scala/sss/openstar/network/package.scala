@@ -12,7 +12,7 @@ package object network {
 
   val NoReconnectionStrategy: ReconnectionStrategy = Stream.Empty
 
-  final case class NodeId(id: String, private[network] val inetSocketAddress: InetSocketAddress) {
+  final case class NodeId(id: String, inetSocketAddress: InetSocketAddress) {
 
     assert(Option(inetSocketAddress.getAddress).isDefined, "Cannot provide an InetSocketAddress without an IP address")
     assert(inetSocketAddress.getPort > 0, "Cannot provide an InetSocketAddress without a port")

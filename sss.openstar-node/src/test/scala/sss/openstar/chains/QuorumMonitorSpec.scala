@@ -8,7 +8,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.openstar.chains.QuorumMonitor.{NotQuorumCandidate, Quorum, QuorumLost}
 import sss.openstar.network.ConnectionLost
 import sss.openstar.nodebuilder._
-import sss.openstar.peers.PeerManager.{Capabilities, PeerConnection}
+
 import sss.openstar.peers.{PeerManager, PeerQuery}
 import sss.openstar.quorumledger.QuorumLedger.NewQuorumCandidates
 

@@ -6,7 +6,8 @@ import org.scalatest.{FlatSpec, Matchers}
 import sss.openstar.block.{Block, NotSynchronized, Synchronized}
 import sss.openstar.{TestSystem2, _}
 import sss.openstar.nodebuilder._
-import sss.openstar.peers.PeerManager.{Capabilities, PeerConnection}
+import sss.openstar.peers.Capabilities
+import sss.openstar.peers.PeerManager.PeerConnection
 
 import scala.language.postfixOps
 

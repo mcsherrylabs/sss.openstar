@@ -4,7 +4,7 @@ import akka.actor.{ActorSystem, Props}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.PeerManager.{Capabilities, Query, UnQuery}
+import sss.openstar.peers.PeerManager.{Query, UnQuery}
 import sss.openstar.util.IntBitSet
 import sss.openstar.util.Serialize._
 

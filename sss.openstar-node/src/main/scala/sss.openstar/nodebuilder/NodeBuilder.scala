@@ -18,8 +18,8 @@ import sss.openstar.ledger.Ledgers
 import sss.openstar.message.{EndMessageQuery, MessageDownloadActor, MessagePaywall, MessageQuery, MessageQueryHandlerActor}
 import sss.openstar.network.NetworkInterface.BindControllerSettings
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.{PeerManager, PeerQuery}
-import sss.openstar.peers.PeerManager.{Capabilities, Query}
+import sss.openstar.peers.{Capabilities, PeerManager, PeerQuery}
+import sss.openstar.peers.PeerManager.Query
 import sss.openstar.quorumledger.{QuorumLedger, QuorumService}
 import sss.openstar.state._
 import sss.openstar._
@@ -271,9 +271,9 @@ trait PeerManagerBuilder extends RequirePeerManager {
   SeedNodesBuilder with
   MessageEventBusBuilder =>
 
-  lazy val peerManager: PeerManager = new PeerManager(net,
+  lazy val peerManager: PeerManager = ??? /*new PeerManager(net,
     nodeConfig.peersList ++ seedNodesFromDns,
-    Capabilities(chain.id), messageEventBus)
+    Capabilities(chain.id), messageEventBus)*/
 }
 
 trait RequireMessageEventBus {

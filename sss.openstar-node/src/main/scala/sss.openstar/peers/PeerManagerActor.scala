@@ -7,17 +7,10 @@ import sss.openstar.{MessageKeys, UniqueNodeIdentifier}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.PeerManager.{AddQuery, Capabilities, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
+import sss.openstar.peers.PeerManager.{AddQuery, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
+
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
-
-
-trait Discovery {
-  def find(notIncluding: Set[UniqueNodeIdentifier], numConns: Int, caps: GlobalChainIdMask): Set[NodeId]
-  def lookup(names: Set[UniqueNodeIdentifier]): Seq[NodeId]
-  def insert(nodeId: NodeId, supportedChains: GlobalChainIdMask): Unit
-  def discover(seedConns: Set[UniqueNodeIdentifier])
-}
 
 private class PeerManagerActor( ncRef: NetworkRef,
                                 ourCapabilities: Capabilities,
@@ -72,7 +65,7 @@ private class PeerManagerActor( ncRef: NetworkRef,
       import context.dispatcher
       wakeTimer map (_.cancel())
       wakeTimer = Option(context.system.scheduler.scheduleOnce(discoveryInterval, self, WakeUp))
-      discovery.discover(knownConns.keys)
+      discovery.discover(knownConns.keys.toSet)
 
     case UnQuery(q) => queries -= q
 
@@ -86,11 +79,11 @@ private class PeerManagerActor( ncRef: NetworkRef,
     case q@ChainQuery(cId, requestedConns) =>
       val goodConns = knownConns.filter {
         case (nId, caps) => matchWithCapabilities(nId, caps)(q)
-      } map (_._1) toSet
+      }.keySet
 
       if(goodConns.size < requestedConns) {
         val allIgnoredConns = goodConns ++
-          (reverseNodeInetAddrLookup.filterNot(ni => failedConns.contains(ni.address)).map(_.id))
+          reverseNodeInetAddrLookup.filterNot(ni => failedConns.contains(ni.address)).map(_.id)
 
         val newNodes = discovery.find(allIgnoredConns, requestedConns, cId)
         newNodes foreach { n =>

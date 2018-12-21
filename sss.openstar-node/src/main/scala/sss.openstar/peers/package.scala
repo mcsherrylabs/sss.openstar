@@ -1,12 +1,10 @@
 package sss.openstar
 
-import java.net.InetSocketAddress
+import java.net.{InetAddress, InetSocketAddress}
 
 import akka.util.ByteString
 import sss.openstar.chains.Chains.GlobalChainIdMask
-
-
-import sss.openstar.peers.serialize.{PeerPageResponseSerializer, PeerPageSerializer}
+import sss.openstar.peers.serialize.{InetAddressSerializer, InetSocketAddressSerializer, PeerPageResponseSerializer, PeerPageSerializer}
 import sss.openstar.util.IntBitSet
 import sss.openstar.util.Serialize._
 
@@ -43,5 +41,21 @@ package object peers {
 
   implicit class PeerPageResponseFromBytes(val bs: Array[Byte])  {
     def toPeerPageResponse: PeerPageResponse = PeerPageResponseSerializer.fromBytes(bs)
+  }
+
+  implicit class InetAddressToBytes(val inetAddr: InetAddress)  extends ToBytes {
+    def toBytes: Array[Byte]= InetAddressSerializer.toBytes(inetAddr)
+  }
+
+  implicit class InetAddressFromBytes(val bs: Array[Byte])  {
+    def toInetAddress: InetAddress = InetAddressSerializer.fromBytes(bs)
+  }
+
+  implicit class InetAddressSocketToBytes(val inetAddr: InetSocketAddress)  extends ToBytes {
+    def toBytes: Array[Byte]= InetSocketAddressSerializer.toBytes(inetAddr)
+  }
+
+  implicit class InetAddressSocketFromBytes(val bs: Array[Byte])  {
+    def toInetSocketAddress: InetSocketAddress = InetSocketAddressSerializer.fromBytes(bs)
   }
 }

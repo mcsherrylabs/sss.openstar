@@ -10,7 +10,7 @@ import sss.openstar.common.block.BlockId
 import sss.openstar.network.ConnectionLost
 
 import sss.openstar.nodebuilder.{DecoderBuilder, MessageEventBusBuilder, RequireActorSystem}
-import sss.openstar.peers.PeerManager.{Capabilities, PeerConnection}
+import sss.openstar.peers.PeerManager.{PeerConnection}
 
 import scala.language.postfixOps
 
