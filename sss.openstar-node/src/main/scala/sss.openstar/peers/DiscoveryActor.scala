@@ -2,18 +2,22 @@ package sss.openstar.peers
 
 import java.net.{InetAddress, InetSocketAddress}
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorLogging}
+import sss.ancillary.Logging
 import sss.db._
 import sss.openstar.chains.Chains.GlobalChainIdMask
+import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{MessageEventBus, NodeId}
-import sss.openstar.{Send, UniqueNodeIdentifier}
+import sss.openstar.{MessageKeys, Send, UniqueNodeIdentifier}
+
+import scala.util.{Failure, Success, Try}
 
 
 
 trait Discovery {
   def find(notIncluding: Set[UniqueNodeIdentifier], numConns: Int, caps: GlobalChainIdMask): Seq[NodeId]
   def lookup(names: Set[UniqueNodeIdentifier]): Seq[NodeId]
-  def insert(nodeId:NodeId, supportedChains: GlobalChainIdMask): Unit
+  def insert(nodeId:NodeId, supportedChains: GlobalChainIdMask): Try[Long]
   def discover(seedConns: Set[UniqueNodeIdentifier])
 }
 
@@ -43,49 +47,71 @@ class DiscoveryImpl(implicit db: Db) extends Discovery {
   }
 
   override def find(notIncluding: Set[UniqueNodeIdentifier], numConns: Int, caps: GlobalChainIdMask): Seq[NodeId] = {
-    //TODO SQL INJECTION ATTACK HERE????
-    val sql = if(!notIncluding.isEmpty) {
-      val massagedNames = notIncluding map (name => s"'$name'") mkString (",")
-      s" $nIdCol NOT IN ($massagedNames) AND $capCol = ?"
-    } else s"$capCol = ?"
+
+    val whereClause = if(notIncluding.nonEmpty) {
+      val params = Seq.fill(notIncluding.size)("?") mkString (",")
+      val sql = s" $nIdCol NOT IN ($params) AND $capCol = ?"
+      where(sql, (notIncluding.toSeq :+ caps):_*)
+    } else {
+      where(s"$capCol = ?", caps)
+    }
 
     discoveryTable.map ({ r =>
       val inet = r[Array[Byte]](addrCol).toInetAddress
       val sock = new InetSocketAddress(inet, r[Int](portCol))
       NodeId(r[String](nIdCol), sock )
-    }, where(sql, caps).limit(numConns))
+    }, whereClause limit numConns)
 
   }
 
   override def lookup(names: Set[UniqueNodeIdentifier]): Seq[NodeId] = {
 
-    val massagedNames = names map (name => s"'$name'") mkString (",")
+    val params = Seq.fill(names.size)("?") mkString (",")
     discoveryTable.map ({ r =>
       val inet = r[Array[Byte]](addrCol).toInetAddress
       val sock = new InetSocketAddress(inet, r[Int](portCol))
       NodeId(r[String](nIdCol), sock )
-    }, where(s" $nIdCol IN ($massagedNames)"))
+    }, where(s" $nIdCol IN ($params)", names.toSeq:_*))
 
   }
 
-  override def insert(nodeId:NodeId, supportedChains: GlobalChainIdMask): Unit = {
+  override def insert(nodeId:NodeId, supportedChains: GlobalChainIdMask): Try[Long] = {
 
-    discoveryTable.insert(
+    Try(discoveryTable.insert(
       Map(
         nIdCol -> nodeId.id,
         addrCol -> nodeId.inetSocketAddress.getAddress.toBytes,
         portCol -> nodeId.inetSocketAddress.getPort,
         capCol -> supportedChains)
-    )
+    )) map (_.id)
   }
 
   override def discover(seedConns: Set[UniqueNodeIdentifier]): Unit = ???
 }
 
-class DiscoveryActor(seedNodes: Set[UniqueNodeIdentifier])
+class DiscoveryActor(seedNodes: Set[UniqueNodeIdentifier],
+                     discoveryImpl: DiscoveryImpl)
                     (implicit messageEventBus: MessageEventBus,
-                     send: Send) extends Actor {
+                     send: Send) extends Actor with ActorLogging {
 
+  messageEventBus subscribe MessageKeys.PeerPageResponse
+  messageEventBus subscribe MessageKeys.SeqPeerPageResponse
 
-    override def receive: Receive = ???
+    override def receive: Receive = {
+      case IncomingMessage(_, MessageKeys.SeqPeerPageResponse, fromNode, seq: Seq[PeerPageResponse]) =>
+        seq foreach (self ! _)
+
+      case IncomingMessage(_, MessageKeys.PeerPageResponse, fromNode, peerResp: PeerPageResponse) =>
+        discoveryImpl
+          .insert(
+            NodeId(peerResp.nodeId, peerResp.sockAddr),
+            peerResp.capabilities.supportedChains
+          ) recover {
+          case e =>
+            log.debug("Couldn't process {} from {}, possible dup", peerResp, fromNode)
+            log.debug(e.toString)
+
+        }
+
+    }
 }

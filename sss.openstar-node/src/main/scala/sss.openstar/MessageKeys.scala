@@ -25,6 +25,7 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val Synchronized: Byte = 35
   val PeerPage: Byte = 36
   val PeerPageResponse: Byte = 37
+  val SeqPeerPageResponse: Byte = 38
 
 
   val GetPageTx: Byte = 40
@@ -75,6 +76,7 @@ object MessageKeys extends PublishedMessageKeys with Logging {
     MessageInfoComposite[Synchronized](Synchronized, classOf[Synchronized], _.toSynchronized) :+
     MessageInfoComposite[PureEvent](QueryCapabilities, classOf[PureEvent], PureEvent(QueryCapabilities,_)) :+
     MessageInfoComposite[PeerPage](PeerPage, classOf[PeerPage], _.toPeerPage) :+
+    MessageInfoComposite[SeqPeerPageResponse](SeqPeerPageResponse, classOf[SeqPeerPageResponse], _.toSeqPeerPageResponse) :+
     MessageInfoComposite[PeerPageResponse](PeerPageResponse, classOf[PeerPageResponse], _.toPeerPageResponse)
 
   val messages = localMessages ++ publishedMsgs

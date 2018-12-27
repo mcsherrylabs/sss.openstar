@@ -32,17 +32,17 @@ class DiscoveryImplSpec extends FlatSpec with Matchers {
     val results = sut.find(Set.empty, 1, caps)
     assert(results.size == 1)
   }
-  it should " find an ignored id  " in {
+  it should " not find an ignored id  " in {
     val results = sut.find(Set(n.id, "random"), 1, caps)
     assert(results.size == 0)
   }
 
-  it should " find an id with wrong capabilities " in {
+  it should " not find an id with wrong capabilities " in {
     val results = sut.find(Set("random"), 1, 0.toByte)
     assert(results.size == 0)
   }
 
-  it should " find an id when limit is 0 " in {
+  it should " not find an id when limit is 0 " in {
     val results = sut.find(Set(n.id), 0, caps)
     assert(results.size == 0)
   }
