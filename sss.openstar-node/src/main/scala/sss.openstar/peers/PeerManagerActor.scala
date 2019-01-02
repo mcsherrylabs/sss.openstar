@@ -7,17 +7,17 @@ import sss.openstar.{MessageKeys, UniqueNodeIdentifier}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{MessageEventBus, _}
+import sss.openstar.peers.DiscoveryActor.Discover
 import sss.openstar.peers.PeerManager.{AddQuery, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
-
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-private class PeerManagerActor( ncRef: NetworkRef,
-                                ourCapabilities: Capabilities,
-                                maxDbSize: Int,
-                                discoveryInterval: FiniteDuration,
-                                discovery: Discovery,
-                                messageEventBus: MessageEventBus,
+private class PeerManagerActor(ncRef: NetworkRef,
+                               ourCapabilities: Capabilities,
+                               maxDbSize: Int,
+                               discoveryInterval: FiniteDuration,
+                               discovery: Discovery,
+                               events: MessageEventBus,
 
 
                       ) extends Actor {
@@ -38,12 +38,12 @@ private class PeerManagerActor( ncRef: NetworkRef,
   private var failedConns: Seq[InetSocketAddress] = Seq.empty
   private var reverseNodeInetAddrLookup: Seq[NodeId] = Seq.empty
 
-  messageEventBus.subscribe(MessageKeys.Capabilities)
-  messageEventBus.subscribe(MessageKeys.QueryCapabilities)
-  messageEventBus.subscribe(classOf[ConnectionLost])
-  messageEventBus.subscribe(classOf[Connection])
-  messageEventBus.subscribe(classOf[ConnectionFailed])
-  messageEventBus.subscribe(classOf[ConnectionHandshakeTimeout])
+  events.subscribe(MessageKeys.Capabilities)
+  events.subscribe(MessageKeys.QueryCapabilities)
+  events.subscribe(classOf[ConnectionLost])
+  events.subscribe(classOf[Connection])
+  events.subscribe(classOf[ConnectionFailed])
+  events.subscribe(classOf[ConnectionHandshakeTimeout])
 
   private def matchWithCapabilities(nodeId: UniqueNodeIdentifier,
                                     otherNodesCaps: Capabilities)(q:Query): Boolean = {
@@ -65,16 +65,16 @@ private class PeerManagerActor( ncRef: NetworkRef,
       import context.dispatcher
       wakeTimer map (_.cancel())
       wakeTimer = Option(context.system.scheduler.scheduleOnce(discoveryInterval, self, WakeUp))
-      discovery.discover(knownConns.keys.toSet)
+      events publish Discover(knownConns.keys.toSet)
 
     case UnQuery(q) => queries -= q
 
     case AddQuery(q) => queries += q
 
     case q@IdQuery(ids) =>
-      val notExisting = ids.filterNot(n => knownConns.keys.exists(_ == n))
-      val nodeIds = discovery.lookup(notExisting)
-      nodeIds foreach (ncRef.connect(_, indefiniteReconnectionStrategy(30)))
+      val notAlreadyConnected = ids diff knownConns.keySet
+      val nodeIds = discovery.lookup(notAlreadyConnected)
+      nodeIds foreach (n => ncRef.connect(n.nodeId, indefiniteReconnectionStrategy(30)))
 
     case q@ChainQuery(cId, requestedConns) =>
       val goodConns = knownConns.filter {
@@ -87,18 +87,18 @@ private class PeerManagerActor( ncRef: NetworkRef,
 
         val newNodes = discovery.find(allIgnoredConns, requestedConns, cId)
         newNodes foreach { n =>
-          ncRef.connect(n, indefiniteReconnectionStrategy(1))
-          reverseNodeInetAddrLookup = n +: reverseNodeInetAddrLookup
+          ncRef.connect(n.nodeId, indefiniteReconnectionStrategy(1))
+          reverseNodeInetAddrLookup = n.nodeId +: reverseNodeInetAddrLookup
         }
       }
 
 
     case Connection(nodeId) =>
       failedConns = reverseNodeInetAddrLookup.find(_.id == nodeId)
-      .map (found => failedConns.filterNot(_ == found))
+      .map (found => failedConns.filterNot(_ == found.inetSocketAddress))
           .getOrElse(failedConns)
 
-      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array()), Set(nodeId))
+      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array.emptyByteArray), Set(nodeId))
 
     case ConnectionLost(lost) =>
       knownConns -= lost
@@ -114,7 +114,7 @@ private class PeerManagerActor( ncRef: NetworkRef,
       knownConns += nodeId -> otherNodesCaps
 
       if(queries.exists (matchWithCapabilities(nodeId, otherNodesCaps))) {
-        messageEventBus.publish(PeerConnection(nodeId, otherNodesCaps))
+        events.publish(PeerConnection(nodeId, otherNodesCaps))
       }
   }
 }

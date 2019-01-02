@@ -24,7 +24,7 @@ object MessageKeys extends PublishedMessageKeys with Logging {
   val QueryCapabilities: Byte = 34
   val Synchronized: Byte = 35
   val PeerPage: Byte = 36
-  val PeerPageResponse: Byte = 37
+  val PeerPageResponse: Byte = 37 // TODO unused? If so remove.
   val SeqPeerPageResponse: Byte = 38
 
 

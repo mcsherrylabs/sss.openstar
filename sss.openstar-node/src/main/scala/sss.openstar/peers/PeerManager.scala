@@ -4,7 +4,7 @@ import akka.actor.{ActorSystem, Props}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.PeerManager.{Query, UnQuery}
+import sss.openstar.peers.PeerManager.{AddQuery, Query, UnQuery}
 import sss.openstar.util.IntBitSet
 import sss.openstar.util.Serialize._
 
@@ -38,7 +38,7 @@ class PeerManager(networkRef: NetworkRef,
   bootstrapNodes foreach {case (n, c) => discovery.insert(n, c.supportedChains) }
 
   override def addQuery(q: Query): Unit = {
-    ref ! q
+    ref ! AddQuery(q)
   }
 
   override def removeQuery(q: Query): Unit = ref ! UnQuery(q)

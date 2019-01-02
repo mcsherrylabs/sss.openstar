@@ -9,7 +9,7 @@ import sss.openstar.network.NodeId
 class DiscoveryImplSpec extends FlatSpec with Matchers {
 
   implicit val db: Db = Db()
-  val sut = new DiscoveryImpl()
+  val sut = new Discovery()
 
   val inet = InetAddress.getLocalHost
   val inetSocket = new InetSocketAddress(inet, 8080)
@@ -23,8 +23,8 @@ class DiscoveryImplSpec extends FlatSpec with Matchers {
 
     val results = sut.lookup(Set(n.id, "random"))
     assert(results.size === 1)
-    assert(results.head.id === n.id)
-    assert(results.head.inetSocketAddress === n.inetSocketAddress)
+    assert(results.head.nodeId.id === n.id)
+    assert(results.head.nodeId.inetSocketAddress === n.inetSocketAddress)
 
   }
 
@@ -32,6 +32,7 @@ class DiscoveryImplSpec extends FlatSpec with Matchers {
     val results = sut.find(Set.empty, 1, caps)
     assert(results.size == 1)
   }
+
   it should " not find an ignored id  " in {
     val results = sut.find(Set(n.id, "random"), 1, caps)
     assert(results.size == 0)
