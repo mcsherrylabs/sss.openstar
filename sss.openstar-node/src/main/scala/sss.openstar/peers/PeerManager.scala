@@ -4,9 +4,11 @@ import akka.actor.{ActorSystem, Props}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
 import sss.openstar.network.{MessageEventBus, _}
+import sss.openstar.peers.Discovery.DiscoveredNode
 import sss.openstar.peers.PeerManager.{AddQuery, Query, UnQuery}
-import sss.openstar.util.IntBitSet
-import sss.openstar.util.Serialize._
+
+
+import scala.concurrent.duration.FiniteDuration
 
 
 trait PeerQuery {
@@ -27,15 +29,18 @@ object PeerManager {
 
 }
 
-class PeerManager(networkRef: NetworkRef,
-                  bootstrapNodes: Set[(NodeId, Capabilities)],
+class PeerManager(connect: NetConnect,
+                  send: NetSend,
+                  bootstrapNodes: Set[DiscoveredNode],
                   ourCapabilities: Capabilities,
-                  eventMessageBus: MessageEventBus,
+                  discoveryInterval: FiniteDuration,
                   discovery: Discovery
                   )
-                 (implicit actorSystem: ActorSystem) extends PeerQuery {
+                 (implicit actorSystem: ActorSystem,
+                  events: MessageEventBus
+                 ) extends PeerQuery {
 
-  bootstrapNodes foreach {case (n, c) => discovery.insert(n, c.supportedChains) }
+  bootstrapNodes foreach { dn => discovery.insert(dn.nodeId, dn.capabilities) }
 
   override def addQuery(q: Query): Unit = {
     ref ! AddQuery(q)
@@ -44,10 +49,12 @@ class PeerManager(networkRef: NetworkRef,
   override def removeQuery(q: Query): Unit = ref ! UnQuery(q)
 
   private val ref = actorSystem.actorOf(Props(classOf[PeerManagerActor],
-    networkRef,
-
+    connect,
+    send,
     ourCapabilities,
-    eventMessageBus
+    discoveryInterval,
+    discovery,
+    events
     ), "PeerManagerActor")
 
 }

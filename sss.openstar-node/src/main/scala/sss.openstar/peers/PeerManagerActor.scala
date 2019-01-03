@@ -12,9 +12,9 @@ import sss.openstar.peers.PeerManager.{AddQuery, ChainQuery, IdQuery, PeerConnec
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
-private class PeerManagerActor(ncRef: NetworkRef,
+private class PeerManagerActor(connect: NetConnect,
+                               send: NetSend,
                                ourCapabilities: Capabilities,
-                               maxDbSize: Int,
                                discoveryInterval: FiniteDuration,
                                discovery: Discovery)
                               (implicit events: MessageEventBus)
@@ -67,12 +67,14 @@ private class PeerManagerActor(ncRef: NetworkRef,
 
     case UnQuery(q) => queries -= q
 
-    case AddQuery(q) => queries += q
+    case AddQuery(q) =>
+      queries += q
+      self ! WakeUp
 
     case q@IdQuery(ids) =>
       val notAlreadyConnected = ids diff knownConns.keySet
       val nodeIds = discovery.lookup(notAlreadyConnected)
-      nodeIds foreach (n => ncRef.connect(n.nodeId, indefiniteReconnectionStrategy(30)))
+      nodeIds foreach (n => connect(n.nodeId, indefiniteReconnectionStrategy(30)))
 
     case q@ChainQuery(cId, requestedConns) =>
       val goodConns = knownConns.filter {
@@ -85,7 +87,7 @@ private class PeerManagerActor(ncRef: NetworkRef,
 
         val newNodes = discovery.find(allIgnoredConns, requestedConns, cId)
         newNodes foreach { n =>
-          ncRef.connect(n.nodeId, indefiniteReconnectionStrategy(1))
+          connect(n.nodeId, indefiniteReconnectionStrategy(1))
           reverseNodeInetAddrLookup = n.nodeId +: reverseNodeInetAddrLookup
         }
       }
@@ -96,7 +98,7 @@ private class PeerManagerActor(ncRef: NetworkRef,
       .map (found => failedConns.filterNot(_ == found.inetSocketAddress))
           .getOrElse(failedConns)
 
-      ncRef.send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array.emptyByteArray), Set(nodeId))
+      send(SerializedMessage(0.toByte, MessageKeys.QueryCapabilities, Array.emptyByteArray), Set(nodeId))
 
     case ConnectionLost(lost) =>
       knownConns -= lost
@@ -106,7 +108,7 @@ private class PeerManagerActor(ncRef: NetworkRef,
 
     case IncomingMessage(_, MessageKeys.QueryCapabilities, nodeId, _) =>
       // TODO if spamming, blacklist
-      ncRef.send(ourCapabilitiesNetworkMsg, Set(nodeId))
+      send(ourCapabilitiesNetworkMsg, Set(nodeId))
 
     case IncomingMessage(_, MessageKeys.Capabilities, nodeId, otherNodesCaps: Capabilities) =>
       knownConns += nodeId -> otherNodesCaps

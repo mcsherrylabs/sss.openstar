@@ -47,8 +47,12 @@ class Discovery(hasher: Hash)(implicit db: Db) {
   }
 
   def find(nodesToIgnore: Set[UniqueNodeIdentifier], numConns: Int, caps: GlobalChainIdMask): Seq[DiscoveredNode] = {
+    val whereExtend =
+      if(nodesToIgnore.nonEmpty) where(nIdCol) notIn nodesToIgnore
+      else where()
+
     viewToDiscoveredNodes(
-      where(capCol -> caps) and where(nIdCol) notIn nodesToIgnore limit numConns
+      where(capCol -> caps) and whereExtend limit numConns
     )
   }
 
