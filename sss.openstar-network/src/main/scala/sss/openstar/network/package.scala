@@ -2,6 +2,7 @@ package sss.openstar
 
 import java.net.{InetAddress, InetSocketAddress}
 
+import akka.util.ByteString
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.ConnectionHandler.HandshakeStep
 import sss.openstar.util.Serialize.ToBytes
@@ -35,6 +36,9 @@ package object network {
       s"NodeId id:$id, address: $address (!=port:${inetSocketAddress.getPort})"
     }
 
+    lazy val hash: ByteString = ByteString(inetSocketAddress.getAddress.getAddress) ++
+      ByteString(inetSocketAddress.getPort) ++
+      ByteString(id.hashCode)
   }
 
   type InitialHandshakeStepGenerator =
@@ -64,7 +68,7 @@ package object network {
     def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage =
       SerializedMessage(chainId, msgCode, Array())
 
-    def apply[T <% ToBytes](msgCode: Byte, obj: T)(implicit chainId: GlobalChainIdMask): SerializedMessage =
+    def apply[T](msgCode: Byte, obj: T)(implicit ev: T => ToBytes, chainId: GlobalChainIdMask): SerializedMessage =
       SerializedMessage(chainId, msgCode, obj.toBytes)
   }
 

@@ -16,11 +16,9 @@ private class PeerManagerActor(ncRef: NetworkRef,
                                ourCapabilities: Capabilities,
                                maxDbSize: Int,
                                discoveryInterval: FiniteDuration,
-                               discovery: Discovery,
-                               events: MessageEventBus,
-
-
-                      ) extends Actor {
+                               discovery: Discovery)
+                              (implicit events: MessageEventBus)
+  extends Actor {
 
   private case class KnownConnection(c: Connection, cabs: Capabilities)
   private case object WakeUp

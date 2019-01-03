@@ -1,23 +1,28 @@
 package sss.openstar.peers
 
 import java.net.{InetAddress, InetSocketAddress}
+import java.util.concurrent.atomic.AtomicReference
 
-import akka.testkit.TestProbe
-import org.scalatest.{FlatSpec, Matchers}
+import akka.actor.ActorSystem
+import akka.testkit.{ImplicitSender, TestKit, TestProbe}
+import akka.util.ByteString
+import org.scalatest.{FlatSpec, Matchers, WordSpecLike}
+import sss.ancillary.Logging
 import sss.db.Db
-import sss.openstar.{MessageKeys, Send}
-import sss.openstar.network.{IncomingSerializedMessage, NetSend, NodeId, SerializedMessage}
+import sss.openstar.TestUtils.TestIncoming
+import sss.openstar.{MessageKeys, Send, TestUtils}
+import sss.openstar.network.{NetSend, NodeId, SerializedMessage}
 import sss.openstar.network.TestMessageEventBusOps._
 import sss.openstar.nodebuilder._
-import sss.openstar.peers.DiscoveryActor.DiscoveredNode
+import sss.openstar.peers.Discovery.DiscoveredNode
+import sss.openstar.util.hash.FastCryptographicHash
 
 import scala.language.postfixOps
+import scala.util.Random
 
-class DiscoveryActorSpec extends FlatSpec with Matchers {
+class DiscoveryActorSpec extends TestKit(TestUtils.actorSystem) with WordSpecLike with Matchers with ImplicitSender {
 
   private val chainId = 1.toByte
-
-  import sss.openstar.TestUtils.actorSystem
 
   private val probe1 = TestProbe()
 
@@ -27,11 +32,27 @@ class DiscoveryActorSpec extends FlatSpec with Matchers {
   private object TestSystem extends MessageEventBusBuilder
     with RequireActorSystem
     with DecoderBuilder
-    with RequireNetSend {
+    with RequireNetSend
+    with Logging {
+
+    val receivedNetworkMessages = new AtomicReference[Seq[Any]](Seq.empty)
+    //val receivedNetworkMessagesByReceiver = new AtomicReference[Map[String, Seq[Any]]](Map().withDefaultValue(Seq.empty))
 
     override implicit val send: Send = Send(ns)
 
     def ns: NetSend = (serMsg, targets) => {
+      decoder(serMsg.msgCode) match {
+        case Some(info) =>
+          val msg = info.fromBytes(serMsg.data)
+          //val incomingMsg = IncomingMessage(serMsg.chainId, serMsg.msgCode, "SUT", msg)
+
+          receivedNetworkMessages.getAndUpdate({ msgs: Seq[_] =>
+            msgs :+ msg
+          })
+
+          messageEventBus publish TestIncoming(msg)
+        case None => log.warn(s"No decoding info found for ${serMsg.msgCode}")
+      }
       ()
     }
   }
@@ -40,71 +61,60 @@ class DiscoveryActorSpec extends FlatSpec with Matchers {
   import TestSystem.send
 
   implicit val db = Db()
-  val discovery = new Discovery()
-  val sut = actorSystem.actorOf(DiscoveryActor.props(discovery))
+  val discovery = new Discovery(FastCryptographicHash.hash)
+  val sut = system.actorOf(DiscoveryActor.props(discovery))
 
-  "DiscoveryActor" should "store the peers it receives" in {
+  messageEventBus.subscribe(classOf[TestIncoming])
+  import SerializedMessage.noChain
 
-    val addr = InetAddress.getLocalHost.getAddress
+  "DiscoveryActor" should {
 
+    "respond with peer page when no peers" in {
+      TestSystem.messageEventBus.simulateNetworkMessage("DiscoveryActorSpec",
+        MessageKeys.PeerPage,
+        PeerPage(0,1000, ByteString("Random" + Random.nextInt()))
+      )
 
-    val peers = (0 to 10) map { i => PeerPageResponse(s"node$i",
-      new InetSocketAddress(
-        InetAddress.getByAddress(s"node$i", addr),
-        80 + i),
-      Capabilities(i.toByte))
+      expectMsg(TestIncoming(PeerPage(0, 1000, ByteString())))
     }
 
-    import SerializedMessage.noChain
-    val simulated = IncomingSerializedMessage("notImortant",
-      SerializedMessage(MessageKeys.SeqPeerPageResponse, SeqPeerPageResponse(peers)))
+    "store the peers it receives" in {
 
-    TestSystem.messageEventBus.simulateNetworkMessage(simulated)
+      val peers = (0 until 10) map { i => PeerPageResponse(s"node$i",
 
-    Thread.sleep(1000)
-    val asDiscovered = peers map (peer => DiscoveredNode(NodeId(peer.nodeId, peer.sockAddr), peer.capabilities.supportedChains))
-    val (savedPeers, fingerprint)= discovery.query(0, 10)
-    assert(savedPeers === asDiscovered)
+        new InetSocketAddress(
+          InetAddress.getByName(s"127.0.0.$i"),
+          80 + i),
+        Capabilities(i.toByte))
+      }
+
+      TestSystem.messageEventBus.simulateNetworkMessage("DiscoveryActorSpec",
+        MessageKeys.SeqPeerPageResponse,
+        SeqPeerPageResponse(peers)
+      )
+
+      TestSystem.messageEventBus.simulateNetworkMessage("DiscoveryActorSpec",
+        MessageKeys.PeerPage,
+        PeerPage(0,1000, ByteString("Random" + Random.nextInt()))
+      )
+
+      val resp = receiveN(2)
+      val pPage = TestUtils.extractAsType[PeerPage](resp.last)
+
+      TestSystem.messageEventBus.simulateNetworkMessage("DiscoveryActorSpec",
+        MessageKeys.PeerPage,
+        PeerPage(0,1000, pPage.fingerprint)
+      )
+
+      expectNoMessage()
+
+      awaitAssert {
+        val asDiscovered = peers map (peer => DiscoveredNode(NodeId(peer.nodeId, peer.sockAddr), peer.capabilities.supportedChains))
+        val (savedPeers, fingerprint) = discovery.query(0, 10)
+        assert(savedPeers === asDiscovered)
+      }
+    }
+
   }
 
-  /*it should " have a quorum if only this node is a member" in {
-    TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(myNodeId)))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(Quorum(chainId, Set(), 0))
-  }
-
-  it should " not have a quorum if only another node is a member and not connected " in {
-    TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(myNodeId, otherNodeId)))
-    probe1.expectMsg(QuorumLost(chainId))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(QuorumLost(chainId))
-  }
-
-  it should " indicate we are out of the quorum if we query when not a member " in {
-    TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(otherNodeId)))
-    probe1.expectMsg(NotQuorumCandidate(chainId, myNodeId))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(NotQuorumCandidate(chainId, myNodeId))
-  }
-
-  it should " indicate we have a quorum if we query when members connected " in {
-    TestSystem.messageEventBus.publish(NewQuorumCandidates(chainId, Set(otherNodeId, myNodeId)))
-    TestSystem.messageEventBus.publish(PeerConnection(otherNodeId, Capabilities(chainId)))
-    probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
-  }
-
-  it should " maintain a quorum if non member gets disconnected " in {
-    TestSystem.messageEventBus.publish(ConnectionLost(otherNodeId + "random"))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(Quorum(chainId, Set(otherNodeId), 0))
-  }
-
-  it should " indicate we have lost quorum if member gets disconnected " in {
-    TestSystem.messageEventBus.publish(ConnectionLost(otherNodeId))
-    probe1.expectMsg(QuorumLost(chainId))
-    TestSystem.quorumMonitor.queryStatus
-    probe1.expectMsg(QuorumLost(chainId))
-  }*/
 }

@@ -2,6 +2,7 @@ package sss.openstar
 
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
+import shapeless.TypeClass
 import sss.ancillary.{Configure, Logging}
 import sss.openstar.account.{NodeIdentity, PrivateKeyAccount}
 import sss.openstar.balanceledger.{BalanceLedger, StandardTx, TxIndex, TxInput, TxOutput}
@@ -9,6 +10,7 @@ import sss.openstar.block.BlockChain
 import sss.openstar.identityledger.Claim
 import sss.openstar.ledger.{LedgerItem, SignedTxEntry}
 import sss.openstar.ledger._
+import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
 import sss.openstar.nodebuilder._
 import sss.openstar.network.TestMessageEventBusOps._
@@ -20,6 +22,20 @@ object TestUtils {
 
   implicit val actorSystem: ActorSystem = ActorSystem("OpenstarTests")
 
+  def extractAsType[T: Manifest](a:Any): T = {
+    if(a.isInstanceOf[TestIncoming]) {
+      val in = a.asInstanceOf[TestIncoming]
+      if(in.msg.isInstanceOf[T]) {
+        in.msg.asInstanceOf[T]
+      } else throw new IllegalArgumentException("Could not get type out")
+    } else if (a.isInstanceOf[T]) {
+      a.asInstanceOf[T]
+    } else {
+      throw new IllegalArgumentException("Could not get type out")
+    }
+  }
+
+  case class TestIncoming(msg: Any) extends OpenstarEvent
 
   def addEmptyBlock(balanceLedger: BalanceLedger,
                   nodeIdentity: NodeIdentity,

@@ -2,18 +2,24 @@ package sss.openstar.peers
 
 import java.net.{InetAddress, InetSocketAddress}
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpec, Matchers}
 import sss.db.Db
 import sss.openstar.network.NodeId
+import sss.openstar.util.hash.FastCryptographicHash
 
-class DiscoveryImplSpec extends FlatSpec with Matchers {
+class DiscoveryImplSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
   implicit val db: Db = Db()
-  val sut = new Discovery()
 
   val inet = InetAddress.getLocalHost
   val inetSocket = new InetSocketAddress(inet, 8080)
   val caps = 34.toByte
+  val sut = new Discovery(FastCryptographicHash.hash)
+
+  override def afterAll: Unit = {
+    sut.purge(caps)
+  }
+
 
   val n = NodeId("aldksjaldksjald", inetSocket)
 
@@ -29,7 +35,7 @@ class DiscoveryImplSpec extends FlatSpec with Matchers {
   }
 
   it should " find " in {
-    val results = sut.find(Set.empty, 1, caps)
+    val results = sut.find(Set("dasf"), 1, caps)
     assert(results.size == 1)
   }
 
