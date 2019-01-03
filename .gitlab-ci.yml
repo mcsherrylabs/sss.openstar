@@ -18,6 +18,6 @@ before_script:
 test:
   stage: test
   script:
-    - sbt clean coverage test coverageReport
+    - sbt clean coverage test coverageReport coverageAggregate coveralls
 
 
