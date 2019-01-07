@@ -24,22 +24,21 @@ class PeerManagerSpec extends TestKit(TestUtils.actorSystem) with WordSpecLike w
 
   private val chainId = 1.toByte
 
-  private case class AttemptedConnection() extends OpenstarEvent
+  private case class AttemptedConnection(toNode: UniqueNodeIdentifier) extends OpenstarEvent
 
   private object TestSystem extends TestSystem
 
   implicit val db = Db()
-  import SerializedMessage.noChain
+
   import TestSystem.messageEventBus
 
   messageEventBus.subscribe(classOf[AttemptedConnection])
 
   val connect: NetConnect = new NetConnect {
     override def connect(nId: NodeId, reconnectStrategy: ReconnectionStrategy): Unit = {
-      messageEventBus publish (AttemptedConnection())
+      messageEventBus publish AttemptedConnection(nId.id)
     }
   }
-
 
   val bootstrapNodes: Set[DiscoveredNode] = ((0 until 2) map { i => DiscoveredNode(NodeId(s"node$i",
     new InetSocketAddress(
@@ -52,19 +51,25 @@ class PeerManagerSpec extends TestKit(TestUtils.actorSystem) with WordSpecLike w
   val discoveryInterval: FiniteDuration = 15.seconds
   val discovery: Discovery = new Discovery(FastCryptographicHash.hash)
 
+  val nodeId:UniqueNodeIdentifier = "yada"
+  val ourNetAddress: InetSocketAddress = new InetSocketAddress(InetAddress.getLocalHost, 8090)
+
   val sut = new PeerManager(connect,
     TestSystem.netSend,
     bootstrapNodes,
     ourCapabilities,
     discoveryInterval,
-    discovery
+    discovery,
+    nodeId,
+    ourNetAddress
   )
 
   "PeerManager" should {
 
     "attempt to connect to bootstrap when queried" in {
-      sut.addQuery(ChainQuery(chainId, 1))
-      expectMsg(AttemptedConnection())
+      sut.addQuery(ChainQuery(chainId, 2))
+      val t = expectMsgType[AttemptedConnection]
+      assert(bootstrapNodes.map(_.nodeId.id)contains(t.toNode))
     }
 
   }

@@ -1,9 +1,14 @@
 package sss.openstar.peers
 
 import java.net.InetSocketAddress
+import java.sql.SQLIntegrityConstraintViolationException
+import java.util.Date
 
 import akka.util.ByteString
-import sss.db.{Db, Row, Where, where}
+import org.joda.time.{DateTime, DateTimeZone}
+import sss.ancillary.Logging
+import sss.db._
+import sss.db.NullOrder._
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.NodeId
@@ -14,13 +19,21 @@ import scala.util.Try
 
 object Discovery {
 
+  private val peerPattern = """(.*):(.*):(\d\d\d\d):([0-9]{1,3})""".r
+
+  def toDiscoveredNode(pattern: String): DiscoveredNode = pattern match {
+    case peerPattern(id, ip, port, caps) =>
+      DiscoveredNode(NodeId(id, new InetSocketAddress(ip, port.toInt)), caps.toByte)
+  }
+
   type Hash = Array[Byte] => Array[Byte]
+
   case class DiscoveredNode(nodeId: NodeId, capabilities: GlobalChainIdMask) extends OpenstarEvent {
     lazy val hash: ByteString = nodeId.hash ++ ByteString(capabilities)
   }
 }
 
-class Discovery(hasher: Hash)(implicit db: Db) {
+class Discovery(hasher: Hash)(implicit db: Db) extends Logging {
 
   private val discoveryTableName = "discovery"
   private val nIdCol = "nid_col"
@@ -28,6 +41,8 @@ class Discovery(hasher: Hash)(implicit db: Db) {
   private val portCol = "port_col"
   private val capCol = "cap_col"
   private val idCol = "id"
+  private val unreachableCol = "unreachable_at"
+
 
   private val createTableSql =
     s"""CREATE TABLE IF NOT EXISTS $discoveryTableName
@@ -36,28 +51,35 @@ class Discovery(hasher: Hash)(implicit db: Db) {
        |$addrCol BINARY(16),
        |$portCol INT NOT NULL,
        |$capCol BINARY(1) NOT NULL,
-       |PRIMARY KEY(id), UNIQUE($addrCol));
+       |$unreachableCol BIGINT,
+       |PRIMARY KEY($idCol), UNIQUE($nIdCol), UNIQUE($addrCol, $portCol));
        |""".stripMargin
 
-  private val indx = s"CREATE INDEX IF NOT EXISTS ${discoveryTableName}_indx ON $discoveryTableName ($addrCol, $capCol);"
+  private val indx = s"CREATE INDEX IF NOT EXISTS ${discoveryTableName}_indx ON $discoveryTableName ($capCol);"
 
-  lazy val discoveryTable = {
+  private lazy val discoveryTable = {
     db.executeSqls(Seq(createTableSql, indx))
     db.table(discoveryTableName)
   }
 
-  def find(nodesToIgnore: Set[UniqueNodeIdentifier], numConns: Int, caps: GlobalChainIdMask): Seq[DiscoveredNode] = {
-    val whereExtend =
+  def find(numConns: Int, caps: GlobalChainIdMask, nodesToIgnore: Set[UniqueNodeIdentifier] = Set.empty): Seq[DiscoveredNode] = {
+    val whereNotInNodesToIgnore =
       if(nodesToIgnore.nonEmpty) where(nIdCol) notIn nodesToIgnore
       else where()
 
     viewToDiscoveredNodes(
-      where(capCol -> caps) and whereExtend limit numConns
+      where(capCol -> caps) and whereNotInNodesToIgnore limit numConns
     )
   }
 
   def lookup(names: Set[UniqueNodeIdentifier]): Seq[DiscoveredNode] = {
-    viewToDiscoveredNodes(where(nIdCol) in names)
+
+    if(names.nonEmpty) {
+      viewToDiscoveredNodes(
+        where(nIdCol) in names
+      )
+    } else Seq.empty
+
   }
 
   private def viewToDiscoveredNodes(filter: Where): Seq[DiscoveredNode] = {
@@ -77,21 +99,91 @@ class Discovery(hasher: Hash)(implicit db: Db) {
     discoveryTable delete where(capCol -> supportedChains)
   }
 
-  private[peers] def insert(nodeId:NodeId, supportedChains: GlobalChainIdMask): Try[DiscoveredNode] = {
+  private[peers] def persist(nodeId:NodeId, supportedChains: GlobalChainIdMask): Try[DiscoveredNode] = {
 
-    Try(discoveryTable insert
-      Map(
-        nIdCol -> nodeId.id,
-        addrCol -> nodeId.inetSocketAddress.getAddress.toBytes,
-        portCol -> nodeId.inetSocketAddress.getPort,
-        capCol -> supportedChains)
-    ) map rowToDiscoveredNode
+    val columnMap = Map(
+      nIdCol -> nodeId.id,
+      addrCol -> nodeId.inetSocketAddress.getAddress.toBytes,
+      portCol -> nodeId.inetSocketAddress.getPort,
+      capCol -> supportedChains)
+
+    Try (
+      discoveryTable insert columnMap
+
+    ) recover {
+
+      case e: SQLIntegrityConstraintViolationException =>
+        (discoveryTable.find(
+          where (
+            addrCol -> nodeId.inetSocketAddress.getAddress.toBytes,
+            portCol -> nodeId.inetSocketAddress.getPort
+          )
+        ) map { r =>
+          discoveryTable update columnMap + (idCol -> r.id)
+        }).getOrElse(
+          throw new RuntimeException(s"Bizarrely couldn't find row with $addrCol, $portCol after failing to insert them.")
+        )
+
+    } map rowToDiscoveredNode
   }
 
   def query(start: Int, pageSize: Int): (Seq[DiscoveredNode], ByteString) = {
-    val nodes = viewToDiscoveredNodes (where(s"$idCol > ?", start) limit pageSize)
+    val nodes = viewToDiscoveredNodes (where(s"$idCol > ?", start) orderAsc (addrCol, portCol) limit pageSize)
     val hashed = nodes.foldLeft(Array.emptyByteArray)((acc, e) => hasher(acc ++ e.hash))
     (nodes, ByteString(hashed))
+  }
+
+  def reachable(addr: InetSocketAddress): Unit = {
+    discoveryTable.find(
+      where (
+        addrCol -> addr.getAddress.toBytes,
+        portCol -> addr.getPort
+      )
+    ) map ( r =>
+      discoveryTable.update(
+        Map(idCol -> r.id, unreachableCol -> None)
+      )
+    )
+  }
+
+  def unreachable(addr: InetSocketAddress): Unit = {
+
+    discoveryTable.find(
+      where (
+        addrCol -> addr.getAddress.toBytes,
+        portCol -> addr.getPort
+      )
+    ) map ( r =>
+
+      if(r[Option[Date]](unreachableCol).isEmpty) {
+        discoveryTable.update(
+          Map(
+            idCol -> r.id,
+            unreachableCol -> DateTime.now(DateTimeZone.UTC).toDate
+          )
+        )
+      }
+    )
+  }
+
+  def prune(maxDbRows: Long): Int = {
+    val total = discoveryTable.count
+
+    if(total > maxDbRows) {
+      val maxRowstoDelete = total - maxDbRows
+      val ids = discoveryTable filter (
+
+        where
+          orderBy OrderAsc(unreachableCol, NullsLast)
+          limit maxRowstoDelete.toInt
+
+        ) map (_.id)
+
+      discoveryTable delete {
+        where(idCol) in ids.toSet
+      }
+
+    } else 0
   }
 
 }

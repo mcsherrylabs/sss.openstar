@@ -1,6 +1,6 @@
 package sss.openstar.tools
 
-import sss.openstar.account.NodeIdentityManager
+import sss.openstar.account.{NodeIdTag, NodeIdentityManager}
 import sss.openstar.identityledger.IdentityService.defaultTag
 import sss.openstar.nodebuilder._
 import sss.openstar.util.ByteArrayEncodedStrOps._
@@ -29,7 +29,7 @@ object CreateIdentity {
           println("(You will need this phrase again to unlock the key)")
         }
 
-        val ni = nodeIdentityManager.unlockNodeIdentityFromConsole(identity, defaultTag)
+        val ni = nodeIdentityManager.unlockNodeIdentityFromConsole(NodeIdTag(identity, defaultTag))
         println("...unlocked.")
         val pkey = ni.publicKey.toBase64Str
         val result = new Resty().text(s"$ledgerUrl?claim=$identity&pKey=$pkey")

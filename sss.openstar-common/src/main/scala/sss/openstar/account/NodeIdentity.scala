@@ -43,11 +43,8 @@ class NodeIdentityManager(seedBytes: SeedBytes) extends Logging {
 
   def deleteKey(identity: String, tag: String) = KeyPersister.deleteKey(identity, tag)
 
-  def unlockNodeIdentityFromConsole(nodeConfig: Config): NodeIdentity = {
-    unlockNodeIdentityFromConsole(nodeConfig.getString(nodeIdKey), nodeConfig.getString(tagKey))
-  }
+  def unlockNodeIdentityFromConsole(nodeIdTag: NodeIdTag): NodeIdentity = {
 
-  def unlockNodeIdentityFromConsole(identity: String, tag: String): NodeIdentity = {
     println("Unlock key phrase:")
     val phrase = Option(System.console()) match {
       case None =>
@@ -58,14 +55,14 @@ class NodeIdentityManager(seedBytes: SeedBytes) extends Logging {
         new String(chars)
     }
 
-    Try(apply(identity, tag, phrase)) match {
+    Try(apply(nodeIdTag, phrase)) match {
       case Success(nodeIdentity) => nodeIdentity
-      case Failure(e) => unlockNodeIdentityFromConsole(identity, tag)
+      case Failure(e) => unlockNodeIdentityFromConsole(nodeIdTag)
     }
   }
 
-  def apply(nodeConfig: Config, phrase: String): NodeIdentity =
-    apply(nodeConfig.getString(nodeIdKey), nodeConfig.getString(tagKey), phrase)
+  def apply(nodeId: String, tag: String, phrase: String): NodeIdentity =
+    apply(NodeIdTag(nodeId, tag), phrase)
 
   def get(nodeId: String,
           tagOfNodeKey: String,
@@ -73,31 +70,29 @@ class NodeIdentityManager(seedBytes: SeedBytes) extends Logging {
     for {
       kys <- KeyPersister.get(nodeId, tagOfNodeKey, phrase)
       nodeKey = PrivateKeyAccount(kys)
-    } yield (apply(nodeKey, nodeId, tagOfNodeKey))
+    } yield apply(nodeKey, NodeIdTag(nodeId, tagOfNodeKey))
   }
 
   def apply(nodeKey: PrivateKeyAccount,
-            nodeId: String,
-            tagOfNodeKey: String): NodeIdentity = {
+            nodeIdTag: NodeIdTag): NodeIdentity = {
 
     new NodeIdentity {
       override def verify(sig: Signature, msg: Array[Byte]): Boolean = nodeKey.verify(sig, msg)
       override def sign(msg: MessageToSign): Signature = nodeKey.sign(msg)
       override def createSharedSecret(publicKey: PublicKey): SharedSecret = nodeKey.getSharedSecret(publicKey)
       override val publicKey: PublicKey = nodeKey.publicKey
-      override val id: String = nodeId
-      override val tag: String = tagOfNodeKey
+      override val id: String = nodeIdTag.nodeId
+      override val tag: String = nodeIdTag.tag
       override val idBytes: Array[Byte] = id.getBytes(StandardCharsets.UTF_8)
       override val tagBytes: Array[Byte] = tag.getBytes(StandardCharsets.UTF_8)
     }
   }
   def apply(
-             nodeId: String,
-             tagOfNodeKey: String,
+             nodeIdTag: NodeIdTag,
              phrase: String
             ): NodeIdentity = {
-    val nodeKey = PrivateKeyAccount(KeyPersister(nodeId, tagOfNodeKey, phrase, keyGenerator ))
-    apply(nodeKey,nodeId,tagOfNodeKey)
+    val nodeKey = PrivateKeyAccount(KeyPersister(nodeIdTag.nodeId, nodeIdTag.tag, phrase, keyGenerator ))
+    apply(nodeKey,nodeIdTag)
   }
 
 }

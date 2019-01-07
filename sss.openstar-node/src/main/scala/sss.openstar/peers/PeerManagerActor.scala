@@ -7,6 +7,7 @@ import sss.openstar.{MessageKeys, UniqueNodeIdentifier}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{MessageEventBus, _}
+import sss.openstar.peers.Discovery.DiscoveredNode
 import sss.openstar.peers.DiscoveryActor.Discover
 import sss.openstar.peers.PeerManager.{AddQuery, ChainQuery, IdQuery, PeerConnection, Query, UnQuery}
 
@@ -16,7 +17,9 @@ private class PeerManagerActor(connect: NetConnect,
                                send: NetSend,
                                ourCapabilities: Capabilities,
                                discoveryInterval: FiniteDuration,
-                               discovery: Discovery)
+                               discovery: Discovery,
+                               thisNodesId: UniqueNodeIdentifier
+                              )
                               (implicit events: MessageEventBus)
   extends Actor {
 
@@ -42,6 +45,10 @@ private class PeerManagerActor(connect: NetConnect,
   events.subscribe(classOf[Connection])
   events.subscribe(classOf[ConnectionFailed])
   events.subscribe(classOf[ConnectionHandshakeTimeout])
+
+  private def minusThisNode(nodes:Seq[DiscoveredNode]): Seq[DiscoveredNode] = {
+    nodes filterNot (_.nodeId.id == thisNodesId)
+  }
 
   private def matchWithCapabilities(nodeId: UniqueNodeIdentifier,
                                     otherNodesCaps: Capabilities)(q:Query): Boolean = {
@@ -74,7 +81,7 @@ private class PeerManagerActor(connect: NetConnect,
     case q@IdQuery(ids) =>
       val notAlreadyConnected = ids diff knownConns.keySet
       val nodeIds = discovery.lookup(notAlreadyConnected)
-      nodeIds foreach (n => connect(n.nodeId, indefiniteReconnectionStrategy(30)))
+      minusThisNode(nodeIds) foreach (n => connect(n.nodeId, indefiniteReconnectionStrategy(30)))
 
     case q@ChainQuery(cId, requestedConns) =>
       val goodConns = knownConns.filter {
@@ -85,8 +92,8 @@ private class PeerManagerActor(connect: NetConnect,
         val allIgnoredConns = goodConns ++
           reverseNodeInetAddrLookup.filterNot(ni => failedConns.contains(ni.address)).map(_.id)
 
-        val newNodes = discovery.find(allIgnoredConns, requestedConns, cId)
-        newNodes foreach { n =>
+        val newNodes = discovery.find(requestedConns, cId, allIgnoredConns)
+        minusThisNode(newNodes) foreach { n =>
           connect(n.nodeId, indefiniteReconnectionStrategy(1))
           reverseNodeInetAddrLookup = n.nodeId +: reverseNodeInetAddrLookup
         }
@@ -105,13 +112,19 @@ private class PeerManagerActor(connect: NetConnect,
 
     case ConnectionFailed(remote, _) =>
       failedConns = remote +: failedConns
+      discovery.unreachable(remote)
 
     case IncomingMessage(_, MessageKeys.QueryCapabilities, nodeId, _) =>
       // TODO if spamming, blacklist
       send(ourCapabilitiesNetworkMsg, Set(nodeId))
 
     case IncomingMessage(_, MessageKeys.Capabilities, nodeId, otherNodesCaps: Capabilities) =>
+
       knownConns += nodeId -> otherNodesCaps
+
+      reverseNodeInetAddrLookup.find(_.id == nodeId) foreach { found =>
+        discovery.reachable(found.inetSocketAddress)
+      }
 
       if(queries.exists (matchWithCapabilities(nodeId, otherNodesCaps))) {
         events.publish(PeerConnection(nodeId, otherNodesCaps))

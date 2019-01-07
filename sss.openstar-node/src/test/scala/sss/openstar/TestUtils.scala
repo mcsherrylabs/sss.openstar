@@ -140,6 +140,7 @@ trait BaseTestSystem extends MessageEventBusBuilder
   with Logging
   with RequireActorSystem
   with NodeIdentityBuilder
+  with NodeIdTagBuilder
   with RequireNetSend
   with RequirePhrase {
 

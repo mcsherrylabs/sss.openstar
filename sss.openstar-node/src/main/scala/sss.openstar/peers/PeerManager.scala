@@ -1,5 +1,7 @@
 package sss.openstar.peers
 
+import java.net.InetSocketAddress
+
 import akka.actor.{ActorSystem, Props}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
@@ -7,8 +9,7 @@ import sss.openstar.network.{MessageEventBus, _}
 import sss.openstar.peers.Discovery.DiscoveredNode
 import sss.openstar.peers.PeerManager.{AddQuery, Query, UnQuery}
 
-
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 
 trait PeerQuery {
@@ -34,13 +35,19 @@ class PeerManager(connect: NetConnect,
                   bootstrapNodes: Set[DiscoveredNode],
                   ourCapabilities: Capabilities,
                   discoveryInterval: FiniteDuration,
-                  discovery: Discovery
+                  discovery: Discovery,
+                  nodeId:UniqueNodeIdentifier,
+                  ourNetAddress: InetSocketAddress,
                   )
                  (implicit actorSystem: ActorSystem,
                   events: MessageEventBus
                  ) extends PeerQuery {
 
-  bootstrapNodes foreach { dn => discovery.insert(dn.nodeId, dn.capabilities) }
+
+
+  discovery.persist(NodeId(nodeId, ourNetAddress), ourCapabilities.supportedChains)
+
+  bootstrapNodes foreach { dn => discovery.persist(dn.nodeId, dn.capabilities) }
 
   override def addQuery(q: Query): Unit = {
     ref ! AddQuery(q)
@@ -54,6 +61,7 @@ class PeerManager(connect: NetConnect,
     ourCapabilities,
     discoveryInterval,
     discovery,
+    nodeId,
     events
     ), "PeerManagerActor")
 

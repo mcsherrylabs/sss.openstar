@@ -4,14 +4,14 @@ import java.net.{InetAddress, InetSocketAddress}
 
 import akka.testkit.{ImplicitSender, TestKit, TestProbe}
 import akka.util.ByteString
-import org.scalatest.{ Matchers, WordSpecLike}
-
+import org.scalatest.{Matchers, WordSpecLike}
 import sss.db.Db
 import sss.openstar.TestUtils.TestIncoming
-import sss.openstar.{MessageKeys,  TestSystem, TestUtils}
-import sss.openstar.network.{ NodeId, SerializedMessage}
+import sss.openstar.{MessageKeys, TestSystem, TestUtils}
+import sss.openstar.network.{NodeId, SerializedMessage}
 import sss.openstar.network.TestMessageEventBusOps._
 import sss.openstar.peers.Discovery.DiscoveredNode
+import sss.openstar.peers.DiscoveryActor.Discover
 import sss.openstar.util.hash.FastCryptographicHash
 
 import scala.language.postfixOps
@@ -69,6 +69,9 @@ class DiscoveryActorSpec extends TestKit(TestUtils.actorSystem) with WordSpecLik
       )
 
       val resp = receiveN(2)
+      val respPeers = TestUtils.extractAsType[SeqPeerPageResponse](resp.head)
+      respPeers.value foreach (pr => assert(peers.contains(pr)))
+
       val pPage = TestUtils.extractAsType[PeerPage](resp.last)
 
       TestSystem.messageEventBus.simulateNetworkMessage("DiscoveryActorSpec",
@@ -76,6 +79,7 @@ class DiscoveryActorSpec extends TestKit(TestUtils.actorSystem) with WordSpecLik
         PeerPage(0,1000, pPage.fingerprint)
       )
 
+      // we sent the same fingerprint back indicating we have the same peer set.
       expectNoMessage()
 
       awaitAssert {
@@ -85,6 +89,11 @@ class DiscoveryActorSpec extends TestKit(TestUtils.actorSystem) with WordSpecLik
       }
     }
 
+    "request a peer page using the new (cached) fingerprint" in {
+      TestSystem.messageEventBus.publish(Discover(Set("onepeer")))
+      val (_, fingerprint) = discovery.query(0, 10)
+      expectMsg(TestIncoming(PeerPage(0, 1000, fingerprint)))
+    }
   }
 
 }

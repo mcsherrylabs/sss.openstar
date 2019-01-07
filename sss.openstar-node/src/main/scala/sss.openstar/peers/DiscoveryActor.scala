@@ -1,16 +1,19 @@
 package sss.openstar.peers
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, Props}
 import akka.util.ByteString
 import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{MessageEventBus, NodeId, SerializedMessage}
-
 import sss.openstar.peers.DiscoveryActor.Discover
 import sss.openstar.{MessageKeys, OpenstarEvent, Send, UniqueNodeIdentifier}
 
 import scala.util.Random
 
 object DiscoveryActor {
+
+  def apply(props:Props)(implicit actorSystem: ActorSystem): ActorRef = {
+    actorSystem actorOf(props, "DiscoveryActor")
+  }
 
   def props(discovery: Discovery)
            (implicit events: MessageEventBus,
@@ -50,6 +53,8 @@ class DiscoveryActor(
 
         send(MessageKeys.PeerPage, msg, conn)
 
+      case Discover(_) => // no connections
+        log.warning("No seed nodes, no discovery.")
 
       case IncomingMessage(_, MessageKeys.PeerPage, fromNode, PeerPage(start, end, fingerPrint)) =>
         val (discoveredNodes, localFingerPrint) = discovery.query(start, end)
@@ -75,9 +80,11 @@ class DiscoveryActor(
 
 
       case PeerPageResponse(nodeId, socketAddr, capabilities) =>
-        hashCache = Map.empty
+
+        if(hashCache.nonEmpty) hashCache = Map.empty
+
         discovery
-          .insert(
+          .persist(
             NodeId(nodeId, socketAddr),
             capabilities.supportedChains
           ) recover {

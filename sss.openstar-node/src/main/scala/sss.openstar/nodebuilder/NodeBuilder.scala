@@ -1,5 +1,6 @@
 package sss.openstar.nodebuilder
 
+import java.net.InetSocketAddress
 import java.util.logging.{Level, Logger}
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -18,7 +19,7 @@ import sss.openstar.ledger.Ledgers
 import sss.openstar.message.{EndMessageQuery, MessageDownloadActor, MessagePaywall, MessageQuery, MessageQueryHandlerActor}
 import sss.openstar.network.NetworkInterface.BindControllerSettings
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.{Capabilities, PeerManager, PeerQuery}
+import sss.openstar.peers.{Capabilities, Discovery, DiscoveryActor, PeerManager, PeerQuery}
 import sss.openstar.peers.PeerManager.Query
 import sss.openstar.quorumledger.{QuorumLedger, QuorumService}
 import sss.openstar.state._
@@ -29,9 +30,12 @@ import sss.openstar.tools.SendTxSupport.SendTx
 import sss.openstar.wallet.UtxoTracker
 import sss.db.Db
 import sss.db.datasource.DataSource
-import sss.openstar.account.{NodeIdentity, NodeIdentityManager, PublicKeyAccount}
+import sss.openstar.account.{NodeIdTag, NodeIdentity, NodeIdentityManager, PublicKeyAccount}
+import sss.openstar.peers.Discovery.DiscoveredNode
+import sss.openstar.util.hash.FastCryptographicHash
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.language.postfixOps
 
 /**
@@ -98,8 +102,9 @@ trait RequireNodeConfig {
     val settings: BindControllerSettings
     val uPnp: Option[UPnP]
     val blockChainSettings: BlockChainSettings
-    val peersList: Set[NodeId]
+    val peersList: Set[DiscoveredNode]
     val dnsSeedUrl: String
+    val discoveryInterval: FiniteDuration
   }
 
 }
@@ -123,13 +128,17 @@ trait NodeConfigBuilder extends RequireNodeConfig {
     lazy val blockChainSettings: BlockChainSettings =
       DynConfig[BlockChainSettings](conf.getConfig("blockchain"))
 
-    lazy val peersList: Set[NodeId] = conf
+    lazy val peersList: Set[DiscoveredNode] = conf
       .getStringList("peers")
       .asScala
       .toSet
-      .map(toNodeId)
+      .map(Discovery.toDiscoveredNode)
 
     lazy val dnsSeedUrl: String = conf.getString("dnsSeedUrl")
+
+    import concurrent.duration._
+
+    lazy val discoveryInterval: FiniteDuration = Duration(conf.getString("discoveryInterval")).asInstanceOf[FiniteDuration]
   }
 }
 
@@ -146,8 +155,8 @@ trait HomeDomainBuilder {
       override val identity: String = conf.identity
 
       override val fallbackIp: String =
-        seedNodesFromDns.find(_.id == conf.identity)
-          .map(_.address.getHostAddress())
+        seedNodesFromDns.find(_.nodeId.id == conf.identity)
+          .map(_.nodeId.address.getHostAddress())
           .getOrElse(conf.fallbackIp)
 
       override val tcpPort: Int = conf.tcpPort
@@ -260,20 +269,36 @@ trait SeedNodesBuilder {
 
   self: RequireNodeConfig =>
 
-  lazy val seedNodesFromDns: Set[NodeId] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
+  lazy val seedNodesFromDns: Set[DiscoveredNode] = DownloadSeedNodes.download(nodeConfig.dnsSeedUrl)
 }
+
 
 trait PeerManagerBuilder extends RequirePeerManager {
   self: NetworkControllerBuilder with
   RequireActorSystem with
+  RequireDb with
   ChainBuilder with
   RequireNodeConfig with
+  RequireNetSend with
   SeedNodesBuilder with
+  NetworkInterfaceBuilder with
+  NodeIdentityBuilder with
+  NodeIdTagBuilder with
   MessageEventBusBuilder =>
 
-  lazy val peerManager: PeerManager = ??? /*new PeerManager(net,
+
+  lazy val discovery: Discovery = new Discovery(FastCryptographicHash.hash)
+
+  lazy val peerManager: PeerManager = new PeerManager(
+    net,
+    net,
     nodeConfig.peersList ++ seedNodesFromDns,
-    Capabilities(chain.id), messageEventBus)*/
+    Capabilities(chain.id),
+    nodeConfig.discoveryInterval,
+    discovery,
+    nodeIdTag.nodeId,
+    networkInterface.localAddress
+    )
 }
 
 trait RequireMessageEventBus {
@@ -302,15 +327,27 @@ trait RequireNodeIdentity {
   val nodeIdentity: NodeIdentity
 }
 
+trait NodeIdTagBuilder {
+
+  self: RequireConfig =>
+
+  val nodeIdKey = "nodeId"
+  val tagKey = "tag"
+
+  lazy val nodeIdTag = NodeIdTag(conf.getString(nodeIdKey), conf.getString(tagKey))
+
+}
+
+
 trait NodeIdentityBuilder extends RequireNodeIdentity {
 
-  self: RequireConfig with RequirePhrase with RequireSeedBytes =>
+  self: NodeIdTagBuilder with RequirePhrase with RequireSeedBytes =>
 
   implicit lazy val nodeIdentityManager = new NodeIdentityManager(seedBytes)
   implicit lazy val nodeIdentity: NodeIdentity = {
     phrase match {
-      case None         => nodeIdentityManager.unlockNodeIdentityFromConsole(conf)
-      case Some(secret) => nodeIdentityManager(conf, secret)
+      case None         => nodeIdentityManager.unlockNodeIdentityFromConsole(nodeIdTag)
+      case Some(secret) => nodeIdentityManager(nodeIdTag, secret)
     }
   }
 }
@@ -514,6 +551,7 @@ trait PartialNode extends Logging
     with NodeConfigBuilder
     with RequirePhrase
     with RequireSeedBytes
+    with NodeIdTagBuilder
     with NodeIdentityBuilder
     with IdentityServiceBuilder
     with BootstrapIdentitiesBuilder

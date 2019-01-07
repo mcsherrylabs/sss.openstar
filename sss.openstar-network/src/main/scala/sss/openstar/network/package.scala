@@ -77,14 +77,6 @@ package object network {
                                                         msgCode: Byte,
                                                         data: Array[Byte])
 
-  private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
-
-  def toNodeId(pattern: String): NodeId = pattern match {
-    case peerPattern(id, ip, port) =>
-      NodeId(id, new InetSocketAddress(ip, port.toInt))
-  }
-
-  def toNodeIds(patterns: Set[String]): Set[NodeId] = patterns map toNodeId
 
   def indefiniteReconnectionStrategy(delaysInSeconds: Int): ReconnectionStrategy =
     Stream.continually(delaysInSeconds)
