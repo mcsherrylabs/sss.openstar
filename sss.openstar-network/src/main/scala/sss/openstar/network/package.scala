@@ -2,6 +2,7 @@ package sss.openstar
 
 import java.net.{InetAddress, InetSocketAddress}
 
+import akka.util.ByteString
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.network.ConnectionHandler.HandshakeStep
 import sss.openstar.util.Serialize.ToBytes
@@ -12,7 +13,7 @@ package object network {
 
   val NoReconnectionStrategy: ReconnectionStrategy = Stream.Empty
 
-  final case class NodeId(id: String, private[network] val inetSocketAddress: InetSocketAddress) {
+  final case class NodeId(id: String, inetSocketAddress: InetSocketAddress) {
 
     assert(Option(inetSocketAddress.getAddress).isDefined, "Cannot provide an InetSocketAddress without an IP address")
     assert(inetSocketAddress.getPort > 0, "Cannot provide an InetSocketAddress without a port")
@@ -35,6 +36,9 @@ package object network {
       s"NodeId id:$id, address: $address (!=port:${inetSocketAddress.getPort})"
     }
 
+    lazy val hash: ByteString = ByteString(inetSocketAddress.getAddress.getAddress) ++
+      ByteString(inetSocketAddress.getPort) ++
+      ByteString(id.hashCode)
   }
 
   type InitialHandshakeStepGenerator =
@@ -64,7 +68,7 @@ package object network {
     def apply(msgCode: Byte)(implicit chainId: GlobalChainIdMask): SerializedMessage =
       SerializedMessage(chainId, msgCode, Array())
 
-    def apply[T <% ToBytes](msgCode: Byte, obj: T)(implicit chainId: GlobalChainIdMask): SerializedMessage =
+    def apply[T](msgCode: Byte, obj: T)(implicit ev: T => ToBytes, chainId: GlobalChainIdMask): SerializedMessage =
       SerializedMessage(chainId, msgCode, obj.toBytes)
   }
 
@@ -73,14 +77,6 @@ package object network {
                                                         msgCode: Byte,
                                                         data: Array[Byte])
 
-  private val peerPattern = """(.*):(.*):(\d\d\d\d)""".r
-
-  def toNodeId(pattern: String): NodeId = pattern match {
-    case peerPattern(id, ip, port) =>
-      NodeId(id, new InetSocketAddress(ip, port.toInt))
-  }
-
-  def toNodeIds(patterns: Set[String]): Set[NodeId] = patterns map toNodeId
 
   def indefiniteReconnectionStrategy(delaysInSeconds: Int): ReconnectionStrategy =
     Stream.continually(delaysInSeconds)

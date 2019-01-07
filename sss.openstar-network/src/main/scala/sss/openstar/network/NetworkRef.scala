@@ -19,8 +19,9 @@ import scala.concurrent.{Future, Promise}
   * @param stopFuture
   */
 class NetworkRef private[network] (networkController: ActorRef,
-                                   stopFuture: Promise[Unit]) extends NetSend with Logging {
-
+                                   stopFuture: Promise[Unit]) extends NetSend
+  with NetConnect
+  with Logging {
 
   override def apply(msg: SerializedMessage, nIds: Set[UniqueNodeIdentifier]): Unit =
     send(msg, nIds)

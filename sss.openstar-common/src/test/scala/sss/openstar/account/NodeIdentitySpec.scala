@@ -20,14 +20,14 @@ class NodeIdentitySpec extends FlatSpec with Matchers with ByteArrayComparisonOp
   "An node identity " should " generate a new public and private key " in {
 
 
-    val nodeIdentity = nodeIdentityManager(newId, newTag, passPhrase)
+    val nodeIdentity = nodeIdentityManager(NodeIdTag(newId, newTag), passPhrase)
     assert(nodeIdentity.id == newId)
     assert(nodeIdentity.tag == newTag)
 
   }
 
   it should " be retrievable " in {
-    val nodeIdentity = nodeIdentityManager(newId, newTag, passPhrase)
+    val nodeIdentity = nodeIdentityManager(NodeIdTag(newId, newTag), passPhrase)
     assert(nodeIdentity.id == newId)
     assert(nodeIdentity.tag == newTag)
   }

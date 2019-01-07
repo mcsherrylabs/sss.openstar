@@ -1,25 +1,71 @@
 package sss.openstar
 
+import java.util.concurrent.atomic.AtomicReference
+
 import akka.actor.ActorSystem
 import com.typesafe.config.Config
+import shapeless.TypeClass
 import sss.ancillary.{Configure, Logging}
+import sss.openstar.TestUtils.TestIncoming
 import sss.openstar.account.{NodeIdentity, PrivateKeyAccount}
 import sss.openstar.balanceledger.{BalanceLedger, StandardTx, TxIndex, TxInput, TxOutput}
 import sss.openstar.block.BlockChain
 import sss.openstar.identityledger.Claim
 import sss.openstar.ledger.{LedgerItem, SignedTxEntry}
 import sss.openstar.ledger._
+import sss.openstar.network.MessageEventBus.IncomingMessage
 import sss.openstar.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
 import sss.openstar.nodebuilder._
 import sss.openstar.network.TestMessageEventBusOps._
 
-import scala.util.Random
 
+trait TestSystem extends MessageEventBusBuilder
+  with RequireActorSystem
+  with DecoderBuilder
+  with RequireNetSend
+  with Logging {
+
+  override lazy val actorSystem: ActorSystem = TestUtils.actorSystem
+
+  val receivedNetworkMessages = new AtomicReference[Seq[Any]](Seq.empty)
+
+  val netSend: NetSend = (serMsg, targets) => {
+    decoder(serMsg.msgCode) match {
+      case Some(info) =>
+        val msg = info.fromBytes(serMsg.data)
+        //val incomingMsg = IncomingMessage(serMsg.chainId, serMsg.msgCode, "SUT", msg)
+
+        receivedNetworkMessages.getAndUpdate({ msgs: Seq[_] =>
+          msgs :+ msg
+        })
+
+        messageEventBus publish TestIncoming(msg)
+      case None => log.warn(s"No decoding info found for ${serMsg.msgCode}")
+    }
+    ()
+  }
+
+  override implicit val send: Send = Send(netSend)
+}
 
 object TestUtils {
 
   implicit val actorSystem: ActorSystem = ActorSystem("OpenstarTests")
 
+  def extractAsType[T: Manifest](a:Any): T = {
+    if(a.isInstanceOf[TestIncoming]) {
+      val in = a.asInstanceOf[TestIncoming]
+      if(in.msg.isInstanceOf[T]) {
+        in.msg.asInstanceOf[T]
+      } else throw new IllegalArgumentException("Could not get type out")
+    } else if (a.isInstanceOf[T]) {
+      a.asInstanceOf[T]
+    } else {
+      throw new IllegalArgumentException("Could not get type out")
+    }
+  }
+
+  case class TestIncoming(msg: Any) extends OpenstarEvent
 
   def addEmptyBlock(balanceLedger: BalanceLedger,
                   nodeIdentity: NodeIdentity,
@@ -94,6 +140,7 @@ trait BaseTestSystem extends MessageEventBusBuilder
   with Logging
   with RequireActorSystem
   with NodeIdentityBuilder
+  with NodeIdTagBuilder
   with RequireNetSend
   with RequirePhrase {
 

@@ -1,6 +1,7 @@
 package sss.openstar
 
 import sss.openstar.nodebuilder._
+import sss.openstar.peers.DiscoveryActor
 import sss.openstar.peers.PeerManager.IdQuery
 import sss.openstar.quorumledger.QuorumService
 import sss.openstar.tools.{TestTransactionSender, TestnetConfiguration}
@@ -38,12 +39,13 @@ object Main {
 
       TestTransactionSender(bootstrapIdentities, wallet)
 
-      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
+      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.nodeId.id)))
 
       synchronization.startSync
 
       startHttpServer
 
+      DiscoveryActor(DiscoveryActor.props(discovery))
 
     }
 
