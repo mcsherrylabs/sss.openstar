@@ -1,5 +1,7 @@
 object Vers {
   val akkaVer = "2.5.+"
+  val akkaHttp = "10.1.3"
+  val akkaStream = "2.5.14"
   val scryptoVer = "1.2.0-RC3"
   val ancillaryVer = "1.5-SNAPSHOT"
   val scalacticVer = "3.0.5"
