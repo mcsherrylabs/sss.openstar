@@ -11,6 +11,7 @@ import java.io.{File, FileInputStream, InputStream}
 import java.security.{KeyStore, SecureRandom}
 
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
+import sss.openstar.common.telemetry.Report
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -41,7 +42,7 @@ object Server extends App {
   val https: HttpsConnectionContext = ConnectionContext.https(sslContext)
 
   Http()
-    .bindAndHandle(Route.websocketRoute, "0.0.0.0", 8123, connectionContext = https)
+    .bindAndHandle(Route.websocketRoute, "0.0.0.0", 9123, connectionContext = https)
     .onComplete {
       case Success(value) => println(value)
       case Failure(err) => println(err)
@@ -60,7 +61,9 @@ object Route {
       complete("WS server is alive\n")
     } ~ path("telemetry") {
 
-      val handler = as.actorOf(Props(classOf[ClientHandlerActor], as, am))
+      def logReport(r:Report): Unit = println(r)
+
+      val handler = as.actorOf(Props(classOf[ClientHandlerActor], logReport _, as, am))
 
       val futureFlow = (handler ? GetWebsocketFlow)(3.seconds).mapTo[Flow[Message, Message, _]]
 

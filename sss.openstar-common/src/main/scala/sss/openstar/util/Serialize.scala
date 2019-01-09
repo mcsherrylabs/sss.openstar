@@ -63,6 +63,10 @@ object Serialize {
     override def toBytes: Array[Byte] = Ints.toByteArray(payload)
   }
 
+  object SequenceSerializer {
+    def apply(payload: Seq[ToBytes]): ToBytes = SequenceSerializer(payload map (_.toBytes))
+  }
+
   case class SequenceSerializer(payload: Seq[Array[Byte]]) extends ToBytes {
     override def toBytes: Array[Byte] = SeqSerializer.toBytes(payload)
   }
@@ -93,6 +97,20 @@ object Serialize {
     override def toBytes: Array[Byte] = {
       assert(payload.toArray.length == payload.length, "WHAT?")
       Ints.toByteArray(payload.length) ++ payload
+    }
+  }
+
+  case class OptionSerializer[T](payload: Option[T], f: T => ToBytes) extends ToBytes {
+    override def toBytes: Array[Byte] = payload match {
+      case None => Array.fill(1)(0.toByte)
+      case Some(t) => Array.fill(1)(1.toByte) ++ f(t).toBytes
+    }
+  }
+
+  case class EitherSerializer[L,R](payload: Either[L,R], l: L => ToBytes, r: R => ToBytes) extends ToBytes {
+    override def toBytes: Array[Byte] = payload match {
+      case Left(a) => Array.fill(1)(0.toByte)++ l(a).toBytes
+      case Right(b) => Array.fill(1)(1.toByte) ++ r(b).toBytes
     }
   }
 
@@ -197,7 +215,7 @@ object Serialize {
     type t = T
 
     override def extract(bs: Array[Byte]): (DeSerialized[T], Array[Byte]) = {
-      (new DeSerialized[T] { val payload = (mapper(bs)) }, Array())
+      (new DeSerialized[T] { val payload = (mapper(bs)) }, Array.emptyByteArray)
     }
   }
 
@@ -206,16 +224,69 @@ object Serialize {
 
     override def extract(
         bs: Array[Byte]): (ByteArrayRawDeSerialized, Array[Byte]) = {
-      (ByteArrayRawDeSerialized(bs), Array())
+      (ByteArrayRawDeSerialized(bs), Array.emptyByteArray)
+    }
+  }
+
+  case class SequenceDeSerializeViaTarget[T <: DeSerializeTarget](de: T)
+    extends DeSerializeTarget {
+    type t = Seq[de.t]
+
+    override def extract(bs: Array[Byte]): (DeSerialized[t], Array[Byte]) = {
+      val (s, rest) = SequenceDeSerialize.extract(bs)
+      (new DeSerialized[t] { val payload = s.payload.map(de.extract).map (_._1.payload) }, rest)
+    }
+  }
+
+  case class SequenceDeSerialize[T](mapper: Array[Byte] => T)
+    extends DeSerializeTarget {
+    type t = Seq[T]
+
+    override def extract(bs: Array[Byte]): (DeSerialized[t], Array[Byte]) = {
+      val (s, rest) = SequenceDeSerialize.extract(bs)
+      (new DeSerialized[t] { val payload = s.payload map mapper }, rest)
     }
   }
 
   object SequenceDeSerialize extends DeSerializeTarget {
+
     type t = Seq[Array[Byte]]
     override def extract(
         bs: Array[Byte]): (SequenceDeSerialized, Array[Byte]) = {
       val (seqDeserialized, rest) = SeqSerializer.fromBytesWithRemainder(bs)
       (SequenceDeSerialized(seqDeserialized), rest)
+    }
+  }
+
+  case class OptionDeSerialize[T <: DeSerializeTarget](deserialize: T)
+    extends DeSerializeTarget {
+
+    type t = Option[deserialize.t]
+
+    override def extract(bs: Array[Byte]): (DeSerialized[t], Array[Byte]) = {
+      val (isOptBytes, optBytesPlusRest) = bs.splitAt(1)
+      if (isOptBytes.head == 1.toByte) {
+        val (deserializedOption, rest) = deserialize.extract(optBytesPlusRest)
+        (new DeSerialized[t] { val payload = Option(deserializedOption.payload) }, rest)
+      } else {
+        (new DeSerialized[t] { val payload = None }, optBytesPlusRest)
+      }
+    }
+  }
+
+  case class EitherDeSerialize[L <: DeSerializeTarget, R <: DeSerializeTarget]
+  (deserializeLeft: L, deserializeRight: R)
+    extends DeSerializeTarget {
+    type t = Either[deserializeLeft.t, deserializeRight.t]
+    override def extract(bs: Array[Byte]): (DeSerialized[t], Array[Byte]) = {
+      val (isLRBytes, eitherBytesPlusRest) = bs.splitAt(1)
+      if (isLRBytes.head == 1.toByte) {
+        val (deserializedRight, rest) = deserializeRight.extract(eitherBytesPlusRest)
+        (new DeSerialized[t] { val payload = Right(deserializedRight.payload) }, rest)
+      } else {
+        val (deserializedLeft, rest) = deserializeLeft.extract(eitherBytesPlusRest)
+        (new DeSerialized[t] { val payload = Left(deserializedLeft.payload) }, rest)
+      }
     }
   }
 

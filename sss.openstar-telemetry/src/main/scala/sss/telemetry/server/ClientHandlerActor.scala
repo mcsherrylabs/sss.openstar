@@ -2,18 +2,20 @@ package sss.telemetry.server
 
 import java.nio.charset.StandardCharsets
 
+import sss.openstar.common.telemetry._
 import akka.actor.{Actor, ActorSystem}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.{ActorMaterializer, FlowShape, OverflowStrategy}
 import akka.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source}
+import akka.util.ByteString
 import sss.telemetry.server.Route.GetWebsocketFlow
 import akka.stream.scaladsl.GraphDSL.Implicits._
-import akka.util.ByteString
+
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
 
-class ClientHandlerActor(implicit as: ActorSystem,
+class ClientHandlerActor(logReport: Report => Unit)(implicit as: ActorSystem,
                          am: ActorMaterializer) extends Actor {
 
   import as.dispatcher
@@ -30,29 +32,28 @@ class ClientHandlerActor(implicit as: ActorSystem,
           .mapAsync(1) {
             case tm: TextMessage => tm.toStrict(3.seconds).map(_.text)
             case bm: BinaryMessage.Strict =>
-              Future(new String(bm.data.toArray, StandardCharsets.UTF_8))
+              logReport(bm.data.toReport)
+              Future("9999")
             case bm: BinaryMessage =>
               // consume the stream
               bm.toStrict(3.seconds)
-              bm.dataStream.runWith(Sink.ignore)
-              Future.failed(new Exception("yuck"))
+                .map (_.data.toReport)
+                .map(logReport)
+                  .map(_ => "999")
           })
 
         val pubSrc = b.add(Source.fromPublisher(publisher).map(BinaryMessage(_)))
-
         textMsgFlow ~> Sink.foreach[String](self ! _)
         FlowShape(textMsgFlow.in, pubSrc.out)
       })
 
       sender ! flow
 
-    case s: String =>
+    /*
+    case x =>
       println(s"client actor received $s")
+      // passes x down to the websocket! Super cool.
       down ! ByteString("Hello " + s + "!".getBytes(StandardCharsets.UTF_8))
-
-    // passes any int down the websocket
-    case n: Int =>
-      println(s"client actor received $n")
-      down ! ByteString(n.toString.getBytes(StandardCharsets.UTF_8))
+    */
   }
 }

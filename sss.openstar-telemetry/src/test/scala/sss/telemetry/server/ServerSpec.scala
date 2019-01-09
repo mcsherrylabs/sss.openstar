@@ -15,7 +15,7 @@ class ServerSpec extends WordSpec with Matchers
 
   "A handler Websocket" should {
 
-    "Send the expected messages" in {
+    /*"Send the expected messages" in {
 
       // tests:
       // create a testing probe representing the client-side
@@ -27,18 +27,8 @@ class ServerSpec extends WordSpec with Matchers
           // check response for WS Upgrade headers
           isWebSocketUpgrade shouldEqual true
 
-          wsClient.expectMessage("1")
-          wsClient.expectMessage("2")
-          wsClient.expectMessage("3")
-
-          wsClient.sendMessage("Peter")
-          wsClient.expectMessage("Hello Peter!")
-
-          wsClient.sendMessage("John")
-          wsClient.expectMessage("Hello John!")
         }
-    }
-
+    }*/
 
 
   }
