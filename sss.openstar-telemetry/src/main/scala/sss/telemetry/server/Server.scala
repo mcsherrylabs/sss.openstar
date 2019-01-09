@@ -11,6 +11,7 @@ import java.io.{File, FileInputStream, InputStream}
 import java.security.{KeyStore, SecureRandom}
 
 import javax.net.ssl.{KeyManagerFactory, SSLContext, TrustManagerFactory}
+import sss.ancillary.Logging
 import sss.openstar.common.telemetry.Report
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -50,7 +51,7 @@ object Server extends App {
 
 }
 
-object Route {
+object Route extends Logging {
 
   case object GetWebsocketFlow
 
@@ -61,7 +62,7 @@ object Route {
       complete("WS server is alive\n")
     } ~ path("telemetry") {
 
-      def logReport(r:Report): Unit = println(r)
+      def logReport(r:Report): Unit = log.info(r.toString)
 
       val handler = as.actorOf(Props(classOf[ClientHandlerActor], logReport _, as, am))
 
