@@ -14,7 +14,7 @@ class ReportSerializerTest extends FlatSpec with Matchers {
 
 
   "Report" should "be correctly serialised and deserialized " in {
-    val r = Report("nodeName", Option(BlockId(800, 34)), 99, Seq("1", "2", "3"))
+    val r = Report("nodeName", 45, Option(BlockId(800, 34)), 99, Seq("1", "2", "3"))
     val asBytes = r.toBytes
     val backAgain = asBytes.toReport
     assert(backAgain === r)

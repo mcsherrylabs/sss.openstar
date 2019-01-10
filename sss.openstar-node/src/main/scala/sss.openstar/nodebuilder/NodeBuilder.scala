@@ -106,6 +106,7 @@ trait RequireNodeConfig {
     val dnsSeedUrl: String
     val discoveryInterval: FiniteDuration
     val initialReportIntervalSeconds: Int
+    val telemetryHostVerificationOff: Boolean
     val reportUrlOpt: Option[String]
   }
 
@@ -147,6 +148,8 @@ trait NodeConfigBuilder extends RequireNodeConfig {
     lazy val reportUrlOpt: Option[String] =
       if(conf.hasPath("reportUrl")) Some(conf.getString("reportUrl"))
       else None
+    
+    lazy val telemetryHostVerificationOff: Boolean = conf.getBoolean("telemetryHostVerificationOff")
   }
 }
 

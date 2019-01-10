@@ -7,18 +7,18 @@ import sss.openstar.common.telemetry._
 import sss.openstar.network.{Connection, ConnectionLost, MessageEventBus}
 import sss.openstar.telemetry.Client.ClientResponse
 import sss.openstar.util.Serialize._
-
+import sss.openstar.common.telemetry._
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
 object ReportActor {
-  def props(client: Client, nodeName: String, initialSleepSeconds: Long = 10)
+  def props(client: Client, nodeName: String, initialSleepSeconds: Int = 10)
            (implicit events: MessageEventBus): Props = Props(classOf[ReportActor], client, nodeName, initialSleepSeconds, events)
 
   def apply(props: Props)(implicit actorSystem: ActorSystem): ActorRef = actorSystem.actorOf(props, "ReportActor")
 
 }
-class ReportActor(client: Client, nodeName: String, initialSleepSeconds: Long)
+class ReportActor(client: Client, nodeName: String, initialSleepSeconds: Int)
                  (implicit events: MessageEventBus) extends Actor with ActorLogging {
 
   events subscribe classOf[ClientResponse]
@@ -55,7 +55,7 @@ class ReportActor(client: Client, nodeName: String, initialSleepSeconds: Long)
   override def receive: Receive = {
 
     case ClientResponse(rawBs) => Try {
-      val newReportSleepInterval = rawBs.toArray.extract(LongDeSerialize)
+      val newReportSleepInterval = rawBs.toArray.extract(IntDeSerialize)
       interval = newReportSleepInterval
       cancellable = resetTrigger(cancellable)
     } recover {
@@ -63,7 +63,7 @@ class ReportActor(client: Client, nodeName: String, initialSleepSeconds: Long)
     }
 
     case ReportTrigger =>
-      val r = Report(nodeName, latestBlockId, numConnections, currentConnections.toSeq)
+      val r = Report(nodeName, interval, latestBlockId, numConnections, currentConnections.toSeq)
       client.report(r.toByteString)
       cancellable = resetTrigger(cancellable)
 

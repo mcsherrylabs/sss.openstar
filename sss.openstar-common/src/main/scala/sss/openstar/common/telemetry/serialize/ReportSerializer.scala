@@ -9,6 +9,7 @@ object ReportSerializer extends Serializer[Report]  {
 
   override def toBytes(report: Report): Array[Byte] = {
     StringSerializer(report.nodeName) ++
+    IntSerializer(report.reportIntervalSeconds) ++
     OptionSerializer[BlockId](report.lastBlock, bId => ByteArraySerializer(bId.toBytes)) ++
       IntSerializer(report.numConnections) ++
       report.connections.map(StringSerializer).toBytes
@@ -18,14 +19,15 @@ object ReportSerializer extends Serializer[Report]  {
 
     Report.tupled(b.extract(
       StringDeSerialize,
+      IntDeSerialize,
       OptionDeSerialize(
         ByteArrayDeSerialize(
           BlockIdFrom(_).toBlockId
         )
       ),
       IntDeSerialize,
-      SequenceDeSerializeViaTarget(StringDeSerialize))
-    )
+      SequenceDeSerialize(_.extract(StringDeSerialize))
+    ))
 
   }
 }

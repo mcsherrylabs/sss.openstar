@@ -24,7 +24,7 @@ object Client {
   case class ClientResponse(byteStr: ByteString) extends OpenstarEvent
 }
 
-class Client(telemetryUrl: String)(implicit as: ActorSystem,
+class Client(telemetryUrl: String, hostVerificationOff: Boolean)(implicit as: ActorSystem,
                                             events: MessageEventBus,
                                      ) extends Logging {
 
@@ -32,27 +32,33 @@ class Client(telemetryUrl: String)(implicit as: ActorSystem,
 
   private val requestSink: Sink[Message, Future[Done]] = Sink.foreach {
 
+    case message: BinaryMessage.Strict =>
+        events publish ClientResponse(message.data)
+
     case message: BinaryMessage =>
       message.toStrict(3.seconds) map { strictMsg =>
         events publish ClientResponse(strictMsg.data)
       }
+
     case message: Message =>
       log.debug(s"Unexpected received: ${message.asTextMessage}")
+
   }
 
   private def createFlow(requestSource: Source[Message, NotUsed]): Flow[Message, Message, Future[Done]] = {
     Flow.fromSinkAndSourceMat(requestSink, requestSource)(Keep.left)
   }
 
-  private val sslConfig = AkkaSSLConfig().mapSettings(s => s.withLoose(s.loose.withDisableHostnameVerification(true)))
+  private val sslConfig = AkkaSSLConfig().mapSettings(s => s.withLoose(s.loose.withDisableHostnameVerification(hostVerificationOff)))
   private val httpsContxt = Http().createClientHttpsContext(sslConfig)
 
 
   def report(raw: ByteString): Try[Unit] = Try {
 
-    val requestSource: Source[Message, NotUsed] = Source.single(
-      BinaryMessage(raw)
-    )
+    val requestSource: Source[Message, NotUsed] =
+      Source.single(
+        BinaryMessage(raw)
+      )
 
     val flow = createFlow(requestSource)
 

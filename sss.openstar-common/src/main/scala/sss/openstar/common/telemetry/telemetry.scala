@@ -8,6 +8,7 @@ import sss.openstar.util.Serialize.ToBytes
 package object telemetry {
 
   case class Report(nodeName: String,
+                    reportIntervalSeconds: Int,
                     lastBlock: Option[BlockId],
                     numConnections: Int,
                     connections: Seq[String]

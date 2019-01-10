@@ -228,16 +228,6 @@ object Serialize {
     }
   }
 
-  case class SequenceDeSerializeViaTarget[T <: DeSerializeTarget](de: T)
-    extends DeSerializeTarget {
-    type t = Seq[de.t]
-
-    override def extract(bs: Array[Byte]): (DeSerialized[t], Array[Byte]) = {
-      val (s, rest) = SequenceDeSerialize.extract(bs)
-      (new DeSerialized[t] { val payload = s.payload.map(de.extract).map (_._1.payload) }, rest)
-    }
-  }
-
   case class SequenceDeSerialize[T](mapper: Array[Byte] => T)
     extends DeSerializeTarget {
     type t = Seq[T]

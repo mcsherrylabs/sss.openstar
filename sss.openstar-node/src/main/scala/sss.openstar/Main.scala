@@ -41,7 +41,7 @@ object Main {
       TestTransactionSender(bootstrapIdentities, wallet)
 
       nodeConfig.reportUrlOpt map { url =>
-        val client = new Client(url)
+        val client = new Client(url, nodeConfig.telemetryHostVerificationOff)
         ReportActor(ReportActor.props(client, nodeIdentity.id, nodeConfig.initialReportIntervalSeconds))
       }
 
