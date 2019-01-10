@@ -33,6 +33,8 @@ private class PeerManagerActor(connect: NetConnect,
 
   private var wakeTimer: Option[Cancellable] = None
 
+  private val skippedWakeUpIntervalsPlusOne = 3
+  private var resetFailCount: Int = skippedWakeUpIntervalsPlusOne
   private var queries: Set[Query] = Set()
 
   private var knownConns : Map[UniqueNodeIdentifier, Capabilities] = Map()
@@ -66,6 +68,14 @@ private class PeerManagerActor(connect: NetConnect,
   override def receive: Receive = {
 
     case WakeUp =>
+
+      resetFailCount -= 1
+      if(resetFailCount == 0) {
+        //Recycle failed conns to give them a chance to come up.
+        failedConns = Seq.empty
+        resetFailCount = skippedWakeUpIntervalsPlusOne
+      }
+
       queries foreach (self ! _)
       import context.dispatcher
       wakeTimer map (_.cancel())

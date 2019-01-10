@@ -105,6 +105,9 @@ trait RequireNodeConfig {
     val peersList: Set[DiscoveredNode]
     val dnsSeedUrl: String
     val discoveryInterval: FiniteDuration
+    val initialReportIntervalSeconds: Int
+    val telemetryHostVerificationOff: Boolean
+    val reportUrlOpt: Option[String]
   }
 
 }
@@ -139,6 +142,14 @@ trait NodeConfigBuilder extends RequireNodeConfig {
     import concurrent.duration._
 
     lazy val discoveryInterval: FiniteDuration = Duration(conf.getString("discoveryInterval")).asInstanceOf[FiniteDuration]
+
+    lazy val initialReportIntervalSeconds: Int = conf.getInt("reportIntervalSeconds")
+
+    lazy val reportUrlOpt: Option[String] =
+      if(conf.hasPath("reportUrl")) Some(conf.getString("reportUrl"))
+      else None
+    
+    lazy val telemetryHostVerificationOff: Boolean = conf.getBoolean("telemetryHostVerificationOff")
   }
 }
 

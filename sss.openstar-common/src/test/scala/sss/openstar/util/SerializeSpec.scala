@@ -194,4 +194,60 @@ class SerializeSpec extends FlatSpec with Matchers with ByteArrayComparisonOps {
     assert(extracted._3 === "")
     assert(extracted._4 === "")
   }
+
+  case class One(a: Option[Int], b: Option[One])
+
+  case class OneSerializer(o: One) extends ToBytes {
+    override def toBytes: Array[Byte] = {
+      (OptionSerializer[Int](o.a, IntSerializer) ++ OptionSerializer[One](o.b, OneSerializer)).toBytes
+    }
+  }
+
+  it should "serialize branches (optional values)" in {
+
+    val sut = One(Some(3), Some(One(None, None)))
+    val asBytes = OneSerializer(sut).toBytes
+
+    def deSer(bs: Array[Byte]): One = {
+      One.tupled(bs.extract(
+        OptionDeSerialize(IntDeSerialize),
+        OptionDeSerialize(ByteArrayRawDeSerialize(deSer))
+        )
+      )
+    }
+
+    val inflated = deSer(asBytes)
+
+    assert(inflated === sut)
+  }
+
+  case class OneOr(a: Either[Int, String], b: Either[OneOr, Long])
+
+  case class OneOrSerializer(o: OneOr) extends ToBytes {
+    override def toBytes: Array[Byte] = {
+      (EitherSerializer[Int, String](o.a, IntSerializer, StringSerializer) ++
+        EitherSerializer[OneOr, Long](o.b, OneOrSerializer, LongSerializer)).toBytes
+    }
+  }
+
+  it should "serialize branches (either values)" in {
+
+    val sut = OneOr(Right("stringy"), Left(OneOr(Left(2), Right(Long.MaxValue))))
+
+    val asBytes = OneOrSerializer(sut).toBytes
+
+    def deSer(bs: Array[Byte]): OneOr = {
+      OneOr.tupled(bs.extract(
+        EitherDeSerialize(IntDeSerialize, StringDeSerialize),
+        EitherDeSerialize(ByteArrayRawDeSerialize(deSer), LongDeSerialize)
+      )
+      )
+    }
+
+    val inflated = deSer(asBytes)
+
+    assert(inflated === sut)
+  }
+
+
 }

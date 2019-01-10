@@ -1,3 +1,4 @@
+import sbt.Keys.libraryDependencies
 
 lazy val commonSettings = Seq(
   organization := "com.mcsherrylabs",
@@ -5,6 +6,7 @@ lazy val commonSettings = Seq(
   scalaVersion := "2.12.6",
   scalacOptions ++= Seq("-unchecked", "-deprecation", "-target:jvm-1.8"),
   updateOptions := updateOptions.value.withGigahorse(false),
+  updateOptions := updateOptions.value.withLatestSnapshots(false),
   resolvers += "stepsoft" at "http://nexus.mcsherrylabs.com/repository/releases",
   resolvers += "stepsoft-snapshots" at "http://nexus.mcsherrylabs.com/repository/snapshots",
   libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % Test,
@@ -45,3 +47,7 @@ lazy val analysis = (project in file("sss.openstar-analysis"))
 lazy val sandbox = (project in file("sandbox"))
   .settings(commonSettings)
   .dependsOn(common % "compile->compile;test->test", network)
+
+lazy val telemetry = (project in file("sss.openstar-telemetry"))
+  .settings(commonSettings)
+  .dependsOn(common % "compile->compile;test->test")
