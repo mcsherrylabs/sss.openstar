@@ -12,7 +12,7 @@ import sss.openstar.common.block.BlockId
 import sss.openstar.network.TestMessageEventBusOps._
 import sss.openstar.network.{IncomingSerializedMessage, NetSend, SerializedMessage}
 import sss.openstar.nodebuilder.{DecoderBuilder, MessageEventBusBuilder, RequireActorSystem, RequireNetSend}
-import sss.openstar.peers.PeerManager.{Capabilities, PeerConnection}
+
 
 import scala.language.postfixOps
 

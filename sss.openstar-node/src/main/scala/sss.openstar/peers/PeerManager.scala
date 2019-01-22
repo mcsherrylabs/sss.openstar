@@ -1,12 +1,15 @@
 package sss.openstar.peers
 
+import java.net.InetSocketAddress
+
 import akka.actor.{ActorSystem, Props}
 import sss.openstar.chains.Chains.GlobalChainIdMask
 import sss.openstar.{OpenstarEvent, UniqueNodeIdentifier}
 import sss.openstar.network.{MessageEventBus, _}
-import sss.openstar.peers.PeerManager.{Capabilities, Query, UnQuery}
-import sss.openstar.util.IntBitSet
-import sss.openstar.util.Serialize._
+import sss.openstar.peers.Discovery.DiscoveredNode
+import sss.openstar.peers.PeerManager.{AddQuery, Query, UnQuery}
+
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 
 trait PeerQuery {
@@ -18,46 +21,48 @@ object PeerManager {
 
   case class PeerConnection(nodeId: UniqueNodeIdentifier, c: Capabilities) extends OpenstarEvent
   case class UnQuery(q: Query)
+  case class AddQuery(q: Query)
 
   trait Query
-  case class ChainQuery(chainId: GlobalChainIdMask) extends Query
+  case class ChainQuery(chainId: GlobalChainIdMask, numConns: Int) extends Query
   case class IdQuery(ids: Set[UniqueNodeIdentifier]) extends Query
 
-  case class Capabilities(supportedChains: GlobalChainIdMask) {
-    def contains(chainIdMask: GlobalChainIdMask): Boolean = {
-      IntBitSet(supportedChains).contains(chainIdMask)
-    }
-  }
-
-  implicit class CapabilitiesToBytes(val c: Capabilities) extends ToBytes {
-    def toBytes: Array[Byte] = ByteSerializer(c.supportedChains).toBytes
-  }
-
-  implicit class CapabilitiesFromBytes(val bs: Array[Byte]) extends AnyVal {
-    def toCapabilities: Capabilities = Capabilities(bs.extract(ByteDeSerialize))
-  }
 
 }
 
-class PeerManager(networkRef: NetworkRef,
-                  bootstrapNodes: Set[NodeId],
+class PeerManager(connect: NetConnect,
+                  send: NetSend,
+                  bootstrapNodes: Set[DiscoveredNode],
                   ourCapabilities: Capabilities,
-                  eventMessageBus: MessageEventBus
+                  discoveryInterval: FiniteDuration,
+                  discovery: Discovery,
+                  nodeId:UniqueNodeIdentifier,
+                  ourNetAddress: InetSocketAddress,
                   )
-                 (implicit actorSystem: ActorSystem) extends PeerQuery {
+                 (implicit actorSystem: ActorSystem,
+                  events: MessageEventBus
+                 ) extends PeerQuery {
 
+
+
+  discovery.persist(NodeId(nodeId, ourNetAddress), ourCapabilities.supportedChains)
+
+  bootstrapNodes foreach { dn => discovery.persist(dn.nodeId, dn.capabilities) }
 
   override def addQuery(q: Query): Unit = {
-    ref ! q
+    ref ! AddQuery(q)
   }
 
   override def removeQuery(q: Query): Unit = ref ! UnQuery(q)
 
   private val ref = actorSystem.actorOf(Props(classOf[PeerManagerActor],
-    networkRef,
-    bootstrapNodes,
+    connect,
+    send,
     ourCapabilities,
-    eventMessageBus
+    discoveryInterval,
+    discovery,
+    nodeId,
+    events
     ), "PeerManagerActor")
 
 }

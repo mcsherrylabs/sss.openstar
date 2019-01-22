@@ -1,8 +1,10 @@
 package sss.openstar
 
 import sss.openstar.nodebuilder._
+import sss.openstar.peers.DiscoveryActor
 import sss.openstar.peers.PeerManager.IdQuery
 import sss.openstar.quorumledger.QuorumService
+import sss.openstar.telemetry.{Client, ReportActor}
 import sss.openstar.tools.{TestTransactionSender, TestnetConfiguration}
 import sss.openstar.wallet.UtxoTracker
 
@@ -38,11 +40,18 @@ object Main {
 
       TestTransactionSender(bootstrapIdentities, wallet)
 
-      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
+      nodeConfig.reportUrlOpt map { url =>
+        val client = new Client(url, nodeConfig.telemetryHostVerificationOff)
+        ReportActor(ReportActor.props(client, nodeIdentity.id, nodeConfig.initialReportIntervalSeconds))
+      }
+
+      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.nodeId.id)))
 
       synchronization.startSync
 
       startHttpServer
+
+      DiscoveryActor(DiscoveryActor.props(discovery))
 
 
     }

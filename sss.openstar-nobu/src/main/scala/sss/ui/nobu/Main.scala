@@ -64,7 +64,7 @@ object Main {
 
       startUnsubscribedHandler
 
-      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
+      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.nodeId.id)))
 
       synchronization.startSync
 

@@ -36,7 +36,7 @@ object Main {
 
       startUnsubscribedHandler
 
-      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.id)))
+      peerManager.addQuery(IdQuery(nodeConfig.peersList map (_.nodeId.id)))
 
       clientNode.actorSystem.actorOf(Props(classOf[AnalysingActor], clientNode).withDispatcher("my-pinned-dispatcher"))
 
