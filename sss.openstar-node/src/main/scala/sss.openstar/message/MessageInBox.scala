@@ -139,16 +139,16 @@ class MessageInBox(id: UniqueNodeIdentifier)(implicit val db: Db) extends Loggin
   }
 
   def sentPager(pageSize: Int) =
-    new MessagePage(PagedView(sentTable, pageSize, (s"$statusCol = ?", Seq(statusNew))).lastPage, toSavedAddressedMsg)
+    new MessagePage(PagedView(sentTable, pageSize, where (statusCol -> statusNew)).lastPage, toSavedAddressedMsg)
 
   def inBoxPager(pageSize: Int) =
-    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusNew))).lastPage, toMsg)
+    new MessagePage(PagedView(table, pageSize, where(statusCol -> statusNew)).lastPage, toMsg)
 
   def archivedPager(pageSize: Int) =
-    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusArchived))).lastPage, toMsg)
+    new MessagePage(PagedView(table, pageSize, where(statusCol -> statusArchived)).lastPage, toMsg)
 
   def junkPager(pageSize: Int) =
-    new MessagePage(PagedView(table, pageSize, (s"$statusCol = ?", Seq(statusJunk))).lastPage, toMsg)
+    new MessagePage(PagedView(table, pageSize, where(statusCol -> statusJunk)).lastPage, toMsg)
 
   def archive(index: Long) = table.update(Map(idCol ->  index, statusCol -> statusArchived))
 
